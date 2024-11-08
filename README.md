@@ -10,7 +10,7 @@ CRM workflows tacked onto a kanban board innit
 | Determine project viability     | 1.Prospective | Req email gpt  | N/A              | 4.Member (comp)    |
 | Encourage to visit              | 1.Prospective | Req email gpt  | 2.Attendee       | 3.New Member       |
 | Visit                           | 1.Prospective | N/A            | 2.Attendee       | 3.New Member       |
-| Join Slack                      | 1.Prospective | Req tidy sync  | N/A code only    | 5.Keyholder (comp) |
+| Join Slack                      | 1.Prospective | ✅            | N/A code only    | 5.Keyholder (comp) |
 | Participated in an event        | 2.Attendee    | N/A            | N/A              | 5.Keyholder        |
 | Signed up as a visitor          | 2.Attendee    | Req tidy sync  | N/A              | 3.New Member       |
 | Discussed moving to membership  | 2.Attendee    | N/A            | N/A              | 3.New Member       |
