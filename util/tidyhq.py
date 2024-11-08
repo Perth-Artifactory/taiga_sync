@@ -255,3 +255,11 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id
                 break
 
     return made_changes
+
+
+def get_memberships_for_contact(contact_id, cache):
+    memberships = []
+    for membership in cache["memberships"]:
+        if membership["contact_id"] == contact_id:
+            memberships.append(membership)
+    return memberships
