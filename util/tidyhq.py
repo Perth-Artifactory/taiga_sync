@@ -108,13 +108,6 @@ def setup_cache(config) -> dict[str, Any]:
             if field not in useful_fields:
                 del trimmed_contact[field]
 
-        # Get rid of custom fields we don't need
-        useful_custom_fields = []
-        for field in trimmed_contact["custom_fields"]:
-            if field["id"] in config["tidyhq"]["ids"].values():
-                useful_custom_fields.append(field)
-        trimmed_contact["custom_fields"] = useful_custom_fields
-
         cache["contacts"].append(trimmed_contact)
 
     logging.debug("Writing cache to file")
@@ -263,3 +256,20 @@ def get_memberships_for_contact(contact_id, cache):
         if membership["contact_id"] == contact_id:
             memberships.append(membership)
     return memberships
+
+
+def get_custom_field(config, contact_id, cache, field_id=None, field_map_name=None):
+    if field_map_name:
+        field_id = config["tidyhq"]["ids"].get(field_map_name, None)
+
+    if not field_id:
+        logging.error("No field ID provided or found in config")
+        return None
+
+    for contact in cache["contacts"]:
+        if contact["id"] == contact_id:
+            for field in contact["custom_fields"]:
+                if field_id:
+                    if field["id"] == field_id:
+                        return field
+    return None

@@ -86,6 +86,24 @@ def member_induction(config, contact_id, tidyhq_cache):
     return False
 
 
+def id_photo(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    photo_url = tidyhq.get_custom_field(
+        config=config,
+        contact_id=contact_id,
+        cache=tidyhq_cache,
+        field_id=None,
+        field_map_name="photo_id",
+    )
+
+    if photo_url:
+        logging.debug(f"Contact {contact_id} has uploaded an ID photo")
+        return True
+    return False
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
     task_function_map = {
@@ -94,6 +112,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id
         "Signed up as a member": member_signup,
         "Discussed moving to membership": member_signup,
         "New member induction": member_induction,
+        "Confirmed photo on tidyhq": id_photo,
     }
 
     # Find all user stories that include our bot managed tag
