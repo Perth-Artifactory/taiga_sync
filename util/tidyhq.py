@@ -126,7 +126,7 @@ def setup_cache(config) -> dict[str, Any]:
     logging.debug(f"Got {len(raw_invoices)} invoices from TidyHQ")
 
     logging.debug("Getting emails from TidyHQ")
-    raw_emails = get_emails(config, limit=200)
+    raw_emails = get_emails(config, limit=1)
     logging.debug(f"Got {len(raw_emails)} emails from TidyHQ")
 
     # Trim contact data to just what we need
