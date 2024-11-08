@@ -102,7 +102,7 @@ while (
     # Run through tasks
     logging.info("Checking all tasks")
 
-    logging.getLogger().setLevel(logging.ERROR)
+    logging.getLogger().setLevel(logging.DEBUG)
     task_changes = tasks.check_all_tasks(
         taigacon=taigacon,
         taiga_auth_token=taiga_auth_token,
@@ -113,7 +113,7 @@ while (
     logging.getLogger().setLevel(logging.INFO)
 
     logging.info("Progressing user stories")
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.ERROR)
     progress_changes = taiga_janitor.progress_stories(
         taigacon=taigacon,
         project_id=attendee_project.id,

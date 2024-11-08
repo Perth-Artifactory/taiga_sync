@@ -1,7 +1,9 @@
 import logging
 import requests
+from pprint import pprint
+import sys
 
-from util import taigalink
+from util import taigalink, tidyhq
 
 
 def joined_slack(config, contact_id, tidyhq_cache):
@@ -27,9 +29,57 @@ def joined_slack(config, contact_id, tidyhq_cache):
     return False
 
 
+def visitor_signup(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    # Get all memberships for the contact
+
+    memberships = tidyhq.get_memberships_for_contact(
+        cache=tidyhq_cache, contact_id=contact_id
+    )
+
+    visitor = False
+    member = False
+    for membership in memberships:
+        if membership["membership_level"]["name"] == "Visitor":
+            logging.debug(f"Contact {contact_id} is a visitor")
+            visitor = True
+
+        elif "Membership" in membership["membership_level"]["name"]:
+            logging.debug(f"Contact {contact_id} is a member")
+            member = True
+
+    return visitor or member
+
+
+def member_signup(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    # Get all memberships for the contact
+
+    memberships = tidyhq.get_memberships_for_contact(
+        cache=tidyhq_cache, contact_id=contact_id
+    )
+
+    logging.debug(f"Contact {contact_id} has {len(memberships)} memberships")
+
+    for membership in memberships:
+        if "Membership" in membership["membership_level"]["name"]:
+            logging.debug(f"Contact {contact_id} is a member")
+            return True
+    return False
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
-    task_function_map = {"Join Slack": joined_slack}
+    task_function_map = {
+        "Join Slack": joined_slack,
+        "Signed up as a visitor": visitor_signup,
+        "Signed up as a member": member_signup,
+        "Discussed moving to membership": member_signup,
+    }
 
     # Find all user stories that include our bot managed tag
     stories = taigacon.user_stories.list(project=project_id)
