@@ -83,6 +83,9 @@ def setup_cache(config) -> dict[str, Any]:
 
     logging.debug(f'Got {len(cache["groups"])} groups from TidyHQ')
 
+    logging.debug("Getting memberships from TidyHQ")
+    cache["memberships"] = query(cat="memberships", config=config)
+
     # Trim contact data to just what we need
     cache["contacts"] = []
     useful_fields = [
