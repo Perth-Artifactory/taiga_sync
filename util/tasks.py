@@ -3,7 +3,7 @@ import requests
 from pprint import pprint
 import sys
 
-from util import taigalink, tidyhq
+from util import taigalink, tidyhq, training
 
 
 def joined_slack(config, contact_id, tidyhq_cache):
@@ -72,6 +72,20 @@ def member_signup(config, contact_id, tidyhq_cache):
     return False
 
 
+def member_induction(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    inductions = training.get_inductions_for_contact(
+        contact_id=contact_id, config=config, tidyhq_cache=tidyhq_cache
+    )
+
+    if "New Member Orientation" in inductions:
+        logging.debug(f"Contact {contact_id} has completed the New Member Orientation")
+        return True
+    return False
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
     task_function_map = {
@@ -79,6 +93,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id
         "Signed up as a visitor": visitor_signup,
         "Signed up as a member": member_signup,
         "Discussed moving to membership": member_signup,
+        "New member induction": member_induction,
     }
 
     # Find all user stories that include our bot managed tag
