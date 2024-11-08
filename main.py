@@ -6,7 +6,7 @@ from pprint import pprint
 import requests
 from taiga import TaigaAPI
 
-from util import taiga_janitor, tidyhq, tasks
+from util import taiga_janitor, tidyhq, tasks, conditional_closing
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -53,18 +53,17 @@ if not attendee_project:
 logging.debug(f"Attendee project found: {attendee_project.id}")
 
 # Set up TidyHQ cache
-logging.getLogger().setLevel(logging.DEBUG)
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 logging.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
-logging.getLogger().setLevel(logging.INFO)
 
 # Enter processing loop
 template_changes = False
 email_mapping_changes = False
 task_changes = False
 progress_changes = False
+closed_by_status = False
 first = True
 
 logging.info("Starting processing loop")
@@ -75,6 +74,7 @@ while (
     or email_mapping_changes
     or task_changes
     or progress_changes
+    or closed_by_status
 ):
     if not first:
         logging.info(f"Iteration: {iteration}")
@@ -104,7 +104,7 @@ while (
     # Run through tasks
     logging.info("Checking all tasks")
 
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.ERROR)
     task_changes = tasks.check_all_tasks(
         taigacon=taigacon,
         taiga_auth_token=taiga_auth_token,
@@ -123,5 +123,14 @@ while (
         config=config,
     )
     logging.getLogger().setLevel(logging.INFO)
+
+    logging.info("Checking for tasks that can be closed based on story status")
+    logging.getLogger().setLevel(logging.DEBUG)
+    closed_by_status = conditional_closing.close_by_status(
+        taigacon=taigacon,
+        project_id=attendee_project.id,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+    )
 
     iteration += 1
