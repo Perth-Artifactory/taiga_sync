@@ -125,6 +125,22 @@ def check_payment_method(config, contact_id, tidyhq_cache):
     return False
 
 
+def bond_invoice_sent(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    contact_id = str(contact_id)
+    # Iterate over invoices for given contact id. Invoices are sorted newest first
+    for invoice in tidyhq_cache["invoices"][contact_id]:
+        # Bond invoices are specific amounts for concession, full respectively
+        # This is a best guess without retrieving the full invoice details
+        if invoice["amount"] in [135, 225]:
+            logging.debug(f"Contact {contact_id} may have been sent a bond invoice")
+            return True
+        logging.debug(f"Contact {contact_id} has not been sent a bond invoice")
+    return False
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
     task_function_map = {
@@ -135,6 +151,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id
         "New member induction": member_induction,
         "Confirmed photo on tidyhq": id_photo,
         "Confirmed paying via bank": check_payment_method,
+        "Send bond invoice": bond_invoice_sent,
     }
 
     # Find all user stories that include our bot managed tag
