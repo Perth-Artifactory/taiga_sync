@@ -27,11 +27,12 @@ def joined_slack(config, contact_id, tidyhq_cache):
     return False
 
 
-def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache):
+def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
+    made_changes = False
     task_function_map = {"Join Slack": joined_slack}
 
     # Find all user stories that include our bot managed tag
-    stories = taigacon.user_stories.list()
+    stories = taigacon.user_stories.list(project=project_id)
     for story in stories:
         tagged = False
         for tag in story.tags:
@@ -57,7 +58,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache):
                 logging.debug(f"No function found for task {task.subject}")
                 continue
 
-            logging.info(f"Checking task {task.subject}")
+            logging.debug(f"Checking task {task.subject}")
             check = task_function_map[task.subject](
                 config=config, tidyhq_cache=tidyhq_cache, contact_id=tidyhq_id
             )
@@ -73,7 +74,10 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache):
                 )
                 if updating:
                     logging.info(f"Task {task.subject} marked as complete")
+                    made_changes = True
                 else:
                     logging.error(f"Failed to mark task {task.subject} as complete")
             else:
                 logging.debug(f"Task {task.subject} not complete")
+
+    return made_changes

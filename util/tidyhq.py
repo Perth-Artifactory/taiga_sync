@@ -165,19 +165,14 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         return cache
 
 
-def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token):
+def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id):
     # Map email addresses to TidyHQ members
+    made_changes = False
 
     # Get the list of user stories
 
-    project = taigacon.projects.list()[0]
-
-    # Check the name of the project
-    if project.name != "Attendee":
-        sys.exit(1)
-
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project.id)
+    stories = taigacon.user_stories.list(project=project_id)
     for story in stories:
         # Check if the story is managed by us
         tagged = False
@@ -247,6 +242,7 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token):
                     logging.info(
                         f"Updated story {story.id} with TidyHQ ID {contact['id']}"
                     )
+                    made_changes = True
 
                 else:
                     logging.error(
@@ -254,3 +250,5 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token):
                     )
                     logging.error(response.json())
                 break
+
+    return made_changes

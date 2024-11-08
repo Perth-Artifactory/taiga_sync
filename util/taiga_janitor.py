@@ -2,8 +2,12 @@ import json
 import logging
 import sys
 
+from util import taigalink
 
-def sync_templates(taigacon):
+
+def sync_templates(taigacon, project_id):
+    made_changes = False
+
     # Load a list of past actions
     try:
         with open("template_actions.json") as f:
@@ -11,20 +15,11 @@ def sync_templates(taigacon):
     except FileNotFoundError:
         actions = {}
 
-    projects = taigacon.projects.list()
-
-    # Attendee board is the first project
-    project = projects[0]
-
-    # Check the name of the project
-    if project.name != "Attendee":
-        sys.exit(1)
-
     # Find template stories
     templates = {}
 
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project.id)
+    stories = taigacon.user_stories.list(project=project_id)
     for story in stories:
         # Check if the story is a template story
         if story.subject == "Template":
@@ -68,11 +63,12 @@ def sync_templates(taigacon):
                 f"Creating task {task['subject']} with status {task['status']}"
             )
             taigacon.tasks.create(
-                project=project.id,
+                project=project_id,
                 user_story=story.id,
                 status=task["status"],
                 subject=task["subject"],
             )
+            made_changes = True
 
         if str(story.id) not in actions:
             actions[str(story.id)] = []
@@ -81,3 +77,50 @@ def sync_templates(taigacon):
         # Update our saved actions
         with open("template_actions.json", "w") as f:
             json.dump(actions, f)
+
+    return made_changes
+
+
+def progress_stories(taigacon, project_id, taiga_auth_token, config):
+    made_changes = False
+    # Iterate over the project's user stories
+    stories = taigacon.user_stories.list(project=project_id)
+
+    for story in stories:
+        # Check if the story is managed by us
+        tagged = False
+        for tag in story.tags:
+            if tag[0] == "bot-managed":
+                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                tagged = True
+                break
+
+        if not tagged:
+            continue
+
+        # Check if all tasks are complete
+
+        tasks = taigacon.tasks.list(user_story=story.id)
+
+        complete = True
+
+        for task in tasks:
+            if task.status != 4:
+                complete = False
+                logging.debug(f"Task {task.subject} is not complete")
+                break
+
+        if complete:
+            logging.info(
+                f"Story {story.subject} has all tasks complete and will be progressed"
+            )
+            taigalink.progress_story(
+                story_id=story.id,
+                taigacon=taigacon,
+                taiga_auth_token=taiga_auth_token,
+                config=config,
+            )
+
+            made_changes = True
+
+    return made_changes

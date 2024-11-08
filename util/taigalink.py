@@ -1,5 +1,7 @@
-import requests
 import logging
+import sys
+
+import requests
 
 
 def get_custom_fields_for_story(story_id, taiga_auth_token, config):
@@ -54,6 +56,36 @@ def update_task(task_id, status, taiga_auth_token, config, version):
     else:
         logging.error(
             f"Failed to update task {task_id} with status {status}: {response.status_code}"
+        )
+        logging.error(response.json())
+        return False
+
+
+def progress_story(story_id, taigacon, taiga_auth_token, config):
+    # Get the current status of the story
+    story = taigacon.user_stories.get(story_id)
+    current_status = int(story.status)
+
+    if current_status == 5:
+        logging.info(f"User story {story_id} is already complete")
+        return False
+
+    update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
+    response = requests.patch(
+        update_url,
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+            "Content-Type": "application/json",
+        },
+        json={"status": current_status + 1, "version": story.version},
+    )
+
+    if response.status_code == 200:
+        logging.debug(f"User story {story_id} status updated to {current_status + 1}")
+        return True
+    else:
+        logging.error(
+            f"Failed to update user story {story_id} status: {response.status_code}"
         )
         logging.error(response.json())
         return False
