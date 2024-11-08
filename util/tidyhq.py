@@ -85,6 +85,11 @@ def setup_cache(config) -> dict[str, Any]:
 
     logging.debug("Getting memberships from TidyHQ")
     cache["memberships"] = query(cat="memberships", config=config)
+    logging.debug(f'Got {len(cache["memberships"])} memberships from TidyHQ')
+
+    logging.debug("Getting invoices from TidyHQ")
+    raw_invoices = query(cat="invoices", config=config)
+    logging.debug(f"Got {len(raw_invoices)} invoices from TidyHQ")
 
     # Trim contact data to just what we need
     cache["contacts"] = []
@@ -109,6 +114,41 @@ def setup_cache(config) -> dict[str, Any]:
                 del trimmed_contact[field]
 
         cache["contacts"].append(trimmed_contact)
+
+    # Sort invoices by contact ID
+    cache["invoices"] = {}
+    newest = {}
+    for invoice in raw_invoices:
+        if invoice["contact_id"] not in cache["invoices"]:
+            cache["invoices"][invoice["contact_id"]] = []
+            # Convert created_at to unix timestamp
+            # Starts in format 2022-12-30T16:36:35+0000
+            created_at = datetime.datetime.strptime(
+                invoice["created_at"], "%Y-%m-%dT%H:%M:%S%z"
+            ).timestamp()
+
+            newest[invoice["contact_id"]] = created_at
+        cache["invoices"][invoice["contact_id"]].append(invoice)
+        if created_at > newest[invoice["contact_id"]]:
+            newest[invoice["contact_id"]] = created_at
+
+    # Remove contacts from the invoice cache if they have no invoices in 18 months
+    removed = 0
+    cleaned_invoices = {}
+    for contact_id in cache["invoices"]:
+        if newest[contact_id] > datetime.datetime.now().timestamp() - 86400 * 30 * 18:
+            cleaned_invoices[contact_id] = cache["invoices"][contact_id]
+        else:
+            removed += 1
+    logging.debug(
+        f"Removed {removed} invoice lists where contact hasn't had an invoice in 18 months"
+    )
+    logging.debug(f"Left with {len(cleaned_invoices)} contacts with invoices")
+    cache["invoices"] = cleaned_invoices
+
+    # Sort invoices in each contact by date
+    for contact_id in cache["invoices"]:
+        cache["invoices"][contact_id].sort(key=lambda x: x["created_at"], reverse=True)
 
     logging.debug("Writing cache to file")
     cache["time"] = datetime.datetime.now().timestamp()
