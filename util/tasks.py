@@ -104,6 +104,27 @@ def id_photo(config, contact_id, tidyhq_cache):
     return False
 
 
+def check_payment_method(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    payment_method = None
+
+    contact_id = str(contact_id)
+
+    # Iterate over invoices for given contact id. Invoices are sorted newest first
+    for invoice in tidyhq_cache["invoices"][contact_id]:
+        if invoice["paid"]:
+            payment_method = invoice["payments"][0]["type"]
+            break
+
+    logging.debug(f"Contact {contact_id} last paid with: {payment_method}")
+
+    if payment_method == "bank":
+        return True
+    return False
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
     task_function_map = {
@@ -113,6 +134,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id
         "Discussed moving to membership": member_signup,
         "New member induction": member_induction,
         "Confirmed photo on tidyhq": id_photo,
+        "Confirmed paying via bank": check_payment_method,
     }
 
     # Find all user stories that include our bot managed tag

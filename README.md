@@ -24,7 +24,7 @@ CRM workflows tacked onto a kanban board innit
 | Keyholder motion put to ManCom  | 5.Keyholder   | Req vote sync  | 6.Settled        | N/A                |
 | Keyholder motion successful     | 5.Keyholder   | Req vote sync  | 6.Settled        | N/A                |
 | Confirmed photo on tidyhq       | 5.Keyholder   | ✅            | 6.Settled        | N/A                |
-| Confirmed paying via bank       | 5.Keyholder   | Req tidy sync  | 6.Settled        | N/A                |
+| Confirmed paying via bank       | 5.Keyholder   | ✅            | 6.Settled        | N/A                |
 | Send keyholder documentation    | 5.Keyholder   | Req tidy sync  | 6.Settled        | N/A                |
 | Send bond invoice               | 5.Keyholder   | Req tidy sync  | 6.Settled        | N/A                |
 | Keyholder induction completed   | 5.Keyholder   | out of scope   | 6.Settled        | N/A                |
