@@ -6,7 +6,7 @@ from pprint import pprint
 import requests
 from taiga import TaigaAPI
 
-from util import templates, tidyhq
+from util import templates, tidyhq, tasks
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -46,14 +46,30 @@ logging.info(
 
 # Sync templates
 logging.info("Syncing templates")
+# Set logging level to error for this task
+logging.getLogger().setLevel(logging.ERROR)
 templates.sync_templates(taigacon=taigacon)
+logging.getLogger().setLevel(logging.INFO)
 
 # Map email addresses to TidyHQ
 logging.info("Mapping email addresses to TidyHQ")
-# change log level to debug to see more detailed output
+# Set logging level to error for this task
+logging.getLogger().setLevel(logging.ERROR)
 tidyhq.email_to_tidyhq(
     config=config,
     tidyhq_cache=tidyhq_cache,
     taigacon=taigacon,
     taiga_auth_token=taiga_auth_token,
 )
+logging.getLogger().setLevel(logging.INFO)
+
+logging.info("Checking all tasks")
+# Set logging level to debug for this task
+logging.getLogger().setLevel(logging.DEBUG)
+tasks.check_all_tasks(
+    taigacon=taigacon,
+    taiga_auth_token=taiga_auth_token,
+    config=config,
+    tidyhq_cache=tidyhq_cache,
+)
+logging.getLogger().setLevel(logging.INFO)
