@@ -26,5 +26,5 @@ CRM workflows tacked onto a kanban board innit
 | Confirmed photo on tidyhq       | 5.Keyholder   | ✅            | 6.Settled        | N/A                |
 | Confirmed paying via bank       | 5.Keyholder   | ✅            | 6.Settled        | N/A                |
 | Send keyholder documentation    | 5.Keyholder   | Req tidy sync  | 6.Settled        | N/A                |
-| Send bond invoice               | 5.Keyholder   | Req tidy sync  | 6.Settled        | N/A                |
+| Send bond invoice               | 5.Keyholder   | ✅            | 6.Settled        | N/A                |
 | Keyholder induction completed   | 5.Keyholder   | out of scope   | 6.Settled        | N/A                |
