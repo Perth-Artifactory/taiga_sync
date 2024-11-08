@@ -1,4 +1,5 @@
 import json
+import logging
 import sys
 
 
@@ -40,7 +41,7 @@ def sync_templates(taigacon):
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                print(f"Story {story.subject} includes the tag 'bot-managed'")
+                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
 
         if not tagged:
@@ -50,20 +51,22 @@ def sync_templates(taigacon):
 
         if str(story.id) in actions:
             if str(story.status) in actions[str(story.id)]:
-                print(
+                logging.debug(
                     f"Tasks for story {story.subject} already created in state {story.status}"
                 )
                 continue
 
         # Check if we have a template for this type of story
         if story.status not in templates:
-            print(f"No template for story {story.subject}")
+            logging.debug(f"No template for story {story.subject}")
             continue
 
-        print(f"Found template for story {story.subject}")
+        logging.debug(f"Found template for story {story.subject}")
         template = templates[story.status]
         for task in template:
-            print(f"Creating task {task['subject']} with status {task['status']}")
+            logging.info(
+                f"Creating task {task['subject']} with status {task['status']}"
+            )
             taigacon.tasks.create(
                 project=project.id,
                 user_story=story.id,
