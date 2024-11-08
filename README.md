@@ -15,6 +15,7 @@ CRM workflows tacked onto a kanban board innit
 | Signed up as a visitor          | 2.Attendee    | Req tidy sync  | N/A              | 3.New Member       |
 | Discussed moving to membership  | 2.Attendee    | N/A            | N/A              | 3.New Member       |
 | Completed new visitor induction | 2.Attendee    | out of scope   | N/A              | 3.New Member       |
+| Signed up as member             | 2.Attendee    | Req tidy sync  | 3.New Member     | 4.Member           |
 | New member induction            | 3.New Member  | Req train sync | N/A              | N/A                |
 | Planned first project           | 3.New Member  | N/A            | N/A              | N/A                |
 | Attending events as a member    | 3.New Member  | N/A            | N/A              | 5.Keyholder        |
