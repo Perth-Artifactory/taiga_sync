@@ -53,10 +53,12 @@ if not attendee_project:
 logging.debug(f"Attendee project found: {attendee_project.id}")
 
 # Set up TidyHQ cache
+logging.getLogger().setLevel(logging.DEBUG)
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 logging.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
+logging.getLogger().setLevel(logging.INFO)
 
 # Enter processing loop
 template_changes = False

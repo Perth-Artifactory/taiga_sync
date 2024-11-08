@@ -4,8 +4,9 @@ import logging
 import sys
 from copy import deepcopy as copy
 from typing import Any, Literal
-
+from pprint import pprint
 import requests
+import time
 
 
 def query(
@@ -72,6 +73,39 @@ def query(
     return data
 
 
+def get_emails(config, limit=1000):
+    emails = []
+    offset = 0
+
+    # Calculate date from 3 months ago
+    three_months_ago = datetime.datetime.now() - datetime.timedelta(days=90)
+    created_since = three_months_ago.strftime("%Y-%m-%dT%H:%M:%S%zZ")
+
+    while len(emails) < limit:
+        r = requests.get(
+            "https://api.tidyhq.com/v1/emails",
+            params={
+                "access_token": config["tidyhq"]["token"],
+                "way": "outbound",
+                "limit": 5,
+                "created_since": created_since,
+                "offset": offset,
+            },
+        )
+        if r.status_code == 200:
+            raw_emails = r.json()
+            emails += raw_emails
+            offset += 5
+            logging.debug(f"Sleeping for 3 seconds")
+            time.sleep(3)
+        else:
+            logging.error(f"Failed to get emails from TidyHQ: {r.status_code}")
+            logging.error(r.text)
+            logging.error(f"Returning {len(emails)}/{limit} emails")
+            break
+    return emails
+
+
 def setup_cache(config) -> dict[str, Any]:
     cache = {}
     logging.debug("Getting contacts from TidyHQ")
@@ -90,6 +124,10 @@ def setup_cache(config) -> dict[str, Any]:
     logging.debug("Getting invoices from TidyHQ")
     raw_invoices = query(cat="invoices", config=config)
     logging.debug(f"Got {len(raw_invoices)} invoices from TidyHQ")
+
+    logging.debug("Getting emails from TidyHQ")
+    raw_emails = get_emails(config, limit=200)
+    logging.debug(f"Got {len(raw_emails)} emails from TidyHQ")
 
     # Trim contact data to just what we need
     cache["contacts"] = []
@@ -149,6 +187,18 @@ def setup_cache(config) -> dict[str, Any]:
     # Sort invoices in each contact by date
     for contact_id in cache["invoices"]:
         cache["invoices"][contact_id].sort(key=lambda x: x["created_at"], reverse=True)
+
+    # strip emails down to just the recipient and subject
+    cache["emails"] = {}
+    for email in raw_emails:
+        recipients = email["recipient_ids"]
+
+        for recipient in recipients:
+            if recipient not in cache["emails"]:
+                cache["emails"][recipient] = []
+            cache["emails"][recipient].append({"subject": email["subject"]})
+
+    logging.debug(f"Got {len(cache['emails'])} email recipients from TidyHQ")
 
     logging.debug("Writing cache to file")
     cache["time"] = datetime.datetime.now().timestamp()
