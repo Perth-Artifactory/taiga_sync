@@ -1,0 +1,26 @@
+{
+    "cache_expiry": 86400,
+    "tidyhq": {
+        "token": "TIDYHQ TOKEN",
+        "ids": {
+            "slack": "xxx",
+            "key_status": "xxx",
+            "bond_value": "xxx",
+            "key_id": "xxx",
+            "member_status": "xxx",
+            "photo_id": "xxx"
+        },
+        "group_ids": {
+            "members": [
+                123,
+                456
+            ]
+        },
+        "training_prefix": "Machine Operator - "
+    },
+    "taiga": {
+        "url": "taiga.url",
+        "username": "username",
+        "password": "password"
+    }
+}
