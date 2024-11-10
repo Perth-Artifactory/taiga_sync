@@ -363,3 +363,31 @@ def get_custom_field(config, contact_id, cache, field_id=None, field_map_name=No
                     if field["id"] == field_id:
                         return field
     return None
+
+
+from util import tidyhq
+import logging
+
+
+def check_for_groups(contact_id, tidyhq_cache, groups=[], group_string=""):
+    # Get a list of all groups that the contact is a member of
+
+    for contact in tidyhq_cache["contacts"]:
+        if contact["id"] == contact_id:
+            raw_groups = contact["groups"]
+            break
+    else:
+        logging.error(f"Contact {contact_id} not found in cache")
+        return False
+
+    logging.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
+
+    for group in raw_groups:
+        if len(groups) > 0:
+            if group["id"] in groups:
+                return True
+        if group_string:
+            if group_string in group["label"]:
+                return True
+
+    return False
