@@ -6,7 +6,7 @@ from pprint import pprint
 import requests
 from taiga import TaigaAPI
 
-from util import taiga_janitor, tidyhq, tasks, conditional_closing
+from util import taiga_janitor, tidyhq, tasks, conditional_closing, intake
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -59,8 +59,9 @@ logging.info(
 )
 
 # Enter processing loop
-template_changes = False
 email_mapping_changes = False
+intake_from_tidyhq = False
+template_changes = False
 task_changes = False
 progress_changes = False
 closed_by_status = False
@@ -70,8 +71,9 @@ logging.info("Starting processing loop")
 iteration = 1
 while (
     first
-    or template_changes
     or email_mapping_changes
+    or intake_from_tidyhq
+    or template_changes
     or task_changes
     or progress_changes
     or closed_by_status
@@ -80,14 +82,6 @@ while (
         logging.info(f"Iteration: {iteration}")
     else:
         first = False
-
-    # Sync templates
-    logging.info("Syncing templates")
-    logging.getLogger().setLevel(logging.ERROR)
-    template_changes = taiga_janitor.sync_templates(
-        taigacon=taigacon, project_id=attendee_project.id
-    )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Map email addresses to TidyHQ
     logging.info("Mapping email addresses to TidyHQ")
@@ -98,6 +92,26 @@ while (
         taigacon=taigacon,
         taiga_auth_token=taiga_auth_token,
         project_id=attendee_project.id,
+    )
+    logging.getLogger().setLevel(logging.INFO)
+
+    logging.info("Creating cards for TidyHQ contacts")
+    logging.getLogger().setLevel(logging.DEBUG)
+    # Create new cards based on existing TidyHQ contacts
+    intake_from_tidyhq = intake.pull_tidyhq(
+        config=config,
+        tidyhq_cache=tidyhq_cache,
+        taigacon=taigacon,
+        taiga_auth_token=taiga_auth_token,
+        project_id=attendee_project.id,
+    )
+    logging.getLogger().setLevel(logging.INFO)
+
+    # Sync templates
+    logging.info("Syncing templates")
+    logging.getLogger().setLevel(logging.ERROR)
+    template_changes = taiga_janitor.sync_templates(
+        taigacon=taigacon, project_id=attendee_project.id
     )
     logging.getLogger().setLevel(logging.INFO)
 

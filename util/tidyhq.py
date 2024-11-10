@@ -2,11 +2,14 @@ import datetime
 import json
 import logging
 import sys
-from copy import deepcopy as copy
-from typing import Any, Literal
-from pprint import pprint
-import requests
 import time
+from copy import deepcopy as copy
+from pprint import pprint
+from typing import Any, Literal
+
+import requests
+
+from util import taigalink
 
 
 def query(
@@ -315,16 +318,15 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id
                 custom_attributes["1"] = contact["id"]
                 custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story.id}"
 
-                response = requests.patch(
-                    custom_attributes_url,
-                    headers={"Authorization": f"Bearer {taiga_auth_token}"},
-                    json={
-                        "attributes_values": {"1": contact["id"], "2": "See TidyHQ"},
-                        "version": version,
-                    },
+                updating = taigalink.set_custom_field(
+                    config=config,
+                    taiga_auth_token=taiga_auth_token,
+                    story_id=story.id,
+                    field_id=1,
+                    value=contact["id"],
                 )
 
-                if response.status_code == 200:
+                if updating:
                     logging.info(
                         f"Updated story {story.id} with TidyHQ ID {contact['id']}"
                     )
@@ -332,9 +334,8 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id
 
                 else:
                     logging.error(
-                        f"Failed to update story {story.id} with TidyHQ ID {contact['id']}: {response.status_code}"
+                        f"Failed to update story {story.id} with TidyHQ ID {contact['id']}"
                     )
-                    logging.error(response.json())
                 break
 
     return made_changes
@@ -365,8 +366,9 @@ def get_custom_field(config, contact_id, cache, field_id=None, field_map_name=No
     return None
 
 
-from util import tidyhq
 import logging
+
+from util import tidyhq
 
 
 def check_for_groups(contact_id, tidyhq_cache, groups=[], group_string=""):
@@ -391,3 +393,41 @@ def check_for_groups(contact_id, tidyhq_cache, groups=[], group_string=""):
                 return True
 
     return False
+
+
+def get_useful_contacts(tidyhq_cache):
+    useful_contacts = []
+    for membership in tidyhq_cache["memberships"]:
+        if membership["state"] != "expired":
+            useful_contacts.append(membership["contact_id"])
+
+    logging.debug(
+        f"Got {len(useful_contacts)} contacts with active or partial memberships"
+    )
+    return useful_contacts
+
+
+def get_contact(contact_id, tidyhq_cache):
+    for contact in tidyhq_cache["contacts"]:
+        if contact["id"] == contact_id:
+            return contact
+    return None
+
+
+def format_contact(contact: dict, config={}) -> str:
+    if not contact:
+        return "Unknown"
+
+    n = ""
+    s = ""
+    if contact["nick_name"]:
+        n = f' ({contact["nick_name"]})'
+
+    # This field is present in the API response regardless of whether the contact has a first or last name. Since the field has a value dict.get won't work as expected.
+    if not contact["first_name"]:
+        contact["first_name"] = "Unknown"
+
+    if not contact["last_name"]:
+        contact["last_name"] = "Unknown"
+
+    return f'{contact.get("first_name","Unknown").capitalize()} {contact.get("last_name","Unknown").capitalize()}{n}{s}'

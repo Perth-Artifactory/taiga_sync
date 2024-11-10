@@ -89,3 +89,49 @@ def progress_story(story_id, taigacon, taiga_auth_token, config):
         )
         logging.error(response.json())
         return False
+
+
+def set_custom_field(config, taiga_auth_token, story_id, field_id, value):
+    update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
+
+    # Fetch custom fields of the story
+    custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story_id}"
+    response = requests.get(
+        custom_attributes_url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+
+    if response.status_code == 200:
+        custom_attributes = response.json().get("attributes_values", {})
+        version = response.json().get("version", 0)
+        logging.debug(
+            f"Fetched custom attributes for story {story_id}: {custom_attributes}"
+        )
+    else:
+        logging.error(
+            f"Failed to fetch custom attributes for story {story_id}: {response.status_code}"
+        )
+
+    # Update the custom field
+    custom_attributes[field_id] = value
+    custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story_id}"
+
+    response = requests.patch(
+        custom_attributes_url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        json={
+            "attributes_values": custom_attributes,
+            "version": version,
+        },
+    )
+
+    if response.status_code == 200:
+        logging.info(
+            f"Updated story {story_id} with custom attribute {field_id}: {value}"
+        )
+
+    else:
+        logging.error(
+            f"Failed to update story {story_id} with custom attribute {field_id}: {value}: {response.status_code}"
+        )
+        logging.error(response.json())
