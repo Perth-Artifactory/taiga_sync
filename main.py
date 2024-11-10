@@ -21,8 +21,31 @@ if "--no-import" in sys.argv:
 
 
 # Load config
-with open("config.json") as f:
-    config = json.load(f)
+try:
+    with open("config.json") as f:
+        config = json.load(f)
+except FileNotFoundError:
+    logging.error(
+        "config.json not found. Create it using example.config.json as a template"
+    )
+    sys.exit(1)
+
+# Check for required Taiga config values
+if not all(key in config["taiga"] for key in ["url", "username", "password"]):
+    logging.error("Missing required config values in taiga section. Check config.json")
+    sys.exit(1)
+
+# Check for required TidyHQ config values
+if not all(
+    key in config["tidyhq"] for key in ["token", "ids", "group_ids", "training_prefix"]
+):
+    logging.error("Missing required config values in tidyhq section. Check config.json")
+    sys.exit(1)
+
+# Check for cache expiry and set if not present
+if "cache_expiry" not in config:
+    config["cache_expiry"] = 86400
+    logging.error("Cache expiry not set in config. Defaulting to 24 hours")
 
 # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
 # Get auth token
