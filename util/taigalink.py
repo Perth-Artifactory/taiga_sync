@@ -4,7 +4,9 @@ import sys
 import requests
 
 
-def get_custom_fields_for_story(story_id, taiga_auth_token, config):
+def get_custom_fields_for_story(
+    story_id: str, taiga_auth_token: str, config: dict
+) -> tuple[dict, int]:
     custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story_id}"
     response = requests.get(
         custom_attributes_url,
@@ -12,8 +14,8 @@ def get_custom_fields_for_story(story_id, taiga_auth_token, config):
     )
 
     if response.status_code == 200:
-        custom_attributes = response.json().get("attributes_values", {})
-        version = response.json().get("version", 0)
+        custom_attributes: dict = response.json().get("attributes_values", {})
+        version: int = response.json().get("version", 0)
         logging.debug(
             f"Fetched custom attributes for story {story_id}: {custom_attributes}"
         )
@@ -25,21 +27,23 @@ def get_custom_fields_for_story(story_id, taiga_auth_token, config):
     return custom_attributes, version
 
 
-def get_tidyhq_id(story_id, taiga_auth_token, config):
+def get_tidyhq_id(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     custom_attributes, version = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("1", None)
 
 
-def get_email(story_id, taiga_auth_token, config):
+def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     custom_attributes, version = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("2", None)
 
 
-def update_task(task_id, status, taiga_auth_token, config, version):
+def update_task(
+    task_id: str, status: int, taiga_auth_token: str, config: dict, version: int
+) -> bool:
     task_url = f"{config['taiga']['url']}/api/v1/tasks/{task_id}"
     response = requests.patch(
         task_url,
@@ -61,7 +65,9 @@ def update_task(task_id, status, taiga_auth_token, config, version):
         return False
 
 
-def progress_story(story_id, taigacon, taiga_auth_token, config):
+def progress_story(
+    story_id: str, taigacon, taiga_auth_token: str, config: dict
+) -> bool:
     # Get the current status of the story
     story = taigacon.user_stories.get(story_id)
     current_status = int(story.status)
@@ -91,7 +97,9 @@ def progress_story(story_id, taigacon, taiga_auth_token, config):
         return False
 
 
-def set_custom_field(config, taiga_auth_token, story_id, field_id, value):
+def set_custom_field(
+    config: dict, taiga_auth_token: str, story_id: int, field_id: int, value: str
+) -> bool:
     update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
 
     # Fetch custom fields of the story
@@ -111,6 +119,7 @@ def set_custom_field(config, taiga_auth_token, story_id, field_id, value):
         logging.error(
             f"Failed to fetch custom attributes for story {story_id}: {response.status_code}"
         )
+        return False
 
     # Update the custom field
     custom_attributes[field_id] = value
@@ -129,9 +138,12 @@ def set_custom_field(config, taiga_auth_token, story_id, field_id, value):
         logging.info(
             f"Updated story {story_id} with custom attribute {field_id}: {value}"
         )
+        return True
 
     else:
         logging.error(
             f"Failed to update story {story_id} with custom attribute {field_id}: {value}: {response.status_code}"
         )
         logging.error(response.json())
+
+    return False

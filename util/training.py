@@ -2,7 +2,9 @@ from util import tidyhq
 import logging
 
 
-def get_inductions_for_contact(config, contact_id, tidyhq_cache):
+def get_inductions_for_contact(
+    config: dict, contact_id: str, tidyhq_cache: dict
+) -> list:
     # Get a list of all groups that the contact is a member of
 
     for contact in tidyhq_cache["contacts"]:

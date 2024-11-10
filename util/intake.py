@@ -3,8 +3,10 @@ import logging
 from util import taigalink, tidyhq
 
 
-def pull_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id):
-    made_changes = False
+def pull_tidyhq(
+    config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
+) -> bool:
+    made_changes: bool = False
     # Get a list of TidyHQ contacts that should have cards
 
     contacts = tidyhq.get_useful_contacts(tidyhq_cache=tidyhq_cache)
@@ -41,7 +43,6 @@ def pull_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id):
                     contact=tidyhq.get_contact(
                         contact_id=contact, tidyhq_cache=tidyhq_cache
                     ),  # type: ignore
-                    config=config,
                 ),
                 tags=["bot-managed"],
                 status=1,

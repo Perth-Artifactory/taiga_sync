@@ -4,9 +4,11 @@ import sys
 from util import taigalink
 
 
-def close_by_status(taigacon, project_id, config, taiga_auth_token):
-    made_changes = False
-    task_map = {
+def close_by_status(
+    taigacon, project_id: str, config: dict, taiga_auth_token: str
+) -> bool:
+    made_changes: bool = False
+    task_map: dict[int, list] = {
         1: [],
         2: ["Respond to query", "Encourage to visit", "Visit"],
         3: ["Signed up as a member"],

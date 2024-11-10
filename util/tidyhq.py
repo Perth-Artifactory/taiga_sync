@@ -15,9 +15,9 @@ from util import taigalink
 def query(
     cat: str | int,
     config: dict,
-    term: str | Literal[None] = None,
-    cache: dict | Literal[None] = None,
-):
+    term: str | None = None,
+    cache: dict | None = None,
+) -> dict | list:
     if type(term) == int:
         term = str(term)
 
@@ -76,7 +76,7 @@ def query(
     return data
 
 
-def get_emails(config, limit=1000):
+def get_emails(config: dict, limit: int = 1000) -> list:
     emails = []
     offset = 0
 
@@ -109,7 +109,7 @@ def get_emails(config, limit=1000):
     return emails
 
 
-def setup_cache(config) -> dict[str, Any]:
+def setup_cache(config: dict) -> dict[str, Any]:
     cache = {}
     logging.debug("Getting contacts from TidyHQ")
     raw_contacts = query(cat="contacts", config=config)
@@ -254,7 +254,9 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         return cache
 
 
-def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id):
+def email_to_tidyhq(
+    config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
+) -> bool:
     # Map email addresses to TidyHQ members
     made_changes = False
 
@@ -341,7 +343,7 @@ def email_to_tidyhq(config, tidyhq_cache, taigacon, taiga_auth_token, project_id
     return made_changes
 
 
-def get_memberships_for_contact(contact_id, cache):
+def get_memberships_for_contact(contact_id: str, cache: dict) -> list:
     memberships = []
     for membership in cache["memberships"]:
         if membership["contact_id"] == contact_id:
@@ -349,7 +351,13 @@ def get_memberships_for_contact(contact_id, cache):
     return memberships
 
 
-def get_custom_field(config, contact_id, cache, field_id=None, field_map_name=None):
+def get_custom_field(
+    config: dict,
+    contact_id: str,
+    cache: dict,
+    field_id: str | None = None,
+    field_map_name: str | None = None,
+) -> str | None:
     if field_map_name:
         field_id = config["tidyhq"]["ids"].get(field_map_name, None)
 
@@ -366,12 +374,9 @@ def get_custom_field(config, contact_id, cache, field_id=None, field_map_name=No
     return None
 
 
-import logging
-
-from util import tidyhq
-
-
-def check_for_groups(contact_id, tidyhq_cache, groups=[], group_string=""):
+def check_for_groups(
+    contact_id: str, tidyhq_cache: dict, groups: list = [], group_string: str = ""
+) -> bool:
     # Get a list of all groups that the contact is a member of
 
     for contact in tidyhq_cache["contacts"]:
@@ -395,7 +400,7 @@ def check_for_groups(contact_id, tidyhq_cache, groups=[], group_string=""):
     return False
 
 
-def get_useful_contacts(tidyhq_cache):
+def get_useful_contacts(tidyhq_cache: dict) -> list:
     useful_contacts = []
     for membership in tidyhq_cache["memberships"]:
         if membership["state"] != "expired":
@@ -407,14 +412,14 @@ def get_useful_contacts(tidyhq_cache):
     return useful_contacts
 
 
-def get_contact(contact_id, tidyhq_cache):
+def get_contact(contact_id: str, tidyhq_cache: dict) -> dict | None:
     for contact in tidyhq_cache["contacts"]:
         if contact["id"] == contact_id:
             return contact
     return None
 
 
-def format_contact(contact: dict, config={}) -> str:
+def format_contact(contact: dict) -> str:
     if not contact:
         return "Unknown"
 

@@ -5,8 +5,8 @@ import sys
 from util import taigalink
 
 
-def sync_templates(taigacon, project_id):
-    made_changes = False
+def sync_templates(taigacon, project_id: str) -> bool:
+    made_changes: bool = False
 
     # Load a list of past actions
     try:
@@ -81,8 +81,10 @@ def sync_templates(taigacon, project_id):
     return made_changes
 
 
-def progress_stories(taigacon, project_id, taiga_auth_token, config):
-    made_changes = False
+def progress_stories(
+    taigacon, project_id: str, taiga_auth_token: str, config: dict
+) -> bool:
+    made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -126,8 +128,10 @@ def progress_stories(taigacon, project_id, taiga_auth_token, config):
     return made_changes
 
 
-def progress_on_signup(taigacon, project_id, taiga_auth_token, config):
-    made_changes = False
+def progress_on_signup(
+    taigacon, project_id: str, taiga_auth_token: str, config: dict
+) -> bool:
+    made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 

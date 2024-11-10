@@ -6,7 +6,7 @@ import sys
 from util import taigalink, tidyhq, training
 
 
-def joined_slack(config, contact_id, tidyhq_cache):
+def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -29,7 +29,7 @@ def joined_slack(config, contact_id, tidyhq_cache):
     return False
 
 
-def visitor_signup(config, contact_id, tidyhq_cache):
+def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -53,7 +53,7 @@ def visitor_signup(config, contact_id, tidyhq_cache):
     return visitor or member
 
 
-def member_signup(config, contact_id, tidyhq_cache):
+def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -72,7 +72,7 @@ def member_signup(config, contact_id, tidyhq_cache):
     return False
 
 
-def member_induction(config, contact_id, tidyhq_cache):
+def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -86,7 +86,7 @@ def member_induction(config, contact_id, tidyhq_cache):
     return False
 
 
-def id_photo(config, contact_id, tidyhq_cache):
+def id_photo(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -104,7 +104,9 @@ def id_photo(config, contact_id, tidyhq_cache):
     return False
 
 
-def check_payment_method(config, contact_id, tidyhq_cache):
+def check_payment_method(
+    config: dict, contact_id: str | None, tidyhq_cache: dict
+) -> bool:
     if contact_id == None:
         return False
 
@@ -125,7 +127,7 @@ def check_payment_method(config, contact_id, tidyhq_cache):
     return False
 
 
-def bond_invoice_sent(config, contact_id, tidyhq_cache):
+def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     if contact_id == None:
         return False
 
@@ -141,7 +143,9 @@ def bond_invoice_sent(config, contact_id, tidyhq_cache):
     return False
 
 
-def check_billing_groups(config, contact_id, tidyhq_cache):
+def check_billing_groups(
+    config: dict, contact_id: str | None, tidyhq_cache: dict
+) -> bool:
     if contact_id == None:
         return False
 
@@ -150,7 +154,9 @@ def check_billing_groups(config, contact_id, tidyhq_cache):
     )
 
 
-def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
+def check_all_tasks(
+    taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
+):
     made_changes = False
     task_function_map = {
         "Join Slack": joined_slack,
