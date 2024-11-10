@@ -1,6 +1,6 @@
 # Taiga sync
 
-CRMish workflows tacked onto a kanban board innit
+CRM-ish workflows tacked onto a kanban board innit
 
 ## Usage
 
