@@ -14,6 +14,12 @@ logging.basicConfig(level=logging.INFO)
 urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
 
+# Look for the --no-import flag
+import_from_tidyhq = True
+if "--no-import" in sys.argv:
+    import_from_tidyhq = False
+
+
 # Load config
 with open("config.json") as f:
     config = json.load(f)
@@ -114,16 +120,19 @@ while (
     logging.getLogger().setLevel(logging.INFO)
 
     # Create new cards based on existing TidyHQ contacts
-    logging.info("Creating cards for TidyHQ contacts")
-    logging.getLogger().setLevel(logging.DEBUG)
-    intake_from_tidyhq = intake.pull_tidyhq(
-        config=config,
-        tidyhq_cache=tidyhq_cache,
-        taigacon=taigacon,
-        taiga_auth_token=taiga_auth_token,
-        project_id=attendee_project.id,
-    )
-    logging.getLogger().setLevel(logging.INFO)
+    if import_from_tidyhq:
+        logging.info("Creating cards for TidyHQ contacts")
+        logging.getLogger().setLevel(logging.DEBUG)
+        intake_from_tidyhq = intake.pull_tidyhq(
+            config=config,
+            tidyhq_cache=tidyhq_cache,
+            taigacon=taigacon,
+            taiga_auth_token=taiga_auth_token,
+            project_id=attendee_project.id,
+        )
+        logging.getLogger().setLevel(logging.INFO)
+    else:
+        logging.info("Skipping TidyHQ import due to --no-import flag")
 
     # Sync templates
     logging.info("Syncing templates")
@@ -187,7 +196,7 @@ while (
 
 # Add helper fields to user stories
 logging.info("Adding helper fields to user stories")
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.ERROR)
 taiga_janitor.add_useful_fields(
     taigacon=taigacon,
     project_id=attendee_project.id,
