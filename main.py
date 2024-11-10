@@ -15,9 +15,9 @@ urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
 
 # Look for the --no-import flag
-import_from_tidyhq = True
-if "--no-import" in sys.argv:
-    import_from_tidyhq = False
+import_from_tidyhq = False
+if "--import" in sys.argv:
+    import_from_tidyhq = True
 
 
 # Load config

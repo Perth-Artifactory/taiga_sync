@@ -4,7 +4,7 @@ CRM-ish workflows tacked onto a kanban board innit
 
 ## Usage
 
-* `--no-import` will prevent new cards from being created.
+* `--import` will create cards based on TidyHQ data.
 
 ## Tasks
 
@@ -43,7 +43,7 @@ If any of these steps indicate that they've made changes to the board the entire
    * Email addresses are mapped first so we don't duplicate stories that come from both email enquiries and TidyHQ sign ups.
 1. Create new stories based on TidyHQ contacts
    Looks for any TidyHQ membership that is not expired and creates a prospective story if there's no story on the board with that TidyHQ ID set.
-   This step is skipped if `--no-import` is passed at runtime.
+   This step is skipped if `--import` is **not** passed at runtime.
 1. Use the column template to add tasks to newly created/progressed cards
    Adds template tasks for the current story status if they haven't been added before. Previous additions are tracked in `template_actions.json`.
 1. Tick off tasks that can be closed by code
