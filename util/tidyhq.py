@@ -110,6 +110,7 @@ def get_emails(config: dict, limit: int = 1000) -> list:
 
 
 def setup_cache(config: dict) -> dict[str, Any]:
+    logging.info("Cache is being retrieved from TidyHQ")
     cache = {}
     logging.debug("Getting contacts from TidyHQ")
     raw_contacts = query(cat="contacts", config=config)
@@ -131,6 +132,10 @@ def setup_cache(config: dict) -> dict[str, Any]:
     logging.debug("Getting emails from TidyHQ")
     raw_emails = get_emails(config, limit=1)
     logging.debug(f"Got {len(raw_emails)} emails from TidyHQ")
+
+    logging.debug("Getting org details from TidyHQ")
+    cache["org"] = query(cat="organization", config=config)
+    logging.debug(f"Org domain is set to {cache['org']['domain_prefix']}")  # type: ignore
 
     # Trim contact data to just what we need
     cache["contacts"] = []

@@ -172,3 +172,50 @@ def progress_on_signup(
             made_changes = True
 
     return made_changes
+
+
+def add_useful_fields(
+    project_id: str, taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict
+):
+    # Iterate over all user stories
+    stories = taigacon.user_stories.list(project=project_id)
+    for story in stories:
+        # Check if the story is managed by us
+        tagged = False
+        for tag in story.tags:
+            if tag[0] == "bot-managed":
+                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                tagged = True
+                break
+
+        if not tagged:
+            continue
+
+        # Set TidyHQ contact URL
+
+        # Check if the story has a TidyHQ link set
+        tidyhq_url = taigalink.get_tidyhq_url(
+            story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+        )
+
+        if tidyhq_url:
+            logging.debug(f"Story {story.subject} already has a TidyHQ URL set")
+            continue
+
+        # Check if the story has a TidyHQ ID set
+        tidyhq_id = taigalink.get_tidyhq_id(
+            story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+        )
+
+        if not tidyhq_id:
+            logging.debug(f"Story {story.subject} does not have a TidyHQ ID set")
+            continue
+
+        # Set the TidyHQ URL
+        taigalink.set_custom_field(
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            story_id=story.id,
+            field_id=3,
+            value=f"https://{tidyhq_cache['org']['domain_prefix']}.tidyhq.com/contacts/{tidyhq_id}",
+        )

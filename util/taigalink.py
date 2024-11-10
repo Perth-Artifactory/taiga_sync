@@ -41,6 +41,13 @@ def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     return custom_attributes.get("2", None)
 
 
+def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
+    custom_attributes, version = get_custom_fields_for_story(
+        story_id, taiga_auth_token, config
+    )
+    return custom_attributes.get("3", None)
+
+
 def update_task(
     task_id: str, status: int, taiga_auth_token: str, config: dict, version: int
 ) -> bool:

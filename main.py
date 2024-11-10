@@ -82,6 +82,22 @@ while (
 ):
     if not first:
         logging.info(f"Iteration: {iteration}")
+        # Show which modules made changes in the last iteration
+        logging.info("Changes made in the last iteration:")
+        if email_mapping_changes:
+            logging.info("Email mapping")
+        if intake_from_tidyhq:
+            logging.info("Intake from TidyHQ")
+        if template_changes:
+            logging.info("Templates")
+        if task_changes:
+            logging.info("Tasks")
+        if progress_changes:
+            logging.info("Progress")
+        if closed_by_status:
+            logging.info("Closed by status")
+        if progress_on_signup:
+            logging.info("Progress on signup")
     else:
         first = False
 
@@ -155,7 +171,7 @@ while (
     logging.info(
         "Checking for user stories that can progress to attendee based on TidyHQ signup"
     )
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.ERROR)
     progress_on_signup = taiga_janitor.progress_on_signup(
         taigacon=taigacon,
         project_id=attendee_project.id,
@@ -165,3 +181,18 @@ while (
     logging.getLogger().setLevel(logging.INFO)
 
     iteration += 1
+
+# Perform once off housekeeping tasks
+# These tasks have no potential to trigger further processing
+
+# Add helper fields to user stories
+logging.info("Adding helper fields to user stories")
+logging.getLogger().setLevel(logging.DEBUG)
+taiga_janitor.add_useful_fields(
+    taigacon=taigacon,
+    project_id=attendee_project.id,
+    taiga_auth_token=taiga_auth_token,
+    config=config,
+    tidyhq_cache=tidyhq_cache,
+)
+logging.getLogger().setLevel(logging.INFO)
