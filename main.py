@@ -65,6 +65,7 @@ template_changes = False
 task_changes = False
 progress_changes = False
 closed_by_status = False
+progress_on_signup = False
 first = True
 
 logging.info("Starting processing loop")
@@ -77,6 +78,7 @@ while (
     or task_changes
     or progress_changes
     or closed_by_status
+    or progress_on_signup
 ):
     if not first:
         logging.info(f"Iteration: {iteration}")
@@ -95,9 +97,9 @@ while (
     )
     logging.getLogger().setLevel(logging.INFO)
 
+    # Create new cards based on existing TidyHQ contacts
     logging.info("Creating cards for TidyHQ contacts")
     logging.getLogger().setLevel(logging.DEBUG)
-    # Create new cards based on existing TidyHQ contacts
     intake_from_tidyhq = intake.pull_tidyhq(
         config=config,
         tidyhq_cache=tidyhq_cache,
@@ -117,7 +119,6 @@ while (
 
     # Run through tasks
     logging.info("Checking all tasks")
-
     logging.getLogger().setLevel(logging.ERROR)
     task_changes = tasks.check_all_tasks(
         taigacon=taigacon,
@@ -128,6 +129,7 @@ while (
     )
     logging.getLogger().setLevel(logging.INFO)
 
+    # Progress user stories based on task completion
     logging.info("Progressing user stories")
     logging.getLogger().setLevel(logging.ERROR)
     progress_changes = taiga_janitor.progress_stories(
@@ -138,13 +140,28 @@ while (
     )
     logging.getLogger().setLevel(logging.INFO)
 
+    # Close tasks based on story status
     logging.info("Checking for tasks that can be closed based on story status")
-    logging.getLogger().setLevel(logging.DEBUG)
+    logging.getLogger().setLevel(logging.ERROR)
     closed_by_status = conditional_closing.close_by_status(
         taigacon=taigacon,
         project_id=attendee_project.id,
         config=config,
         taiga_auth_token=taiga_auth_token,
     )
+    logging.getLogger().setLevel(logging.INFO)
+
+    # Move tasks from column 1 to 2 if they have a TidyHQ ID
+    logging.info(
+        "Checking for user stories that can progress to attendee based on TidyHQ signup"
+    )
+    logging.getLogger().setLevel(logging.DEBUG)
+    progress_on_signup = taiga_janitor.progress_on_signup(
+        taigacon=taigacon,
+        project_id=attendee_project.id,
+        taiga_auth_token=taiga_auth_token,
+        config=config,
+    )
+    logging.getLogger().setLevel(logging.INFO)
 
     iteration += 1

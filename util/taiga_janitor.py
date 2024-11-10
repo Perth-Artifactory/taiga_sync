@@ -124,3 +124,47 @@ def progress_stories(taigacon, project_id, taiga_auth_token, config):
             made_changes = True
 
     return made_changes
+
+
+def progress_on_signup(taigacon, project_id, taiga_auth_token, config):
+    made_changes = False
+    # Iterate over the project's user stories
+    stories = taigacon.user_stories.list(project=project_id)
+
+    for story in stories:
+        # Check if the story is managed by us
+        tagged = False
+        for tag in story.tags:
+            if tag[0] == "bot-managed":
+                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                tagged = True
+                break
+
+        if not tagged:
+            continue
+
+        # Check if the story is in the prospective column
+        if story.status != 1:
+            continue
+
+        # Check if the story has a TidyHQ ID set
+        tidyhq_id = taigalink.get_tidyhq_id(
+            story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+        )
+
+        if tidyhq_id:
+            logging.debug(
+                f"Story {story.subject} has a TidyHQ ID set but is prospective"
+            )
+
+            # Move the story to the next column
+            taigalink.progress_story(
+                story_id=story.id,
+                taigacon=taigacon,
+                taiga_auth_token=taiga_auth_token,
+                config=config,
+            )
+
+            made_changes = True
+
+    return made_changes
