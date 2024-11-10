@@ -19,6 +19,7 @@ CRM workflows tacked onto a kanban board innit
 | New member induction            | 3.New Member  | ✅            | N/A                 | N/A                |
 | Planned first project           | 3.New Member  | N/A            | N/A                | N/A                |
 | Attending events as a member    | 3.New Member  | N/A            | N/A                | 5.Keyholder        |
+| Added to billing groups         | 3.New Member  | ✅            | N/A                 | N/A                |
 | Demonstrated keyholder resp     | 4.Member      | N/A            | ✅5.Keyholder      | 6.Settled          |
 | Offered key                     | 4.Member      | N/A            | ✅5.Keyholder      | 6.Settled          |
 | Keyholder motion put to ManCom  | 5.Keyholder   | Req vote sync  | ✅6.Settled        | N/A                |

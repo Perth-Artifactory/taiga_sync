@@ -141,6 +141,15 @@ def bond_invoice_sent(config, contact_id, tidyhq_cache):
     return False
 
 
+def check_billing_groups(config, contact_id, tidyhq_cache):
+    if contact_id == None:
+        return False
+
+    return tidyhq.check_for_groups(
+        contact_id=contact_id, tidyhq_cache=tidyhq_cache, group_string="Billing"
+    )
+
+
 def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id):
     made_changes = False
     task_function_map = {
@@ -152,6 +161,7 @@ def check_all_tasks(taigacon, taiga_auth_token, config, tidyhq_cache, project_id
         "Confirmed photo on tidyhq": id_photo,
         "Confirmed paying via bank": check_payment_method,
         "Send bond invoice": bond_invoice_sent,
+        "Added to billing groups": check_billing_groups,
     }
 
     # Find all user stories that include our bot managed tag
