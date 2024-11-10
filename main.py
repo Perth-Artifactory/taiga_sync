@@ -10,9 +10,10 @@ from util import taiga_janitor, tidyhq, tasks, conditional_closing, intake
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
-# Set urllib3 logging level to INFO
+# Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug
 urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
+
 
 # Look for the --no-import flag
 import_from_tidyhq = False
@@ -47,8 +48,9 @@ if "cache_expiry" not in config:
     config["cache_expiry"] = 86400
     logging.error("Cache expiry not set in config. Defaulting to 24 hours")
 
+
+# Get auth token for Taiga
 # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
-# Get auth token
 auth_url = f"{config['taiga']['url']}/api/v1/auth"
 auth_data = {
     "password": config["taiga"]["password"],
@@ -67,6 +69,7 @@ else:
 
 taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
 
+
 # Find the Attendee project
 projects = taigacon.projects.list()
 attendee_project = None
@@ -81,11 +84,13 @@ if not attendee_project:
 
 logging.debug(f"Attendee project found: {attendee_project.id}")
 
+
 # Set up TidyHQ cache
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 logging.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
+
 
 # Enter processing loop
 email_mapping_changes = False
@@ -216,6 +221,7 @@ while (
 
 # Perform once off housekeeping tasks
 # These tasks have no potential to trigger further processing
+
 
 # Add helper fields to user stories
 logging.info("Adding helper fields to user stories")
