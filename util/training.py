@@ -5,15 +5,16 @@ import logging
 def get_inductions_for_contact(
     config: dict, contact_id: str, tidyhq_cache: dict
 ) -> list:
-    # Get a list of all groups that the contact is a member of
+    """Get a list of all inductions completed by a contact."""
 
-    for contact in tidyhq_cache["contacts"]:
-        if contact["id"] == contact_id:
-            raw_groups = contact["groups"]
-            break
-    else:
+    # Get a list of all groups that the contact is a member of
+    contact = tidyhq.get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
+
+    if not contact:
         logging.error(f"Contact {contact_id} not found in cache")
         return []
+
+    raw_groups = contact["groups"]
 
     logging.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
 

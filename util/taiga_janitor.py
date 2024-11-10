@@ -6,6 +6,7 @@ from util import taigalink
 
 
 def sync_templates(taigacon, project_id: str) -> bool:
+    """Copy tasks from template stories to user stories."""
     made_changes: bool = False
 
     # Load a list of past actions
@@ -84,6 +85,7 @@ def sync_templates(taigacon, project_id: str) -> bool:
 def progress_stories(
     taigacon, project_id: str, taiga_auth_token: str, config: dict
 ) -> bool:
+    """Progress stories to the next status that have all tasks complete."""
     made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
@@ -131,6 +133,7 @@ def progress_stories(
 def progress_on_signup(
     taigacon, project_id: str, taiga_auth_token: str, config: dict
 ) -> bool:
+    """Progress stories from status 1 to status 2 when a TidyHQ ID is set."""
     made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
@@ -177,6 +180,10 @@ def progress_on_signup(
 def add_useful_fields(
     project_id: str, taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict
 ):
+    """Add useful fields to stories.
+
+    Current useful field is a clickable TidyHQ contact link.
+    """
     # Iterate over all user stories
     stories = taigacon.user_stories.list(project=project_id)
     for story in stories:

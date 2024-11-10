@@ -7,6 +7,7 @@ from util import taigalink, tidyhq, training
 
 
 def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
+    """Check if the contact has a Slack ID field set in TidyHQ."""
     if contact_id == None:
         return False
 
@@ -30,6 +31,8 @@ def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
 
 
 def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has ever signed up as a visitor or member."""
+
     if contact_id == None:
         return False
 
@@ -54,6 +57,7 @@ def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> 
 
 
 def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has ever signed up as a member."""
     if contact_id == None:
         return False
 
@@ -73,6 +77,7 @@ def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> b
 
 
 def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has been signed off for the New Member Orientation within Training Tracker."""
     if contact_id == None:
         return False
 
@@ -87,6 +92,7 @@ def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -
 
 
 def id_photo(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has uploaded an ID photo."""
     if contact_id == None:
         return False
 
@@ -107,6 +113,7 @@ def id_photo(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
 def check_payment_method(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
+    """Check if the contact's most recent payment was via bank transfer."""
     if contact_id == None:
         return False
 
@@ -128,6 +135,7 @@ def check_payment_method(
 
 
 def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if we've sent an invoice for 135/225 to the contact. Does not check if it's been paid."""
     if contact_id == None:
         return False
 
@@ -146,6 +154,7 @@ def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) 
 def check_billing_groups(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
+    """Check if the contact is in a group that contains the string 'Billing'."""
     if contact_id == None:
         return False
 
@@ -157,6 +166,7 @@ def check_billing_groups(
 def check_all_tasks(
     taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
 ):
+    """Check for incomplete tasks that have a mapped function to check if they are complete."""
     made_changes = False
     task_function_map = {
         "Join Slack": joined_slack,

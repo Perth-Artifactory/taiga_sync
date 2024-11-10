@@ -7,6 +7,7 @@ from util import taigalink
 def close_by_status(
     taigacon, project_id: str, config: dict, taiga_auth_token: str
 ) -> bool:
+    """Close tasks once a story reaches a certain status."""
     made_changes: bool = False
     task_map: dict[int, list] = {
         1: [],
@@ -65,6 +66,7 @@ def close_by_status(
 
 
 def remove_by_status():
+    """Remove tasks once a story reaches a certain status."""
     task_map = {
         1: [],
         2: [],

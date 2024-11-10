@@ -6,8 +6,11 @@ from util import taigalink, tidyhq
 def pull_tidyhq(
     config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
 ) -> bool:
+    """Return a list of TidyHQ contact IDs that do not have cards but should.
+
+    Contacts with memberships/visitor registrations that have not expired should have cards.
+    """
     made_changes: bool = False
-    # Get a list of TidyHQ contacts that should have cards
 
     contacts = tidyhq.get_useful_contacts(tidyhq_cache=tidyhq_cache)
 

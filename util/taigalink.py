@@ -7,6 +7,10 @@ import requests
 def get_custom_fields_for_story(
     story_id: str, taiga_auth_token: str, config: dict
 ) -> tuple[dict, int]:
+    """Retrieve all custom fields for a specific story.
+
+    Returns a tuple of the custom fields and the version of the story object. The version object is used when updating the story object.
+    """
     custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story_id}"
     response = requests.get(
         custom_attributes_url,
@@ -28,6 +32,7 @@ def get_custom_fields_for_story(
 
 
 def get_tidyhq_id(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
+    """Retrieve the TidyHQ ID for a specific story if set."""
     custom_attributes, version = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
@@ -35,6 +40,7 @@ def get_tidyhq_id(story_id: str, taiga_auth_token: str, config: dict) -> str | N
 
 
 def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
+    """Retrieve the email for a specific story if set."""
     custom_attributes, version = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
@@ -42,6 +48,7 @@ def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
 
 
 def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
+    """Retrieve the TidyHQ URL for a specific story if set."""
     custom_attributes, version = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
@@ -51,6 +58,7 @@ def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | 
 def update_task(
     task_id: str, status: int, taiga_auth_token: str, config: dict, version: int
 ) -> bool:
+    """Update the status of a task."""
     task_url = f"{config['taiga']['url']}/api/v1/tasks/{task_id}"
     response = requests.patch(
         task_url,
@@ -75,6 +83,7 @@ def update_task(
 def progress_story(
     story_id: str, taigacon, taiga_auth_token: str, config: dict
 ) -> bool:
+    """Increment the story status by 1. Does not check for the existence of a next status."""
     # Get the current status of the story
     story = taigacon.user_stories.get(story_id)
     current_status = int(story.status)
@@ -107,6 +116,7 @@ def progress_story(
 def set_custom_field(
     config: dict, taiga_auth_token: str, story_id: int, field_id: int, value: str
 ) -> bool:
+    """Set a custom field for a specific story."""
     update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
 
     # Fetch custom fields of the story

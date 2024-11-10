@@ -18,6 +18,8 @@ def query(
     term: str | None = None,
     cache: dict | None = None,
 ) -> dict | list:
+    """Send a query to the TidyHQ API"""
+
     if type(term) == int:
         term = str(term)
 
@@ -77,6 +79,7 @@ def query(
 
 
 def get_emails(config: dict, limit: int = 1000) -> list:
+    """Retrieve emails from TidyHQ, broken."""
     emails = []
     offset = 0
 
@@ -110,6 +113,7 @@ def get_emails(config: dict, limit: int = 1000) -> list:
 
 
 def setup_cache(config: dict) -> dict[str, Any]:
+    """Retrieve preset data from TidyHQ and store it in a cache file"""
     logging.info("Cache is being retrieved from TidyHQ")
     cache = {}
     logging.debug("Getting contacts from TidyHQ")
@@ -217,6 +221,14 @@ def setup_cache(config: dict) -> dict[str, Any]:
 
 
 def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
+    """Return a fresh TidyHQ cache.
+
+    Freshness is determined by the cache_expiry value in the config file.
+    Cache source is (in order of priority):
+    - Provided cache
+    - Cache file
+    - TidyHQ API
+    """
     if not config:
         with open("config.json") as f:
             logging.debug("Loading config from file")
@@ -262,6 +274,10 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
 def email_to_tidyhq(
     config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
 ) -> bool:
+    """Map email addresses to TidyHQ contacts in Taiga user stories and update the stories with the TidyHQ contact ID.
+
+    Searches all TidyHQ contacts, not just those with active memberships.
+    """
     # Map email addresses to TidyHQ members
     made_changes = False
 
@@ -349,6 +365,7 @@ def email_to_tidyhq(
 
 
 def get_memberships_for_contact(contact_id: str, cache: dict) -> list:
+    """Filter memberships to only those for a specific contact."""
     memberships = []
     for membership in cache["memberships"]:
         if membership["contact_id"] == contact_id:
@@ -363,6 +380,10 @@ def get_custom_field(
     field_id: str | None = None,
     field_map_name: str | None = None,
 ) -> str | None:
+    """Get the value of a custom field for a contact within TidyHQ.
+
+    The field can be specified by either its ID or its name in the config file.
+    """
     if field_map_name:
         field_id = config["tidyhq"]["ids"].get(field_map_name, None)
 
@@ -382,15 +403,15 @@ def get_custom_field(
 def check_for_groups(
     contact_id: str, tidyhq_cache: dict, groups: list = [], group_string: str = ""
 ) -> bool:
+    """Check if a contact is a member of at least one group or groups."""
     # Get a list of all groups that the contact is a member of
 
-    for contact in tidyhq_cache["contacts"]:
-        if contact["id"] == contact_id:
-            raw_groups = contact["groups"]
-            break
-    else:
+    contact = get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
+    if not contact:
         logging.error(f"Contact {contact_id} not found in cache")
         return False
+
+    raw_groups = contact["groups"]
 
     logging.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
 
@@ -406,6 +427,7 @@ def check_for_groups(
 
 
 def get_useful_contacts(tidyhq_cache: dict) -> list:
+    """Get a list of contacts with active or partial memberships or visitor registrations."""
     useful_contacts = []
     for membership in tidyhq_cache["memberships"]:
         if membership["state"] != "expired":
@@ -418,6 +440,7 @@ def get_useful_contacts(tidyhq_cache: dict) -> list:
 
 
 def get_contact(contact_id: str, tidyhq_cache: dict) -> dict | None:
+    """Get a contact by ID from the TidyHQ cache."""
     for contact in tidyhq_cache["contacts"]:
         if contact["id"] == contact_id:
             return contact
@@ -425,6 +448,10 @@ def get_contact(contact_id: str, tidyhq_cache: dict) -> dict | None:
 
 
 def format_contact(contact: dict) -> str:
+    """Format a contact's name for display. Includes first name, last name, and nickname if available.
+
+    Formatted as "First Last (Nickname)".
+    """
     if not contact:
         return "Unknown"
 
