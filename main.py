@@ -153,6 +153,7 @@ while (
             logging.info("Closed by status")
         if progress_on_signup:
             logging.info("Progress on signup")
+        logging.info("---")
     else:
         first = False
 
