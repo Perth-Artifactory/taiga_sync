@@ -77,7 +77,7 @@ def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> b
 
 
 def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
-    """Check if the contact has been signed off for the New Member Orientation within Training Tracker."""
+    """Check if the contact has been signed off for the member induction within Training Tracker."""
     if contact_id == None:
         return False
 
@@ -85,8 +85,38 @@ def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -
         contact_id=contact_id, config=config, tidyhq_cache=tidyhq_cache
     )
 
-    if "New Member Orientation" in inductions:
-        logging.debug(f"Contact {contact_id} has completed the New Member Orientation")
+    if "Induction (Member)" in inductions:
+        logging.debug(f"Contact {contact_id} has completed the member induction")
+        return True
+    return False
+
+
+def visitor_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has been signed off for the visitor induction within Training Tracker."""
+    if contact_id == None:
+        return False
+
+    inductions = training.get_inductions_for_contact(
+        contact_id=contact_id, config=config, tidyhq_cache=tidyhq_cache
+    )
+
+    if "Induction (Visitor)" in inductions:
+        logging.debug(f"Contact {contact_id} has completed the visitor induction")
+        return True
+    return False
+
+
+def keyholder_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has been signed off for the keyholder induction within Training Tracker."""
+    if contact_id == None:
+        return False
+
+    inductions = training.get_inductions_for_contact(
+        contact_id=contact_id, config=config, tidyhq_cache=tidyhq_cache
+    )
+
+    if "Induction (Keyholder)" in inductions:
+        logging.debug(f"Contact {contact_id} has completed the keyholder induction")
         return True
     return False
 
@@ -173,7 +203,9 @@ def check_all_tasks(
         "Signed up as a visitor": visitor_signup,
         "Signed up as a member": member_signup,
         "Discussed moving to membership": member_signup,
-        "New member induction": member_induction,
+        "Completed new member induction": member_induction,
+        "Completed new visitor induction": visitor_induction,
+        "Completed keyholder induction": keyholder_induction,
         "Confirmed photo on tidyhq": id_photo,
         "Confirmed paying via bank": check_payment_method,
         "Send bond invoice": bond_invoice_sent,
