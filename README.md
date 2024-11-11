@@ -18,7 +18,7 @@ CRM-ish workflows tacked onto a kanban board innit
 | Participated in an event        | 2.Attendee    | N/A            | N/A                | 5.Keyholder        |
 | Signed up as a visitor          | 2.Attendee    | ✅            | N/A                 | 3.New Member       |
 | Discussed moving to membership  | 2.Attendee    | ✅            | N/A                 | 3.New Member       |
-| Completed new visitor induction | 2.Attendee    | out of scope   | N/A                | 3.New Member       |
+| Completed new visitor induction | 2.Attendee    | TODO           | N/A                | 3.New Member       |
 | Signed up as member             | 2.Attendee    | ✅            | ✅3.New Member     | 4.Member           |
 | New member induction            | 3.New Member  | ✅            | N/A                 | N/A                |
 | Planned first project           | 3.New Member  | N/A            | N/A                | N/A                |
@@ -32,7 +32,7 @@ CRM-ish workflows tacked onto a kanban board innit
 | Confirmed paying via bank       | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
 | Send keyholder documentation    | 5.Keyholder   | ❌ tech limit | ✅6.Settled        | N/A                |
 | Send bond invoice               | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
-| Keyholder induction completed   | 5.Keyholder   | out of scope   | ✅6.Settled        | N/A                |
+| Keyholder induction completed   | 5.Keyholder   | TODO           | ✅6.Settled        | N/A                |
 
 ## Loop order
 
