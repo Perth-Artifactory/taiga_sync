@@ -1,12 +1,13 @@
 import json
 import logging
+import os
 import sys
 from pprint import pprint
 
 import requests
 from taiga import TaigaAPI
 
-from util import taiga_janitor, tidyhq, tasks, conditional_closing, intake
+from util import conditional_closing, intake, taiga_janitor, tasks, tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,26 @@ urllib3_logger.setLevel(logging.INFO)
 import_from_tidyhq = False
 if "--import" in sys.argv:
     import_from_tidyhq = True
+
+
+# Look for --force flag
+force = False
+if "--force" in sys.argv:
+    force = True
+
+# Look for a main.lock file
+if not force:
+    try:
+        with open("main.lock") as f:
+            logging.error("main.lock found. Exiting to prevent concurrent runs")
+            sys.exit(1)
+    except FileNotFoundError:
+        pass
+
+# Create main.lock file
+with open("main.lock", "w") as f:
+    f.write("")
+    logging.info("main.lock created")
 
 
 # Load config
@@ -234,3 +255,7 @@ taiga_janitor.add_useful_fields(
     tidyhq_cache=tidyhq_cache,
 )
 logging.getLogger().setLevel(logging.INFO)
+
+# Delete main.lock
+logging.info("Removing main.lock")
+os.remove("main.lock")

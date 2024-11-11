@@ -5,6 +5,7 @@ CRM-ish workflows tacked onto a kanban board innit
 ## Usage
 
 * `--import` will create cards based on TidyHQ data.
+* `--force` will override the presence of a lock file.
 
 ## Tasks
 
