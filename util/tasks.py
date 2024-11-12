@@ -103,10 +103,18 @@ def visitor_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) 
     if "Induction (Visitor)" in inductions:
         logging.debug(f"Contact {contact_id} has completed the visitor induction")
         return True
+
+    elif "Induction (Member)" in inductions:
+        logging.debug(
+            f"Contact {contact_id} has completed the member induction (bypassing visitor induction)"
+        )
+        return True
     return False
 
 
-def keyholder_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+def keyholder_induction(
+    config: dict, contact_id: str | None, tidyhq_cache: dict
+) -> bool:
     """Check if the contact has been signed off for the keyholder induction within Training Tracker."""
     if contact_id == None:
         return False
