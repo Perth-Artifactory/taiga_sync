@@ -59,7 +59,18 @@ def sync_templates(taigacon, project_id: str) -> bool:
 
         logging.debug(f"Found template for story {story.subject}")
         template = templates[story.status]
+
+        # Get a list of existing tasks for the story
+        raw_tasks = taigacon.tasks.list(user_story=story.id)
+        existing_tasks = []
+        for task in raw_tasks:
+            existing_tasks.append(task.subject)
+
         for task in template:
+            if task["subject"] in existing_tasks:
+                logging.debug(f"Task {task['subject']} already exists")
+                continue
+
             logging.info(
                 f"Creating task {task['subject']} with status {task['status']}"
             )
