@@ -30,19 +30,21 @@ force = False
 if "--force" in sys.argv:
     force = True
 
-# Look for a main.lock file
+# Look for a attendee.lock file
 if not force:
     try:
-        with open("main.lock") as f:
-            setup_logger.error("main.lock found. Exiting to prevent concurrent runs")
+        with open("attendee.lock") as f:
+            setup_logger.error(
+                "attendee.lock found. Exiting to prevent concurrent runs"
+            )
             sys.exit(1)
     except FileNotFoundError:
         pass
 
 # Create main.lock file
-with open("main.lock", "w") as f:
+with open("attendee.lock", "w") as f:
     f.write("")
-    setup_logger.info("main.lock created")
+    setup_logger.info("attendee.lock created")
 
 
 # Load config
@@ -249,5 +251,5 @@ taiga_janitor.add_useful_fields(
 )
 
 # Delete main.lock
-postloop_logger.info("Removing main.lock")
-os.remove("main.lock")
+postloop_logger.info("Removing attendee.lock")
+os.remove("attendee.lock")
