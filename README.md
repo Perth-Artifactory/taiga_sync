@@ -2,7 +2,19 @@
 
 CRM-ish workflows tacked onto a kanban board innit
 
+## Issue syncing
+
+Takes issues from a Slack channel and adds them to a project's issues. This typically requires a corresponding Slack workflow.
+
+### Usage
+
+`issue_sync.py`
+
+* `--testing` will process all messages regardless of whether they've been processed before.
+
 ## Attendee tracking
+
+Tracks attendee interactions with the AF bureaucracy 
 
 ### Usage
 

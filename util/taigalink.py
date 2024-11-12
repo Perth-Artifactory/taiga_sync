@@ -1,10 +1,11 @@
 import logging
 import sys
+from pprint import pprint
 
 import requests
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.DEBUG)
 
 
 def get_custom_fields_for_story(
@@ -167,3 +168,169 @@ def set_custom_field(
         logger.error(response.json())
 
     return False
+
+
+def create_issue(
+    taiga_auth_token: str,
+    project_id: str,
+    config: dict,
+    description: str = "No description provided",
+    severity_id: int | None = None,
+    severity_str: str | None = None,
+    type_id: int | None = None,
+    type_str: str | None = None,
+    priority_id: int | None = 4,
+    subject: str = "Untriaged issue reported on Slack",
+    tags: list = [],
+    watchers: list = [],
+) -> bool:
+    """Create an issue on a Taiga project."""
+
+    # Maps
+    # Slack name -> Taiga name
+    severity_map = {
+        "This is a minor inconvenience": "Minor - Minor inconvenience",
+        "This affects my ability to use the space": "Normal - Affects an attendees ability to use the space",
+        "This significantly affects my ability to use the space": "Important - Significantly affects an attendees ability to use the space",
+        "This affects a large number of members": "Important - This is a key tool/equipment/resource for members",
+        "There is a risk of injury or damage to infrastructure": "Critical - This has the potential to cause injury",
+    }
+    type_map = {
+        "Broken/Damaged tool": "Broken Tool/Equipment",
+        "Broken infrastructure (doors etc)": "Broken Infrastructure",
+        "IT fault": "IT Fault",
+        "Something else": "Uncategorised",
+    }
+
+    # Convert all maps to lowercase
+    severity_map = {key.lower(): value for key, value in severity_map.items()}
+    type_map = {key.lower(): value for key, value in type_map.items()}
+
+    # Get the severity, priority and type IDs
+    if severity_id is None and severity_str:
+        logger.debug(f"Attempting to match severity: {severity_str}")
+        severity_str = severity_map.get(severity_str.lower(), None)
+        severity_id = item_mapper(
+            item=severity_str,
+            field_type="severity",
+            project_id=project_id,
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+        )
+        logger.debug(f"Matched severity: {severity_id}")
+    if type_id is None and type_str:
+        logger.debug(f"Attempting to match type: {type_str}")
+        type_str = type_map.get(type_str.lower(), None)
+        type_id = item_mapper(
+            item=type_str,
+            field_type="type",
+            project_id=project_id,
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+        )
+        logger.debug(f"Matched type: {type_id}")
+
+    if not severity_id and priority_id and type_id:
+        logger.error("Severity, priority and type IDs not found")
+        return False
+
+    create_url = f"{config['taiga']['url']}/api/v1/issues"
+    logger.warning(watchers)
+    response = requests.post(
+        create_url,
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+        },
+        json={
+            "project": project_id,
+            "subject": subject,
+            "description": description,
+            "tags": tags + ["slack"],
+            "severity": severity_id,
+            "priority": priority_id,
+            "type": type_id,
+            "watchers": watchers,
+        },
+    )
+
+    if response.status_code == 201:
+        logger.info(f"Created issue {response.json()['id']} on project {project_id}")
+        # Print the raw request that was made to taiga
+        pprint(response.json())
+        return response.json()["id"]
+    else:
+        logger.error(
+            f"Failed to create issue on project {project_id}: {response.status_code}"
+        )
+        logger.error(response.json())
+        return False
+
+
+def item_mapper(
+    item: str | None,
+    field_type: str,
+    project_id: str,
+    taiga_auth_token: str,
+    config: dict,
+) -> int:
+    """Map an item to a Taiga ID."""
+    if not item:
+        return False
+    # Construct the url
+    if field_type == "severity":
+        url = f"{config['taiga']['url']}/api/v1/severities?project={project_id}"
+    elif field_type == "priority":
+        url = f"{config['taiga']['url']}/api/v1/priorities?project={project_id}"
+    elif field_type == "type":
+        url = f"{config['taiga']['url']}/api/v1/issue-types?project={project_id}"
+
+    # Fetch the items
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+    objects = response.json()
+
+    logging.debug(f"Fetched objects: {objects}")
+    logging.debug(f"Looking for item: {item}")
+
+    for object in objects:
+        if object["name"].lower() == item.lower():
+            return object["id"]
+
+    return False
+
+
+def map_slack_names_to_taiga_usernames(input_string: str, taiga_users: dict) -> str:
+    """Takes a string and maps applicable Slack names to Taiga usernames."""
+    for display_name in taiga_users:
+        input_string = input_string.replace(
+            display_name, f"@{taiga_users[display_name].username}"
+        )
+    return input_string
+
+
+def create_link_to_entry(
+    config,
+    taiga_auth_token,
+    entry_id: int,
+    project_id: int | None = None,
+    project_str: str | None = None,
+    entry_type: str = "story",
+):
+    """Create a link to the TidyHQ entry for the project."""
+    if project_str is None and project_id:
+        # Fetch the project name
+        # TODO retrieve the project name from the ID.
+        # Fortunately the only time this function is used is in a situation where we've derived the project ID from the project name
+        logger.error(
+            "Project name not provided and this function is not yet capable of retrieving it from the ID"
+        )
+    # Remap entry_type to the versions used in URLs
+    entry_map = {"story": "us", "issue": "issue", "task": "task"}
+
+    if entry_type not in entry_map:
+        logger.error(f"Entry type {entry_type} not supported")
+        return False
+
+    return f"{config['taiga']['url']}/project/{project_str}/{entry_map[entry_type]}/{entry_id}"
