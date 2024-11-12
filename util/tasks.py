@@ -5,6 +5,9 @@ import sys
 
 from util import taigalink, tidyhq, training
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
     """Check if the contact has a Slack ID field set in TidyHQ."""
@@ -18,14 +21,14 @@ def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
             contact = c
             break
     if not contact:
-        logging.error(f"Contact {contact_id} not found in cache")
+        logger.error(f"Contact {contact_id} not found in cache")
         return False
 
     # Check if the contact is already in the Slack group
     for field in contact["custom_fields"]:
         if field["id"] == config["tidyhq"]["ids"]["slack"]:
             if field["value"]:
-                logging.debug(f"Contact {contact_id} has an associated slack account")
+                logger.debug(f"Contact {contact_id} has an associated slack account")
                 return True
     return False
 
@@ -46,11 +49,11 @@ def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> 
     member = False
     for membership in memberships:
         if membership["membership_level"]["name"] == "Visitor":
-            logging.debug(f"Contact {contact_id} is a visitor")
+            logger.debug(f"Contact {contact_id} is a visitor")
             visitor = True
 
         elif "Membership" in membership["membership_level"]["name"]:
-            logging.debug(f"Contact {contact_id} is a member")
+            logger.debug(f"Contact {contact_id} is a member")
             member = True
 
     return visitor or member
@@ -67,11 +70,11 @@ def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> b
         cache=tidyhq_cache, contact_id=contact_id
     )
 
-    logging.debug(f"Contact {contact_id} has {len(memberships)} memberships")
+    logger.debug(f"Contact {contact_id} has {len(memberships)} memberships")
 
     for membership in memberships:
         if "Membership" in membership["membership_level"]["name"]:
-            logging.debug(f"Contact {contact_id} is a member")
+            logger.debug(f"Contact {contact_id} is a member")
             return True
     return False
 
@@ -86,7 +89,7 @@ def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -
     )
 
     if "Induction (Member)" in inductions:
-        logging.debug(f"Contact {contact_id} has completed the member induction")
+        logger.debug(f"Contact {contact_id} has completed the member induction")
         return True
     return False
 
@@ -101,11 +104,11 @@ def visitor_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) 
     )
 
     if "Induction (Visitor)" in inductions:
-        logging.debug(f"Contact {contact_id} has completed the visitor induction")
+        logger.debug(f"Contact {contact_id} has completed the visitor induction")
         return True
 
     elif "Induction (Member)" in inductions:
-        logging.debug(
+        logger.debug(
             f"Contact {contact_id} has completed the member induction (bypassing visitor induction)"
         )
         return True
@@ -124,7 +127,7 @@ def keyholder_induction(
     )
 
     if "Induction (Keyholder)" in inductions:
-        logging.debug(f"Contact {contact_id} has completed the keyholder induction")
+        logger.debug(f"Contact {contact_id} has completed the keyholder induction")
         return True
     return False
 
@@ -143,7 +146,7 @@ def id_photo(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     )
 
     if photo_url:
-        logging.debug(f"Contact {contact_id} has uploaded an ID photo")
+        logger.debug(f"Contact {contact_id} has uploaded an ID photo")
         return True
     return False
 
@@ -165,7 +168,7 @@ def check_payment_method(
             payment_method = invoice["payments"][0]["type"]
             break
 
-    logging.debug(f"Contact {contact_id} last paid with: {payment_method}")
+    logger.debug(f"Contact {contact_id} last paid with: {payment_method}")
 
     if payment_method == "bank":
         return True
@@ -183,9 +186,9 @@ def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) 
         # Bond invoices are specific amounts for concession, full respectively
         # This is a best guess without retrieving the full invoice details
         if invoice["amount"] in [135, 225]:
-            logging.debug(f"Contact {contact_id} may have been sent a bond invoice")
+            logger.debug(f"Contact {contact_id} may have been sent a bond invoice")
             return True
-        logging.debug(f"Contact {contact_id} has not been sent a bond invoice")
+        logger.debug(f"Contact {contact_id} has not been sent a bond invoice")
     return False
 
 
@@ -226,7 +229,7 @@ def check_all_tasks(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
 
         if not tagged:
@@ -241,13 +244,13 @@ def check_all_tasks(
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
             if task.status == 4:
-                logging.debug(f"Task {task.subject} is already completed")
+                logger.debug(f"Task {task.subject} is already completed")
                 continue
             if task.subject not in task_function_map:
-                logging.debug(f"No function found for task {task.subject}")
+                logger.debug(f"No function found for task {task.subject}")
                 continue
 
-            logging.debug(f"Checking task {task.subject}")
+            logger.debug(f"Checking task {task.subject}")
             check = task_function_map[task.subject](
                 config=config, tidyhq_cache=tidyhq_cache, contact_id=tidyhq_id
             )
@@ -262,11 +265,11 @@ def check_all_tasks(
                     version=task.version,
                 )
                 if updating:
-                    logging.info(f"Task {task.subject} marked as complete")
+                    logger.info(f"Task {task.subject} marked as complete")
                     made_changes = True
                 else:
-                    logging.error(f"Failed to mark task {task.subject} as complete")
+                    logger.error(f"Failed to mark task {task.subject} as complete")
             else:
-                logging.debug(f"Task {task.subject} not complete")
+                logger.debug(f"Task {task.subject} not complete")
 
     return made_changes

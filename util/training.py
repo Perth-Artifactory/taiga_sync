@@ -1,6 +1,9 @@
 from util import tidyhq
 import logging
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def get_inductions_for_contact(
     config: dict, contact_id: str, tidyhq_cache: dict
@@ -11,12 +14,12 @@ def get_inductions_for_contact(
     contact = tidyhq.get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
 
     if not contact:
-        logging.error(f"Contact {contact_id} not found in cache")
+        logger.error(f"Contact {contact_id} not found in cache")
         return []
 
     raw_groups = contact["groups"]
 
-    logging.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
+    logger.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
 
     # Strip down to just the induction groups
     induction_groups = []
@@ -26,7 +29,7 @@ def get_inductions_for_contact(
                 group["label"].replace(config["tidyhq"]["training_prefix"], "")
             )
 
-    logging.debug(
+    logger.debug(
         f"Stripped down to {len(induction_groups)} induction groups for contact {contact_id}"
     )
 

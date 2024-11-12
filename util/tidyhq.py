@@ -11,6 +11,9 @@ import requests
 
 from util import taigalink
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def query(
     cat: str | int,
@@ -38,7 +41,7 @@ def query(
                         except:
                             pass
                     # If we can't find the group, handle via query instead
-                    logging.debug(f"Could not find group with ID {term} in cache")
+                    logger.debug(f"Could not find group with ID {term} in cache")
                 else:
                     return cache["groups"]
             elif cat == "contacts":
@@ -47,17 +50,17 @@ def query(
                         if int(contact["id"]) == int(term):
                             return contact
                     # If we can't find the contact, handle via query
-                    logging.debug(f"Could not find contact with ID {term} in cache")
+                    logger.debug(f"Could not find contact with ID {term} in cache")
                 else:
                     return cache["contacts"]
         else:
-            logging.debug(f"Could not find category {cat} in cache")
+            logger.debug(f"Could not find category {cat} in cache")
 
     append = ""
     if term:
         append = f"/{term}"
 
-    logging.debug(f"Querying TidyHQ for {cat}{append}")
+    logger.debug(f"Querying TidyHQ for {cat}{append}")
     try:
         r = requests.get(
             f"https://api.tidyhq.com/v1/{cat}{append}",
@@ -65,7 +68,7 @@ def query(
         )
         data = r.json()
     except requests.exceptions.RequestException as e:
-        logging.error("Could not reach TidyHQ")
+        logger.error("Could not reach TidyHQ")
         sys.exit(1)
 
     if cat == "groups" and not term:
@@ -102,44 +105,44 @@ def get_emails(config: dict, limit: int = 1000) -> list:
             raw_emails = r.json()
             emails += raw_emails
             offset += 5
-            logging.debug(f"Sleeping for 3 seconds")
+            logger.debug(f"Sleeping for 3 seconds")
             time.sleep(3)
         else:
-            logging.error(f"Failed to get emails from TidyHQ: {r.status_code}")
-            logging.error(r.text)
-            logging.error(f"Returning {len(emails)}/{limit} emails")
+            logger.error(f"Failed to get emails from TidyHQ: {r.status_code}")
+            logger.error(r.text)
+            logger.error(f"Returning {len(emails)}/{limit} emails")
             break
     return emails
 
 
 def setup_cache(config: dict) -> dict[str, Any]:
     """Retrieve preset data from TidyHQ and store it in a cache file"""
-    logging.info("Cache is being retrieved from TidyHQ")
+    logger.info("Cache is being retrieved from TidyHQ")
     cache = {}
-    logging.debug("Getting contacts from TidyHQ")
+    logger.debug("Getting contacts from TidyHQ")
     raw_contacts = query(cat="contacts", config=config)
-    logging.debug(f"Got {len(raw_contacts)} contacts from TidyHQ")
+    logger.debug(f"Got {len(raw_contacts)} contacts from TidyHQ")
 
-    logging.debug("Getting groups from TidyHQ")
+    logger.debug("Getting groups from TidyHQ")
     cache["groups"] = query(cat="groups", config=config)
 
-    logging.debug(f'Got {len(cache["groups"])} groups from TidyHQ')
+    logger.debug(f'Got {len(cache["groups"])} groups from TidyHQ')
 
-    logging.debug("Getting memberships from TidyHQ")
+    logger.debug("Getting memberships from TidyHQ")
     cache["memberships"] = query(cat="memberships", config=config)
-    logging.debug(f'Got {len(cache["memberships"])} memberships from TidyHQ')
+    logger.debug(f'Got {len(cache["memberships"])} memberships from TidyHQ')
 
-    logging.debug("Getting invoices from TidyHQ")
+    logger.debug("Getting invoices from TidyHQ")
     raw_invoices = query(cat="invoices", config=config)
-    logging.debug(f"Got {len(raw_invoices)} invoices from TidyHQ")
+    logger.debug(f"Got {len(raw_invoices)} invoices from TidyHQ")
 
-    logging.debug("Getting emails from TidyHQ")
+    logger.debug("Getting emails from TidyHQ")
     raw_emails = get_emails(config, limit=1)
-    logging.debug(f"Got {len(raw_emails)} emails from TidyHQ")
+    logger.debug(f"Got {len(raw_emails)} emails from TidyHQ")
 
-    logging.debug("Getting org details from TidyHQ")
+    logger.debug("Getting org details from TidyHQ")
     cache["org"] = query(cat="organization", config=config)
-    logging.debug(f"Org domain is set to {cache['org']['domain_prefix']}")  # type: ignore
+    logger.debug(f"Org domain is set to {cache['org']['domain_prefix']}")  # type: ignore
 
     # Trim contact data to just what we need
     cache["contacts"] = []
@@ -190,10 +193,10 @@ def setup_cache(config: dict) -> dict[str, Any]:
             cleaned_invoices[contact_id] = cache["invoices"][contact_id]
         else:
             removed += 1
-    logging.debug(
+    logger.debug(
         f"Removed {removed} invoice lists where contact hasn't had an invoice in 18 months"
     )
-    logging.debug(f"Left with {len(cleaned_invoices)} contacts with invoices")
+    logger.debug(f"Left with {len(cleaned_invoices)} contacts with invoices")
     cache["invoices"] = cleaned_invoices
 
     # Sort invoices in each contact by date
@@ -210,9 +213,9 @@ def setup_cache(config: dict) -> dict[str, Any]:
                 cache["emails"][recipient] = []
             cache["emails"][recipient].append({"subject": email["subject"]})
 
-    logging.debug(f"Got {len(cache['emails'])} email recipients from TidyHQ")
+    logger.debug(f"Got {len(cache['emails'])} email recipients from TidyHQ")
 
-    logging.debug("Writing cache to file")
+    logger.debug("Writing cache to file")
     cache["time"] = datetime.datetime.now().timestamp()
     with open("cache.json", "w") as f:
         json.dump(cache, f)
@@ -231,7 +234,7 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
     """
     if not config:
         with open("config.json") as f:
-            logging.debug("Loading config from file")
+            logger.debug("Loading config from file")
             config = json.load(f)
 
     if cache:
@@ -240,7 +243,7 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
             cache["time"] < datetime.datetime.now().timestamp() - config["cache_expiry"]
             or force
         ):
-            logging.debug("Provided cache is stale")
+            logger.debug("Provided cache is stale")
         else:
             # If the provided cache is fresh, just return it
             return cache
@@ -250,11 +253,11 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         with open("cache.json") as f:
             cache = json.load(f)
     except FileNotFoundError:
-        logging.debug("No cache file found")
+        logger.debug("No cache file found")
         cache = setup_cache(config=config)
         return cache
     except json.decoder.JSONDecodeError:
-        logging.error("Cache file is invalid")
+        logger.error("Cache file is invalid")
         cache = setup_cache(config=config)
         return cache
 
@@ -263,11 +266,11 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         cache["time"] < datetime.datetime.now().timestamp() - config["cache_expiry"]
         or force
     ):
-        logging.debug("Cache file is stale")
+        logger.debug("Cache file is stale")
         cache = setup_cache(config=config)
         return cache
     else:
-        logging.debug("Cache file is fresh")
+        logger.debug("Cache file is fresh")
         return cache
 
 
@@ -290,7 +293,7 @@ def email_to_tidyhq(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
 
         if not tagged:
@@ -306,36 +309,36 @@ def email_to_tidyhq(
         if response.status_code == 200:
             custom_attributes = response.json().get("attributes_values", {})
             version = response.json().get("version", 0)
-            logging.debug(
+            logger.debug(
                 f"Fetched custom attributes for story {story.id}: {custom_attributes}"
             )
         else:
-            logging.error(
+            logger.error(
                 f"Failed to fetch custom attributes for story {story.id}: {response.status_code}"
             )
 
         # Skip if no custom attributes
         if custom_attributes == {}:
-            logging.debug(f"Story {story.id} has no custom attributes")
+            logger.debug(f"Story {story.id} has no custom attributes")
             continue
 
         # Skip if TidyHQ ID already set
         if custom_attributes.get("1", None):
-            logging.debug(f"Story {story.id} already has a TidyHQ ID")
+            logger.debug(f"Story {story.id} already has a TidyHQ ID")
             continue
 
         # Skip if no email address
         if not custom_attributes.get("2", None):
-            logging.debug(f"Story {story.id} has no email address")
+            logger.debug(f"Story {story.id} has no email address")
             continue
 
         # Get the email address
         email = custom_attributes["2"]
-        logging.debug(f"Searching for TidyHQ contact with email: {email}")
+        logger.debug(f"Searching for TidyHQ contact with email: {email}")
 
         for contact in tidyhq_cache["contacts"]:
             if contact["email_address"] == email:
-                logging.info(f"Found TidyHQ contact for {email}")
+                logger.info(f"Found TidyHQ contact for {email}")
 
                 # Update the custom field via the Taiga API
                 custom_attributes["1"] = contact["id"]
@@ -350,13 +353,13 @@ def email_to_tidyhq(
                 )
 
                 if updating:
-                    logging.info(
+                    logger.info(
                         f"Updated story {story.id} with TidyHQ ID {contact['id']}"
                     )
                     made_changes = True
 
                 else:
-                    logging.error(
+                    logger.error(
                         f"Failed to update story {story.id} with TidyHQ ID {contact['id']}"
                     )
                 break
@@ -388,7 +391,7 @@ def get_custom_field(
         field_id = config["tidyhq"]["ids"].get(field_map_name, None)
 
     if not field_id:
-        logging.error("No field ID provided or found in config")
+        logger.error("No field ID provided or found in config")
         return None
 
     for contact in cache["contacts"]:
@@ -408,12 +411,12 @@ def check_for_groups(
 
     contact = get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
     if not contact:
-        logging.error(f"Contact {contact_id} not found in cache")
+        logger.error(f"Contact {contact_id} not found in cache")
         return False
 
     raw_groups = contact["groups"]
 
-    logging.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
+    logger.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
 
     for group in raw_groups:
         if len(groups) > 0:
@@ -433,7 +436,7 @@ def get_useful_contacts(tidyhq_cache: dict) -> list:
         if membership["state"] != "expired":
             useful_contacts.append(membership["contact_id"])
 
-    logging.debug(
+    logger.debug(
         f"Got {len(useful_contacts)} contacts with active or partial memberships"
     )
     return useful_contacts

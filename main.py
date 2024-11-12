@@ -14,6 +14,9 @@ logging.basicConfig(level=logging.INFO)
 # Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug
 urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
+setup_logger = logging.getLogger("setup")
+loop_logger = logging.getLogger("loop")
+postloop_logger = logging.getLogger("postloop")
 
 
 # Look for the --no-import flag
@@ -31,7 +34,7 @@ if "--force" in sys.argv:
 if not force:
     try:
         with open("main.lock") as f:
-            logging.error("main.lock found. Exiting to prevent concurrent runs")
+            setup_logger.error("main.lock found. Exiting to prevent concurrent runs")
             sys.exit(1)
     except FileNotFoundError:
         pass
@@ -39,7 +42,7 @@ if not force:
 # Create main.lock file
 with open("main.lock", "w") as f:
     f.write("")
-    logging.info("main.lock created")
+    setup_logger.info("main.lock created")
 
 
 # Load config
@@ -47,27 +50,31 @@ try:
     with open("config.json") as f:
         config = json.load(f)
 except FileNotFoundError:
-    logging.error(
+    setup_logger.error(
         "config.json not found. Create it using example.config.json as a template"
     )
     sys.exit(1)
 
 # Check for required Taiga config values
 if not all(key in config["taiga"] for key in ["url", "username", "password"]):
-    logging.error("Missing required config values in taiga section. Check config.json")
+    setup_logger.error(
+        "Missing required config values in taiga section. Check config.json"
+    )
     sys.exit(1)
 
 # Check for required TidyHQ config values
 if not all(
     key in config["tidyhq"] for key in ["token", "ids", "group_ids", "training_prefix"]
 ):
-    logging.error("Missing required config values in tidyhq section. Check config.json")
+    setup_logger.error(
+        "Missing required config values in tidyhq section. Check config.json"
+    )
     sys.exit(1)
 
 # Check for cache expiry and set if not present
 if "cache_expiry" not in config:
     config["cache_expiry"] = 86400
-    logging.error("Cache expiry not set in config. Defaulting to 24 hours")
+    setup_logger.error("Cache expiry not set in config. Defaulting to 24 hours")
 
 
 # Get auth token for Taiga
@@ -85,7 +92,7 @@ response = requests.post(
 if response.status_code == 200:
     taiga_auth_token = response.json().get("auth_token")
 else:
-    logging.error(f"Failed to get auth token: {response.status_code}")
+    setup_logger.error(f"Failed to get auth token: {response.status_code}")
     sys.exit(1)
 
 taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
@@ -100,15 +107,15 @@ for project in projects:
         break
 
 if not attendee_project:
-    logging.error("Attendee project not found")
+    setup_logger.error("Attendee project not found")
     sys.exit(1)
 
-logging.debug(f"Attendee project found: {attendee_project.id}")
+setup_logger.debug(f"Attendee project found: {attendee_project.id}")
 
 
 # Set up TidyHQ cache
 tidyhq_cache = tidyhq.fresh_cache(config=config)
-logging.info(
+setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
 
@@ -123,7 +130,7 @@ closed_by_status = False
 progress_on_signup = False
 first = True
 
-logging.info("Starting processing loop")
+loop_logger.info("Starting processing loop")
 iteration = 1
 while (
     first
@@ -136,30 +143,29 @@ while (
     or progress_on_signup
 ):
     if not first:
-        logging.info(f"Iteration: {iteration}")
+        loop_logger.info(f"Iteration: {iteration}")
         # Show which modules made changes in the last iteration
-        logging.info("Changes made in the last iteration:")
+        loop_logger.info("Changes made in the last iteration:")
         if email_mapping_changes:
-            logging.info("Email mapping")
+            loop_logger.info("Email mapping")
         if intake_from_tidyhq:
-            logging.info("Intake from TidyHQ")
+            loop_logger.info("Intake from TidyHQ")
         if template_changes:
-            logging.info("Templates")
+            loop_logger.info("Templates")
         if task_changes:
-            logging.info("Tasks")
+            loop_logger.info("Tasks")
         if progress_changes:
-            logging.info("Progress")
+            loop_logger.info("Progress")
         if closed_by_status:
-            logging.info("Closed by status")
+            loop_logger.info("Closed by status")
         if progress_on_signup:
-            logging.info("Progress on signup")
-        logging.info("---")
+            loop_logger.info("Progress on signup")
+        loop_logger.info("---")
     else:
         first = False
 
     # Map email addresses to TidyHQ
-    logging.info("Mapping email addresses to TidyHQ")
-    logging.getLogger().setLevel(logging.ERROR)
+    loop_logger.info("Mapping email addresses to TidyHQ")
     email_mapping_changes = tidyhq.email_to_tidyhq(
         config=config,
         tidyhq_cache=tidyhq_cache,
@@ -167,12 +173,10 @@ while (
         taiga_auth_token=taiga_auth_token,
         project_id=attendee_project.id,
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Create new cards based on existing TidyHQ contacts
     if import_from_tidyhq:
-        logging.info("Creating cards for TidyHQ contacts")
-        logging.getLogger().setLevel(logging.DEBUG)
+        loop_logger.info("Creating cards for TidyHQ contacts")
         intake_from_tidyhq = intake.pull_tidyhq(
             config=config,
             tidyhq_cache=tidyhq_cache,
@@ -180,21 +184,17 @@ while (
             taiga_auth_token=taiga_auth_token,
             project_id=attendee_project.id,
         )
-        logging.getLogger().setLevel(logging.INFO)
     else:
-        logging.info("Skipping TidyHQ import due to --no-import flag")
+        loop_logger.info("Skipping TidyHQ import due to --no-import flag")
 
     # Sync templates
-    logging.info("Syncing templates")
-    logging.getLogger().setLevel(logging.ERROR)
+    loop_logger.info("Syncing templates")
     template_changes = taiga_janitor.sync_templates(
         taigacon=taigacon, project_id=attendee_project.id
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Run through tasks
-    logging.info("Checking all tasks")
-    logging.getLogger().setLevel(logging.ERROR)
+    loop_logger.info("Checking all tasks")
     task_changes = tasks.check_all_tasks(
         taigacon=taigacon,
         taiga_auth_token=taiga_auth_token,
@@ -202,42 +202,35 @@ while (
         tidyhq_cache=tidyhq_cache,
         project_id=attendee_project.id,
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Progress user stories based on task completion
-    logging.info("Progressing user stories")
-    logging.getLogger().setLevel(logging.ERROR)
+    loop_logger.info("Progressing user stories")
     progress_changes = taiga_janitor.progress_stories(
         taigacon=taigacon,
         project_id=attendee_project.id,
         taiga_auth_token=taiga_auth_token,
         config=config,
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Close tasks based on story status
-    logging.info("Checking for tasks that can be closed based on story status")
-    logging.getLogger().setLevel(logging.ERROR)
+    loop_logger.info("Checking for tasks that can be closed based on story status")
     closed_by_status = conditional_closing.close_by_status(
         taigacon=taigacon,
         project_id=attendee_project.id,
         config=config,
         taiga_auth_token=taiga_auth_token,
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     # Move tasks from column 1 to 2 if they have a TidyHQ ID
-    logging.info(
+    loop_logger.info(
         "Checking for user stories that can progress to attendee based on TidyHQ signup"
     )
-    logging.getLogger().setLevel(logging.ERROR)
     progress_on_signup = taiga_janitor.progress_on_signup(
         taigacon=taigacon,
         project_id=attendee_project.id,
         taiga_auth_token=taiga_auth_token,
         config=config,
     )
-    logging.getLogger().setLevel(logging.INFO)
 
     iteration += 1
 
@@ -246,8 +239,7 @@ while (
 
 
 # Add helper fields to user stories
-logging.info("Adding helper fields to user stories")
-logging.getLogger().setLevel(logging.ERROR)
+postloop_logger.info("Adding helper fields to user stories")
 taiga_janitor.add_useful_fields(
     taigacon=taigacon,
     project_id=attendee_project.id,
@@ -255,8 +247,7 @@ taiga_janitor.add_useful_fields(
     config=config,
     tidyhq_cache=tidyhq_cache,
 )
-logging.getLogger().setLevel(logging.INFO)
 
 # Delete main.lock
-logging.info("Removing main.lock")
+postloop_logger.info("Removing main.lock")
 os.remove("main.lock")

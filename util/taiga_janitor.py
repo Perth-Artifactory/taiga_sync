@@ -4,6 +4,9 @@ import sys
 
 from util import taigalink
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def sync_templates(taigacon, project_id: str) -> bool:
     """Copy tasks from template stories to user stories."""
@@ -37,7 +40,7 @@ def sync_templates(taigacon, project_id: str) -> bool:
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
 
         if not tagged:
@@ -47,17 +50,17 @@ def sync_templates(taigacon, project_id: str) -> bool:
 
         if str(story.id) in actions:
             if str(story.status) in actions[str(story.id)]:
-                logging.debug(
+                logger.debug(
                     f"Tasks for story {story.subject} already created in state {story.status}"
                 )
                 continue
 
         # Check if we have a template for this type of story
         if story.status not in templates:
-            logging.debug(f"No template for story {story.subject}")
+            logger.debug(f"No template for story {story.subject}")
             continue
 
-        logging.debug(f"Found template for story {story.subject}")
+        logger.debug(f"Found template for story {story.subject}")
         template = templates[story.status]
 
         # Get a list of existing tasks for the story
@@ -68,12 +71,10 @@ def sync_templates(taigacon, project_id: str) -> bool:
 
         for task in template:
             if task["subject"] in existing_tasks:
-                logging.debug(f"Task {task['subject']} already exists")
+                logger.debug(f"Task {task['subject']} already exists")
                 continue
 
-            logging.info(
-                f"Creating task {task['subject']} with status {task['status']}"
-            )
+            logger.info(f"Creating task {task['subject']} with status {task['status']}")
             taigacon.tasks.create(
                 project=project_id,
                 user_story=story.id,
@@ -106,7 +107,7 @@ def progress_stories(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
                 break
 
@@ -122,11 +123,11 @@ def progress_stories(
         for task in tasks:
             if task.status != 4:
                 complete = False
-                logging.debug(f"Task {task.subject} is not complete")
+                logger.debug(f"Task {task.subject} is not complete")
                 break
 
         if complete:
-            logging.info(
+            logger.info(
                 f"Story {story.subject} has all tasks complete and will be progressed"
             )
             taigalink.progress_story(
@@ -154,7 +155,7 @@ def progress_on_signup(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
                 break
 
@@ -171,7 +172,7 @@ def progress_on_signup(
         )
 
         if tidyhq_id:
-            logging.debug(
+            logger.debug(
                 f"Story {story.subject} has a TidyHQ ID set but is prospective"
             )
 
@@ -202,7 +203,7 @@ def add_useful_fields(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
                 break
 
@@ -217,7 +218,7 @@ def add_useful_fields(
         )
 
         if tidyhq_url:
-            logging.debug(f"Story {story.subject} already has a TidyHQ URL set")
+            logger.debug(f"Story {story.subject} already has a TidyHQ URL set")
             continue
 
         # Check if the story has a TidyHQ ID set
@@ -226,7 +227,7 @@ def add_useful_fields(
         )
 
         if not tidyhq_id:
-            logging.debug(f"Story {story.subject} does not have a TidyHQ ID set")
+            logger.debug(f"Story {story.subject} does not have a TidyHQ ID set")
             continue
 
         # Set the TidyHQ URL

@@ -2,6 +2,9 @@ import logging
 
 from util import taigalink, tidyhq
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def pull_tidyhq(
     config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
@@ -21,7 +24,7 @@ def pull_tidyhq(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
 
         if not tagged:
@@ -37,7 +40,7 @@ def pull_tidyhq(
     # Find the contacts that are in TidyHQ but not in stories
     for contact in contacts:
         if contact not in story_contacts:
-            logging.debug(f"Contact {contact} has not been attached to a story")
+            logger.debug(f"Contact {contact} has not been attached to a story")
 
             # Create a new story for the contact
             story = taigacon.user_stories.create(
@@ -51,7 +54,7 @@ def pull_tidyhq(
                 status=1,
             )
             made_changes = True
-            logging.debug(f"Created story {story.subject} for contact {contact}")
+            logger.debug(f"Created story {story.subject} for contact {contact}")
 
             # Set the TidyHQ ID for the story
             taigalink.set_custom_field(
@@ -61,7 +64,7 @@ def pull_tidyhq(
                 field_id=1,
                 value=contact,
             )
-            logging.debug(
+            logger.debug(
                 f"Set TidyHQ ID {contact} for story {story.subject} to {contact}"
             )
 

@@ -3,6 +3,9 @@ import sys
 
 from util import taigalink
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def close_by_status(
     taigacon, project_id: str, config: dict, taiga_auth_token: str
@@ -31,7 +34,7 @@ def close_by_status(
         tagged = False
         for tag in story.tags:
             if tag[0] == "bot-managed":
-                logging.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
                 status = int(story.status)
 
@@ -43,13 +46,13 @@ def close_by_status(
         for task in tasks:
             # If the task is already complete, skip it
             if task.status == 4:
-                logging.debug(f"Task {task.subject} is already completed")
+                logger.debug(f"Task {task.subject} is already completed")
                 continue
 
             # Look for task in map up until the status of the story
             for current_status in range(1, status + 1):
                 if task.subject in task_map[current_status]:
-                    logging.debug(f"Completing task {task.subject}")
+                    logger.debug(f"Completing task {task.subject}")
                     updating = taigalink.update_task(
                         task_id=task.id,
                         status=4,
@@ -58,10 +61,10 @@ def close_by_status(
                         version=task.version,
                     )
                     if updating:
-                        logging.info(f"Task {task.subject} marked as complete")
+                        logger.info(f"Task {task.subject} marked as complete")
                         made_changes = True
                     else:
-                        logging.error(f"Failed to mark task {task.subject} as complete")
+                        logger.error(f"Failed to mark task {task.subject} as complete")
     return made_changes
 
 

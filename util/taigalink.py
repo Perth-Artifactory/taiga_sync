@@ -3,6 +3,9 @@ import sys
 
 import requests
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
 
 def get_custom_fields_for_story(
     story_id: str, taiga_auth_token: str, config: dict
@@ -20,11 +23,11 @@ def get_custom_fields_for_story(
     if response.status_code == 200:
         custom_attributes: dict = response.json().get("attributes_values", {})
         version: int = response.json().get("version", 0)
-        logging.debug(
+        logger.debug(
             f"Fetched custom attributes for story {story_id}: {custom_attributes}"
         )
     else:
-        logging.error(
+        logger.error(
             f"Failed to fetch custom attributes for story {story_id}: {response.status_code}"
         )
 
@@ -73,10 +76,10 @@ def update_task(
         return True
 
     else:
-        logging.error(
+        logger.error(
             f"Failed to update task {task_id} with status {status}: {response.status_code}"
         )
-        logging.error(response.json())
+        logger.error(response.json())
         return False
 
 
@@ -89,7 +92,7 @@ def progress_story(
     current_status = int(story.status)
 
     if current_status == 5:
-        logging.info(f"User story {story_id} is already complete")
+        logger.info(f"User story {story_id} is already complete")
         return False
 
     update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
@@ -103,13 +106,13 @@ def progress_story(
     )
 
     if response.status_code == 200:
-        logging.debug(f"User story {story_id} status updated to {current_status + 1}")
+        logger.debug(f"User story {story_id} status updated to {current_status + 1}")
         return True
     else:
-        logging.error(
+        logger.error(
             f"Failed to update user story {story_id} status: {response.status_code}"
         )
-        logging.error(response.json())
+        logger.error(response.json())
         return False
 
 
@@ -129,11 +132,11 @@ def set_custom_field(
     if response.status_code == 200:
         custom_attributes = response.json().get("attributes_values", {})
         version = response.json().get("version", 0)
-        logging.debug(
+        logger.debug(
             f"Fetched custom attributes for story {story_id}: {custom_attributes}"
         )
     else:
-        logging.error(
+        logger.error(
             f"Failed to fetch custom attributes for story {story_id}: {response.status_code}"
         )
         return False
@@ -152,15 +155,15 @@ def set_custom_field(
     )
 
     if response.status_code == 200:
-        logging.info(
+        logger.info(
             f"Updated story {story_id} with custom attribute {field_id}: {value}"
         )
         return True
 
     else:
-        logging.error(
+        logger.error(
             f"Failed to update story {story_id} with custom attribute {field_id}: {value}: {response.status_code}"
         )
-        logging.error(response.json())
+        logger.error(response.json())
 
     return False
