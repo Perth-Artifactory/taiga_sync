@@ -2,12 +2,16 @@
 
 CRM-ish workflows tacked onto a kanban board innit
 
-## Usage
+## Attendee tracking
+
+### Usage
+
+`attendee.py`
 
 * `--import` will create cards based on TidyHQ data.
 * `--force` will override the presence of a lock file.
 
-## Tasks
+### Tasks
 
 | Task                            | Templated in  | Closed by code | Closed by status   | Removed by status  |
 | ------------------------------- | ------------- | -------------- | ------------------ | ------------------ |
@@ -35,7 +39,7 @@ CRM-ish workflows tacked onto a kanban board innit
 | Send bond invoice               | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
 | Keyholder induction completed   | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
 
-## Loop order
+### Loop order
 
 If any of these steps indicate that they've made changes to the board the entire loop will be run again.
 
@@ -55,7 +59,7 @@ If any of these steps indicate that they've made changes to the board the entire
 1. Progress tasks based on TidyHQ sign up
    If a prospective story has a TidyHQ ID set then that story has naturally progressed to the next stage outside of Taiga. Most of the close by code steps don't begin until status 2 so this has been added as a quality of life measure primarily for stories created by the TidyHQ sync step.
 
-## Service load considerations
+### Service load considerations
 
 * TidyHQ - All results are accessed through a time cache (not just runtime) so queries to TidyHQ are reduced
 * Taiga - Very little consideration has been put into reducing the number of calls to Taiga as the service is self hosted.
