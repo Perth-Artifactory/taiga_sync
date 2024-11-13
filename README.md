@@ -14,7 +14,7 @@ Takes issues from a Slack channel and adds them to a project's issues. This typi
 
 ## Attendee tracking
 
-Tracks attendee interactions with the AF bureaucracy 
+Tracks attendee interactions with the AF bureaucracy
 
 ### Usage
 

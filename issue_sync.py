@@ -193,7 +193,9 @@ for message in conversation_history:
 
     # Send a DM to everyone else who was mentioned
     for user in discussed_with_id:
-        message_str = f"An issue has been reported to the Infrastructure team by <@{reporter_id}>. You were mentioned as someone who was involved in the discussion.\n\nYou can view the issue <{issue_url}|here>."
+        message_str = f"""An issue has been reported to the Infrastructure team by <@{reporter_id}> and you were mentioned as someone who was involved in the discussion.
+        
+        You can view the issue <{issue_url}|here>. If you feel there's more information or context you can add to the report please do so."""
         slack.send_dm(slack_id=user, message=message_str, slack_app=app)
 
     # Add a reaction to the message
