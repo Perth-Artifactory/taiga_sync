@@ -145,7 +145,7 @@ def progress_stories(
 def progress_on_signup(
     taigacon, project_id: str, taiga_auth_token: str, config: dict
 ) -> bool:
-    """Progress stories from status 1 to status 2 when a TidyHQ ID is set."""
+    """Progress stories from status 2 to status 3 when a TidyHQ ID is set."""
     made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
@@ -163,7 +163,7 @@ def progress_on_signup(
             continue
 
         # Check if the story is in the prospective column
-        if story.status != 1:
+        if story.status != 2:
             continue
 
         # Check if the story has a TidyHQ ID set
