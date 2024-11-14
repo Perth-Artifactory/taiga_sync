@@ -2,6 +2,12 @@
 
 CRM-ish workflows tacked onto a kanban board innit
 
+## Kanban/Taiga nomenclature
+
+* Each card on a Kanban board is a **user story**
+* Cards sit in one column at a time which is their **status**
+* Things that need to be done for a user story are attached as **tasks**
+
 ## Issue syncing
 
 Takes issues from a Slack channel and adds them to a project's issues. This typically requires a corresponding Slack workflow.
@@ -23,33 +29,41 @@ Tracks attendee interactions with the AF bureaucracy
 * `--import` will create cards based on TidyHQ data.
 * `--force` will override the presence of a lock file.
 
+### Nomenclature
+
+* Each attendee is assigned a **user story**
+* **Statuses** are a representation of the pathway taken by attendees
+
 ### Tasks
 
-| Task                            | Templated in  | Closed by code | Closed by status   | Removed by status  |
-| ------------------------------- | ------------- | -------------- | ------------------ | ------------------ |
-| Respond to query                | 1.Prospective | Req email proc | ✅2.Attendee       | 3.New Member       |
-| Determine project viability     | 1.Prospective | Req email gpt  | N/A                | 4.Member (comp)    |
-| Encourage to visit              | 1.Prospective | Req email gpt  | ✅2.Attendee       | 3.New Member       |
-| Visit                           | 1.Prospective | N/A            | ✅2.Attendee       | 3.New Member       |
-| Join Slack                      | 1.Prospective | ✅            | N/A code only       | 5.Keyholder (comp) |
-| Participated in an event        | 2.Attendee    | N/A            | N/A                | 5.Keyholder        |
-| Signed up as a visitor          | 2.Attendee    | ✅            | N/A                 | 3.New Member       |
-| Discussed moving to membership  | 2.Attendee    | ✅            | N/A                 | 3.New Member       |
-| Completed new visitor induction | 2.Attendee    | ✅            | N/A                | 3.New Member       |
-| Signed up as member             | 2.Attendee    | ✅            | ✅3.New Member     | 4.Member           |
-| New member induction            | 3.New Member  | ✅            | N/A                 | N/A                |
-| Planned first project           | 3.New Member  | N/A            | N/A                | N/A                |
-| Attending events as a member    | 3.New Member  | N/A            | N/A                | 5.Keyholder        |
-| Added to billing groups         | 3.New Member  | ✅            | N/A                 | N/A                |
-| Demonstrated keyholder resp     | 4.Member      | N/A            | ✅5.Keyholder      | 6.Settled          |
-| Offered key                     | 4.Member      | N/A            | ✅5.Keyholder      | 6.Settled          |
-| Keyholder motion put to ManCom  | 5.Keyholder   | Req vote sync  | ✅6.Settled        | N/A                |
-| Keyholder motion successful     | 5.Keyholder   | Req vote sync  | ✅6.Settled        | N/A                |
-| Confirmed photo on tidyhq       | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
-| Confirmed paying via bank       | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
-| Send keyholder documentation    | 5.Keyholder   | ❌ tech limit | ✅6.Settled        | N/A                |
-| Send bond invoice               | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
-| Keyholder induction completed   | 5.Keyholder   | ✅            | ✅6.Settled        | N/A                |
+Tasks are arranged so that once all tasks in a status are complete the attendee is considered a "good \<category\>"
+
+| Task                            | Templated in       | Closed by code   | Closed by status      | Removed by status  | Position justification |
+| ------------------------------- | ------------------ | ---------------- | --------------------- | ------------------ | ---------------------- |
+| Respond to query                | 1.Intake           | ❔Req email proc | ✅3.Attendee         | 4.New Member       | The root status that user stories are created under when they start as an email query |
+| Determine project viability     | 2.Prospective      | ❔Req email gpt  | ➖ N/A               | 5.Member (comp)    | Could conceivably be moved to 3.Attendee but this way we can mark the task as failed if it's clear from an enquiry email that we're not a suitable workshop |
+| Encourage to visit              | 2.Prospective      | ❔Req email gpt  | ✅3.Attendee         | 4.New Member       | The primary target/goal for this status |
+| Visit                           | 2.Prospective      | ➖ N/A           | ✅3.Attendee         | 4.New Member       | Primarily used to trigger the move to the next status |
+| Join Slack                      | 3.Attendee         | ✅               | ➖ N/A               | N/A                | Slack sign up is typically promoted during the first visit. Until this happens it shouldn't be treated as a blocker for progression |
+| Participated in an event        | 3.Attendee         | ➖ N/A           | ➖ N/A               | 7.Keyholder        | The primary target/goal for this status |
+| Signed up as a visitor          | 3.Attendee         | ✅               | ➖ N/A               | 4.New Member       | Not required in the earlier statuses |
+| Discussed moving to membership  | 3.Attendee         | ✅               | ➖ N/A               | 4.New Member       | Some attendees don't want to progress to membership, included here so we can indicate/track that |
+| Completed new visitor induction | 3.Attendee         | ✅               | ➖ N/A               | 4.New Member       | A required step for attendees |
+| Signed up as member             | 3.Attendee         | ✅               | ✅4.New Member       | 5.Member           | Here primarily to allow for programmatic progression |
+| New member induction            | 4.New Member       | ✅               | ➖ N/A               | N/A                | A required step for new members |
+| Planned first project           | 4.New Member       | ➖ N/A           | ➖ N/A               | N/A                | A key to success as a member. Tracked here instead of in 3.Attendee because we don't offer the same level of support with this to non members |
+| Attending events as a member    | 4.New Member       | ➖ N/A           | ➖ N/A               | 6.Pros Keyholder   | Getting new members settled into events is key |
+| Added to billing groups         | 4.New Member       | ✅               | ➖ N/A               | N/A                | A required bureaucratic step for new members |
+| Demonstrated keyholder resp     | 5.Member           | ➖ N/A           | ✅5.Keyholder        | 8.Settled          | Cannot be reasonable demonstrated until all the tasks in 4.New Member are complete. Some members will rest here. |
+| Suggested key application/nom   | 5.Member           | ➖ N/A           | ✅5.Keyholder        | 8.Settled          | Tracking when a responsible person is willing to push for a key |
+| Keyholder motion put to ManCom  | 6.Pros Keyholder   | ❔Req vote sync  | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Keyholder motion successful     | 6.Pros Keyholder   | ❔Req vote sync  | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Confirmed photo on tidyhq       | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Confirmed paying via bank       | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Send keyholder documentation    | 6.Pros Keyholder   | ❌ #4            | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Send bond invoice               | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Keyholder induction completed   | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Discussed volunteering          | 7.Keyholder        | ➖ N/A           | ➖ N/A               | N/A                | Some members will rest here |
 
 ### Loop order
 
