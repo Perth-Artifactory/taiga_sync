@@ -51,7 +51,7 @@ def pull_tidyhq(
                     ),  # type: ignore
                 ),
                 tags=["bot-managed"],
-                status=1,
+                status=2,
             )
             made_changes = True
             logger.debug(f"Created story {story.subject} for contact {contact}")
