@@ -36,13 +36,15 @@ Tracks attendee interactions with the AF bureaucracy
 
 ### Statuses
 
-1. Intake
-1. Prospective
-1. Attendee
-1. New Member
-1. Member
-1. Prospective Keyholder
-1. Keyholder
+| ID | Status                | Description                                         |
+| -- | --------------------- | -------------------------------------------------- |
+| 1  | Intake                | Where new email queries appear                     |
+| 2  | Prospective           | Someone that might attend the space                |
+| 3  | Attendee              | Day Pass attendees                                 |
+| 4  | New Member            | People that have signed up as a member             |
+| 5  | Member                | People that have started to "settle in" as members |
+| 6  | Prospective Keyholder | People that should be considered for a key         |
+| 7  | Keyholder             | People going through the keyholder process         |
 
 
 ### Tasks
