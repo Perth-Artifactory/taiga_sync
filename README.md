@@ -65,12 +65,12 @@ Tasks are arranged so that once all tasks in a status are complete the attendee 
 | Planned first project           | 4.New Member       | ➖ N/A           | ➖ N/A               | N/A                | A key to success as a member. Tracked here instead of in 3.Attendee because we don't offer the same level of support with this to non members |
 | Attending events as a member    | 4.New Member       | ➖ N/A           | ➖ N/A               | 6.Pros Keyholder   | Getting new members settled into events is key |
 | Added to billing groups         | 4.New Member       | ✅               | ➖ N/A               | N/A                | A required bureaucratic step for new members |
-| Demonstrated keyholder resp     | 5.Member           | ➖ N/A           | ✅5.Keyholder        | 8.Settled          | Cannot be reasonable demonstrated until all the tasks in 4.New Member are complete. Some members will rest here. |
-| Suggested key application/nom   | 5.Member           | ➖ N/A           | ✅5.Keyholder        | 8.Settled          | Tracking when a responsible person is willing to push for a key |
+| Demonstrated keyholder resp     | 5.Member           | ➖ N/A           | ✅7.Keyholder        | 8.Settled          | Cannot be reasonable demonstrated until all the tasks in 4.New Member are complete. Some members will rest here. |
+| Suggested key application/nom   | 5.Member           | ➖ N/A           | ✅7.Keyholder        | 8.Settled          | Tracking when a responsible person is willing to push for a key |
 | Keyholder motion put to ManCom  | 6.Pros Keyholder   | ❔Req vote sync  | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
 | Keyholder motion successful     | 6.Pros Keyholder   | ❔Req vote sync  | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
-| Confirmed photo on tidyhq       | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
-| Confirmed paying via bank       | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
+| Confirmed photo on tidyhq       | 6.Pros Keyholder   | ✅               | ➖ N/A               | N/A                | A required bureaucratic step for keyholder applications |
+| Confirmed paying via bank       | 6.Pros Keyholder   | ✅               | ➖ N/A               | N/A                | A required bureaucratic step for keyholder applications |
 | Send keyholder documentation    | 6.Pros Keyholder   | ❌ #4            | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
 | Send bond invoice               | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
 | Keyholder induction completed   | 6.Pros Keyholder   | ✅               | ✅7.Keyholder        | N/A                | A required bureaucratic step for keyholder applications |
