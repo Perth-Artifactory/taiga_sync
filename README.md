@@ -34,6 +34,17 @@ Tracks attendee interactions with the AF bureaucracy
 * Each attendee is assigned a **user story**
 * **Statuses** are a representation of the pathway taken by attendees
 
+### Statuses
+
+1. Intake
+1. Prospective
+1. Attendee
+1. New Member
+1. Member
+1. Prospective Keyholder
+1. Keyholder
+
+
 ### Tasks
 
 Tasks are arranged so that once all tasks in a status are complete the attendee is considered a "good \<category\>"
