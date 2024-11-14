@@ -14,11 +14,12 @@ def close_by_status(
     made_changes: bool = False
     task_map: dict[int, list] = {
         1: [],
-        2: ["Respond to query", "Encourage to visit", "Visit"],
-        3: ["Signed up as a member"],
-        4: [],
-        5: ["Demonstrated keyholder responsibilities", "Offered key"],
-        6: [
+        2: [],
+        3: ["Respond to query", "Encourage to visit", "Visit"],
+        4: ["Signed up as a member"],
+        5: [],
+        6: [],
+        7: [
             "Keyholder motion put to committee",
             "Keyholder motion successful",
             "Confirmed photo on tidyhq",
@@ -26,7 +27,10 @@ def close_by_status(
             "Send keyholder documentation",
             "Send bond invoice",
             "Keyholder induction completed",
+            "Demonstrated keyholder responsibilities",
+            "Offered key",
         ],
+        8: [],
     }
 
     stories = taigacon.user_stories.list(project=project_id)
