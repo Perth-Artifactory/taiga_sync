@@ -4,6 +4,7 @@ CRM-ish workflows tacked onto a kanban board innit
 
 ## Kanban/Taiga nomenclature
 
+* Trello is another example of a **Kanban board** (we don't use it anymore because it's no longer free)
 * Each card on a Kanban board is a **user story**
 * Cards sit in one column at a time which is their **status**
 * Things that need to be done for a user story are attached as **tasks**
