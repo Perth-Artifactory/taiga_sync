@@ -81,6 +81,7 @@ Tasks are arranged so that once all tasks in a status are complete the attendee 
 | Join Slack                      | 3.Attendee         | ✅              | ➖ N/A               | N/A                | Slack sign up is typically promoted during the first visit. Until this happens it shouldn't be treated as a blocker for progression |
 | Participated in an event        | 3.Attendee         | ➖ N/A          | ➖ N/A               | 7.Keyholder        | The primary target/goal for this status |
 | Signed up as a visitor          | 3.Attendee         | ✅              | ➖ N/A               | 4.New Member       | Not required in the earlier statuses |
+| Valid emergency contact details | 3.Attendee         |                 | ➖ N/A               | 4.New Member       | Required for all attendees |
 | Discussed moving to membership  | 3.Attendee         | ✅              | ➖ N/A               | 4.New Member       | Some attendees don't want to progress to membership, included here so we can indicate/track that |
 | Completed new visitor induction | 3.Attendee         | ✅              | ➖ N/A               | 4.New Member       | A required step for attendees |
 | Signed up as member             | 3.Attendee         | ✅              | ✅4.New Member       | 5.Member           | Here primarily to allow for programmatic progression |
@@ -89,6 +90,7 @@ Tasks are arranged so that once all tasks in a status are complete the attendee 
 | Attending events as a member    | 4.New Member       | ➖ N/A          | ➖ N/A               | 6.Pros Keyholder   | Getting new members settled into events is key |
 | Added to billing groups         | 4.New Member       | ✅              | ➖ N/A               | N/A                | A required bureaucratic step for new members |
 | Received at least one induction | 4.New Member       | ✅              | ➖ N/A               | N/A                | TODO |
+| Concession proof sighted        | 4.New Member       | TODO             |                      | N/A                | Typically completed as part of new member induction |
 | TODO: split out key resp        | 5.Member           | ➖ N/A          | ✅7.Keyholder        | 8.Settled          | 
 | Demonstrated keyholder resp     | 5.Member           | ➖ N/A          | ✅7.Keyholder        | 8.Settled          | Cannot be reasonable demonstrated until all the tasks in 4.New Member are complete. Some members will rest here. |
 | Suggested key application/nom   | 5.Member           | ➖ N/A          | ✅7.Keyholder        | 8.Settled          | Tracking when a responsible person is willing to push for a key |
