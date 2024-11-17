@@ -471,3 +471,36 @@ def format_contact(contact: dict) -> str:
         contact["last_name"] = "Unknown"
 
     return f'{contact.get("first_name","Unknown").capitalize()} {contact.get("last_name","Unknown").capitalize()}{n}{s}'
+
+
+def get_membership_type(contact_id, tidyhq_cache):
+    """Returns the type of membership held by a contact.
+
+    One of : "None", "Expired", "Concession", "Full", "Visitor", "Sponsor"
+    """
+
+    memberships = get_memberships_for_contact(contact_id, tidyhq_cache)
+    if not memberships:
+        logger.debug(f"Contact {contact_id} has no memberships")
+        return "None"
+
+    # Sort the memberships by end date
+    memberships.sort(key=lambda x: x["end_date"], reverse=True)
+
+    # Check if the most recent membership is expired
+    if memberships[0]["state"] == "expired":
+        return "Expired"
+
+    elif "Concession" in memberships[0]["membership_level"]["name"]:
+        return "Concession"
+
+    elif "Full" in memberships[0]["membership_level"]["name"]:
+        return "Full"
+
+    elif "Associate" in memberships[0]["membership_level"]["name"]:
+        return "Visitor"
+
+    elif "Sponsor" in memberships[0]["membership_level"]["name"]:
+        return "Sponsor"
+
+    return None

@@ -223,6 +223,39 @@ def at_least_one_tool(config: dict, contact_id: str | None, tidyhq_cache: dict) 
     return False
 
 
+def concession_sighted(
+    config: dict, contact_id: str | None, tidyhq_cache: dict
+) -> bool:
+    """Check if the contact has had their concession proof sighted and recorded in TidyHQ.
+
+    _Does not_ return True if the user does not need to provide proof of concession."""
+    if contact_id == None:
+        return False
+
+    if tidyhq.get_custom_field(
+        config=config,
+        contact_id=contact_id,
+        cache=tidyhq_cache,
+        field_map_name="concession",
+    ):
+        return True
+
+    return False
+
+
+def concession_not_needed(contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Returns True if the contact does not need to provide proof of concession.
+
+    Will also return False if the contact does not have an actual membership"""
+
+    member_type = tidyhq.get_membership_type(
+        contact_id=contact_id, tidyhq_cache=tidyhq_cache
+    )
+
+    # Technically visitors etc also don't need to provide proof of concession but this task isn't added until they're a member
+    return member_type in ["Full", "Sponsored"]
+
+
 def check_all_tasks(
     taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
 ):
@@ -241,6 +274,7 @@ def check_all_tasks(
         "Send bond invoice": bond_invoice_sent,
         "Added to billing groups": check_billing_groups,
         "Received at least one tool induction": at_least_one_tool,
+        "Proof of concession sighted": concession_sighted,
     }
 
     # Find all user stories that include our bot managed tag
@@ -263,6 +297,7 @@ def check_all_tasks(
         # Check over each task in the story
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
+
             if task.status == 4:
                 logger.debug(f"Task {task.subject} is already completed")
                 continue
@@ -291,5 +326,27 @@ def check_all_tasks(
                     logger.error(f"Failed to mark task {task.subject} as complete")
             else:
                 logger.debug(f"Task {task.subject} not complete")
+
+            if task.subject == "Proof of concession sighted":
+                if concession_not_needed(
+                    contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
+                ):
+                    logger.debug(
+                        f"Contact {tidyhq_id} does not need to provide proof of concession"
+                    )
+                    updating = taigalink.update_task(
+                        task_id=task.id,
+                        status=5,
+                        taiga_auth_token=taiga_auth_token,
+                        config=config,
+                        version=task.version,
+                    )
+                    if updating:
+                        logger.info(f"Task {task.subject} marked as not applicable")
+                        made_changes = True
+                    else:
+                        logger.error(
+                            f"Failed to mark task {task.subject} as not applicable"
+                        )
 
     return made_changes
