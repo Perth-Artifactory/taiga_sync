@@ -1,9 +1,11 @@
 import logging
-import requests
-from pprint import pprint
 import sys
+from datetime import datetime
+from pprint import pprint
 
-from util import taigalink, tidyhq, training
+import requests
+
+from util import taigalink, tidyhq, training, misc
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -192,6 +194,28 @@ def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) 
     return False
 
 
+def bond_invoice_paid(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if we've sent an invoice for 135/225 to the contact. Does not check if it's been paid."""
+    if contact_id == None:
+        return False
+
+    contact_id = str(contact_id)
+    # Iterate over invoices for given contact id. Invoices are sorted newest first
+    for invoice in tidyhq_cache["invoices"][contact_id]:
+        # Bond invoices are specific amounts for concession, full respectively
+        # This is a best guess without retrieving the full invoice details
+        if invoice["amount"] in [135, 225]:
+            logger.debug(f"Contact {contact_id} may have been sent a bond invoice")
+            if invoice["paid"]:
+                logger.debug(f"Contact {contact_id} has paid their bond invoice")
+                return True
+            else:
+                logger.debug(f"Contact {contact_id} has not paid their bond invoice")
+                return False
+        logger.debug(f"Contact {contact_id} has not been sent a bond invoice")
+    return False
+
+
 def check_billing_groups(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
@@ -256,6 +280,75 @@ def concession_not_needed(contact_id: str | None, tidyhq_cache: dict) -> bool:
     return member_type in ["Full", "Sponsored"]
 
 
+def member_2week(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check whether the member has held their current membership for at least two weeks."""
+
+    if contact_id == None:
+        return False
+
+    memberships = tidyhq.get_memberships_for_contact(
+        cache=tidyhq_cache, contact_id=contact_id
+    )
+
+    most_recent = tidyhq.return_most_recent_membership(memberships)
+
+    # Check if the start date of the membership is at least two weeks ago
+    # Format is 2019-11-01T08:00:00+08:00
+    start_date = most_recent["start_date"].split("T")[0]
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    days = (datetime.now() - start_date).days
+    if days >= 14:
+        logger.debug(
+            f"Contact {contact_id} has held their membership for at least two weeks"
+        )
+        return True
+    return False
+
+
+def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has valid emergency contact details."""
+
+    if contact_id == None:
+        return False
+
+    contact = tidyhq.get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
+
+    if not contact:
+        logger.error(f"Contact {contact_id} not found in cache")
+        return False
+
+    contact_number = contact.get("phone_number")
+    emergency_name = contact.get("emergency_contact_person")
+    emergency_number = contact.get("emergency_contact_number")
+
+    # Confirm that all three fields are filled out
+    if not (contact_number and emergency_name and emergency_number):
+        logger.debug(
+            f"Contact {contact_id} has at least one missing field of: {contact_number}, {emergency_name}, {emergency_number}"
+        )
+        return False
+
+    # Confirm that the emergency contact number is a valid phone number
+    if not misc.valid_phone_number(emergency_number):
+        logger.debug(f"Contact {contact_id} has an invalid emergency contact number")
+        return False
+
+    # Check if the emergency contact number is the same as the contact's number
+    if contact_number == emergency_number:
+        logger.debug(
+            f"Contact {contact_id} has the same emergency contact number as their own"
+        )
+        return False
+
+    if contact_number[-9:] == emergency_number["phone_number"][-9:]:
+        logger.debug(
+            f"Contact {contact_id} has the same emergency contact number as their own"
+        )
+        return False
+
+    return True
+
+
 def check_all_tasks(
     taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
 ):
@@ -275,6 +368,9 @@ def check_all_tasks(
         "Added to billing groups": check_billing_groups,
         "Received at least one tool induction": at_least_one_tool,
         "Proof of concession sighted": concession_sighted,
+        "Held membership for at least two weeks": member_2week,
+        "Confirmed bond invoice paid": bond_invoice_paid,
+        "Has valid emergency contact details": valid_emergency,
     }
 
     # Find all user stories that include our bot managed tag

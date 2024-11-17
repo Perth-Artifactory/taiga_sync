@@ -1,3 +1,4 @@
 requests
 python-taiga
 slack-bolt
+phonenumbers

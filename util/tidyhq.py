@@ -473,6 +473,12 @@ def format_contact(contact: dict) -> str:
     return f'{contact.get("first_name","Unknown").capitalize()} {contact.get("last_name","Unknown").capitalize()}{n}{s}'
 
 
+def return_most_recent_membership(memberships):
+    """Return the most recent membership from a list of memberships."""
+    memberships.sort(key=lambda x: x["end_date"], reverse=True)
+    return memberships[0]
+
+
 def get_membership_type(contact_id, tidyhq_cache):
     """Returns the type of membership held by a contact.
 
@@ -484,23 +490,22 @@ def get_membership_type(contact_id, tidyhq_cache):
         logger.debug(f"Contact {contact_id} has no memberships")
         return "None"
 
-    # Sort the memberships by end date
-    memberships.sort(key=lambda x: x["end_date"], reverse=True)
+    most_recent = return_most_recent_membership(memberships)
 
     # Check if the most recent membership is expired
-    if memberships[0]["state"] == "expired":
+    if most_recent["state"] == "expired":
         return "Expired"
 
-    elif "Concession" in memberships[0]["membership_level"]["name"]:
+    elif "Concession" in most_recent["membership_level"]["name"]:
         return "Concession"
 
-    elif "Full" in memberships[0]["membership_level"]["name"]:
+    elif "Full" in most_recent["membership_level"]["name"]:
         return "Full"
 
-    elif "Associate" in memberships[0]["membership_level"]["name"]:
+    elif "Associate" in most_recent["membership_level"]["name"]:
         return "Visitor"
 
-    elif "Sponsor" in memberships[0]["membership_level"]["name"]:
+    elif "Sponsor" in most_recent["membership_level"]["name"]:
         return "Sponsor"
 
     return None
