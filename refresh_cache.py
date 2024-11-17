@@ -1,6 +1,7 @@
 import logging
 from util import tidyhq
 import json
+import sys
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -15,18 +16,14 @@ try:
     with open("config.json") as f:
         config = json.load(f)
 except FileNotFoundError:
-    setup_logger.error(
+    logger.error(
         "config.json not found. Create it using example.config.json as a template"
     )
     sys.exit(1)
 
 # Check for required TidyHQ config values
-if not all(
-    key in config["tidyhq"] for key in ["token"]
-):
-    setup_logger.error(
-        "Missing required config values in tidyhq section. Check config.json"
-    )
+if not all(key in config["tidyhq"] for key in ["token"]):
+    logger.error("Missing required config values in tidyhq section. Check config.json")
     sys.exit(1)
 
 # Override cache expiry
