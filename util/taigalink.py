@@ -5,7 +5,7 @@ from pprint import pprint
 import requests
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def get_custom_fields_for_story(
@@ -291,8 +291,8 @@ def item_mapper(
     )
     objects = response.json()
 
-    logging.debug(f"Fetched objects: {objects}")
-    logging.debug(f"Looking for item: {item}")
+    logger.debug(f"Fetched objects: {objects}")
+    logger.debug(f"Looking for item: {item}")
 
     for object in objects:
         if object["name"].lower() == item.lower():
