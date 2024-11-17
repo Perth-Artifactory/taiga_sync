@@ -67,7 +67,6 @@ Tracks attendee interactions with the AF bureaucracy
 | 6  | Prospective Keyholder | People that should be considered for a key         |
 | 7  | Keyholder             | People going through the keyholder process         |
 
-
 ### Tasks
 
 Tasks are arranged so that once all tasks in a status are complete the attendee is considered a "good \<category\>"
