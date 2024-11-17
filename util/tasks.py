@@ -204,6 +204,25 @@ def check_billing_groups(
     )
 
 
+def at_least_one_tool(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has been signed off on at least one tool"""
+    if contact_id == None:
+        return False
+
+    inductions = training.get_inductions_for_contact(
+        contact_id=contact_id, config=config, tidyhq_cache=tidyhq_cache
+    )
+
+    for induction in inductions:
+        # Orientation inductions all have the word "Induction" in them, tool inductions don't
+        if "Induction" not in induction:
+            logger.debug(
+                f"Contact {contact_id} has completed at least one tool induction"
+            )
+            return True
+    return False
+
+
 def check_all_tasks(
     taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
 ):
@@ -221,6 +240,7 @@ def check_all_tasks(
         "Confirmed paying via bank": check_payment_method,
         "Send bond invoice": bond_invoice_sent,
         "Added to billing groups": check_billing_groups,
+        "Received at least one tool induction": at_least_one_tool,
     }
 
     # Find all user stories that include our bot managed tag
