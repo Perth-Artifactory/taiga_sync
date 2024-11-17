@@ -140,7 +140,7 @@ for message in conversation_history:
             logger.debug(
                 f"Adding {user} to watchers as the issue was discussed with them"
             )
-            logging.debug(
+            logger.debug(
                 f"Due to a bug in the Taiga API this doesn't actually work ...yet"
             )
 
