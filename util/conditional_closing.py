@@ -36,6 +36,7 @@ def close_by_status(
             "Confirm bond invoice paid",
         ],
         8: [],
+        9: [],
     }
 
     stories = taigacon.user_stories.list(project=project_id)
