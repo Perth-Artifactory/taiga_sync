@@ -304,9 +304,10 @@ def item_mapper(
 def map_slack_names_to_taiga_usernames(input_string: str, taiga_users: dict) -> str:
     """Takes a string and maps applicable Slack names to Taiga usernames."""
     for display_name in taiga_users:
-        input_string = input_string.replace(
-            display_name, f"@{taiga_users[display_name].username}"
-        )
+        if display_name.strip() != "":
+            input_string = input_string.replace(
+                display_name, f"@{taiga_users[display_name].username}"
+            )
     return input_string
 
 
