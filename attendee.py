@@ -114,6 +114,25 @@ if not attendee_project:
 
 setup_logger.debug(f"Attendee project found: {attendee_project.id}")
 
+# Reconstruct status IDs because the Taiga API endpoint for them doesn't work
+statuses = {}
+
+# Get all user stories in the Attendee project
+stories = taigacon.user_stories.list(project=attendee_project.id)
+for story in stories:
+    statuses[story.status] = None
+
+# Get information about each status
+for status in statuses.keys():
+    status_info = taigacon.user_story_statuses.get(status)
+    statuses[status] = status_info.to_dict()
+
+story_statuses = statuses
+
+# Get possible task statuses
+
+statuses = taigacon.task_statuses.list(project=attendee_project.id)
+task_statuses = {task.id: task.name for task in statuses}
 
 # Set up TidyHQ cache
 tidyhq_cache = tidyhq.fresh_cache(config=config)
@@ -128,8 +147,9 @@ intake_from_tidyhq = False
 template_changes = False
 task_changes = False
 progress_changes = False
-closed_by_status = False
-progress_on_signup = False
+closed_by_order = False
+progress_on_tidyhq = False
+progress_on_membership = False
 first = True
 
 loop_logger.info("Starting processing loop")
@@ -141,8 +161,9 @@ while (
     or template_changes
     or task_changes
     or progress_changes
-    or closed_by_status
-    or progress_on_signup
+    or closed_by_order
+    or progress_on_tidyhq
+    or progress_on_membership
 ):
     if not first:
         loop_logger.info(f"Iteration: {iteration}")
@@ -158,10 +179,12 @@ while (
             loop_logger.info("Tasks")
         if progress_changes:
             loop_logger.info("Progress")
-        if closed_by_status:
-            loop_logger.info("Closed by status")
-        if progress_on_signup:
-            loop_logger.info("Progress on signup")
+        if closed_by_order:
+            loop_logger.info("Closed by order")
+        if progress_on_tidyhq:
+            loop_logger.info("Progress on tidyhq")
+        if progress_on_membership:
+            loop_logger.info("Progress on membership")
         loop_logger.info("---")
     else:
         first = False
@@ -212,28 +235,43 @@ while (
         project_id=attendee_project.id,
         taiga_auth_token=taiga_auth_token,
         config=config,
+        story_statuses=story_statuses,
     )
 
     # Close tasks based on story status
-    loop_logger.info("Checking for tasks that can be closed based on story status")
-    closed_by_status = conditional_closing.close_by_status(
+    loop_logger.info("Checking for tasks that can be closed based on story order")
+    closed_by_order = conditional_closing.close_by_order(
         taigacon=taigacon,
         project_id=attendee_project.id,
         config=config,
         taiga_auth_token=taiga_auth_token,
+        story_statuses=story_statuses,
     )
 
-    # Move tasks from column 1 to 2 if they have a TidyHQ ID
+    # Move stories from column 2 to 3 if they have a TidyHQ ID
     loop_logger.info(
         "Checking for user stories that can progress to attendee based on TidyHQ signup"
     )
-    progress_on_signup = taiga_janitor.progress_on_signup(
+    progress_on_tidyhq = taiga_janitor.progress_on_tidyhq(
         taigacon=taigacon,
         project_id=attendee_project.id,
         taiga_auth_token=taiga_auth_token,
         config=config,
+        story_statuses=story_statuses,
     )
 
+    # Move stories from column 3 to 4 if they have a membership
+    loop_logger.info(
+        "Checking for user stories that can progress to attendee based on TidyHQ membership"
+    )
+    progress_on_membership = taiga_janitor.progress_on_membership(
+        taigacon=taigacon,
+        project_id=attendee_project.id,
+        taiga_auth_token=taiga_auth_token,
+        config=config,
+        story_statuses=story_statuses,
+        tidyhq_cache=tidyhq_cache,
+    )
     iteration += 1
 
 # Perform once off housekeeping tasks

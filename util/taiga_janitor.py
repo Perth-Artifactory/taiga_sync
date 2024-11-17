@@ -2,7 +2,7 @@ import json
 import logging
 import sys
 
-from util import taigalink
+from util import taigalink, tidyhq
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -95,7 +95,7 @@ def sync_templates(taigacon, project_id: str) -> bool:
 
 
 def progress_stories(
-    taigacon, project_id: str, taiga_auth_token: str, config: dict
+    taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
 ) -> bool:
     """Progress stories to the next status that have all tasks complete."""
     made_changes: bool = False
@@ -121,7 +121,7 @@ def progress_stories(
         complete = True
 
         for task in tasks:
-            if task.status != 4:
+            if task.status not in [4, 23]:
                 complete = False
                 logger.debug(f"Task {task.subject} is not complete")
                 break
@@ -130,22 +130,24 @@ def progress_stories(
             logger.info(
                 f"Story {story.subject} has all tasks complete and will be progressed"
             )
-            taigalink.progress_story(
+            changed = taigalink.progress_story(
                 story_id=story.id,
                 taigacon=taigacon,
                 taiga_auth_token=taiga_auth_token,
                 config=config,
+                story_statuses=story_statuses,
             )
 
-            made_changes = True
+            if changed:
+                made_changes = True
 
     return made_changes
 
 
-def progress_on_signup(
-    taigacon, project_id: str, taiga_auth_token: str, config: dict
+def progress_on_tidyhq(
+    taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
 ) -> bool:
-    """Progress stories from status 2 to status 3 when a TidyHQ ID is set."""
+    """Progress stories from column 2 to column 3 when a TidyHQ ID is set."""
     made_changes: bool = False
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
@@ -163,7 +165,8 @@ def progress_on_signup(
             continue
 
         # Check if the story is in the prospective column
-        if story.status != 2:
+        if story_statuses[story.status]["name"] not in ["Prospective", "Intake"]:
+            logger.debug(f"Story {story.subject} is not in the prospective column")
             continue
 
         # Check if the story has a TidyHQ ID set
@@ -182,9 +185,78 @@ def progress_on_signup(
                 taigacon=taigacon,
                 taiga_auth_token=taiga_auth_token,
                 config=config,
+                story_statuses=story_statuses,
             )
 
             made_changes = True
+
+    return made_changes
+
+
+def progress_on_membership(
+    taigacon,
+    project_id: str,
+    taiga_auth_token: str,
+    config: dict,
+    story_statuses: dict,
+    tidyhq_cache: dict,
+) -> bool:
+    """Progress stories from column 3 to column 4 the contact has a membership"""
+    made_changes: bool = False
+    # Iterate over the project's user stories
+    stories = taigacon.user_stories.list(project=project_id)
+
+    for story in stories:
+        # Check if the story is managed by us
+        tagged = False
+        for tag in story.tags:
+            if tag[0] == "bot-managed":
+                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
+                tagged = True
+                break
+
+        if not tagged:
+            continue
+
+        # Check if the story is in the attendee column
+        if story_statuses[story.status]["name"] != "Attendee":
+            logger.debug(f"Story {story.subject} is not in the attendee column")
+            continue
+
+        # Check if the story has a TidyHQ ID set
+        tidyhq_id = taigalink.get_tidyhq_id(
+            story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+        )
+
+        if not tidyhq_id:
+            logger.debug(f"Story {story.subject} does not have a TidyHQ ID set")
+            continue
+
+        # Check if the user has a membership
+        membership = tidyhq.get_membership_type(
+            contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
+        )
+
+        if not membership:
+            logger.debug(f"Contact {tidyhq_id} does not have a membership")
+            continue
+
+        if membership not in ["Full", "Concession", "Sponsor"]:
+            logger.debug(
+                f"Contact {tidyhq_id} has a membership type of {membership} which is not valid for this step"
+            )
+            continue
+
+        # Move the story to the next column
+        taigalink.progress_story(
+            story_id=story.id,
+            taigacon=taigacon,
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            story_statuses=story_statuses,
+        )
+
+        made_changes = True
 
     return made_changes
 

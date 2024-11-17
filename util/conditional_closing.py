@@ -7,18 +7,15 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
-def close_by_status(
-    taigacon, project_id: str, config: dict, taiga_auth_token: str
+def close_by_order(
+    taigacon, project_id: str, config: dict, taiga_auth_token: str, story_statuses: dict
 ) -> bool:
-    """Close tasks once a story reaches a certain status."""
+    """Close tasks once a story reaches a certain order."""
     made_changes: bool = False
+    # Reminder: Orders are 0-indexed
     task_map: dict[int, list] = {
-        1: [],
-        2: [],
-        3: ["Respond to enquiry", "Encourage to visit", "Visit"],
-        4: ["Signed up as a member"],
-        5: [],
-        6: [],
+        3: ["Respond to enquiry", "Encourage to visit"],
+        4: ["Signed up as a member", "Visit"],
         7: [
             "Held membership for at least two weeks",
             "No indications of Code of Conduct violations",
@@ -35,8 +32,6 @@ def close_by_status(
             "Send bond invoice",
             "Confirm bond invoice paid",
         ],
-        8: [],
-        9: [],
     }
 
     stories = taigacon.user_stories.list(project=project_id)
@@ -46,7 +41,6 @@ def close_by_status(
             if tag[0] == "bot-managed":
                 logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
                 tagged = True
-                status = int(story.status)
 
         if not tagged:
             continue
@@ -55,13 +49,19 @@ def close_by_status(
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
             # If the task is already complete, skip it
-            if task.status == 4:
+            if task.status in [4, 23]:
                 logger.debug(f"Task {task.subject} is already completed")
                 continue
 
-            # Look for task in map up until the status of the story
-            for current_status in range(1, status + 1):
-                if task.subject in task_map[current_status]:
+            # Look for task in map up until the position of the story
+            order: int = taigalink.id_to_order(
+                story_statuses=story_statuses, status_id=int(story.status)
+            )
+            for current_order in range(0, order + 2):
+                logger.debug(
+                    f"Checking task {task.subject} against tasks for order: {current_order}"
+                )
+                if task.subject in task_map.get(current_order, []):
                     logger.debug(f"Completing task {task.subject}")
                     updating = taigalink.update_task(
                         task_id=task.id,

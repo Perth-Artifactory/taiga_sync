@@ -156,6 +156,9 @@ def setup_cache(config: dict) -> dict[str, Any]:
         "nick_name",
         "status",
         "email_address",
+        "phone_number",
+        "emergency_contact_number",
+        "emergency_contact_person",
     ]
 
     for contact in raw_contacts:
@@ -394,12 +397,17 @@ def get_custom_field(
         logger.error("No field ID provided or found in config")
         return None
 
+    logger.debug(f"Looking for custom field {field_id} for contact {contact_id}")
     for contact in cache["contacts"]:
         if contact["id"] == contact_id:
             for field in contact["custom_fields"]:
                 if field_id:
                     if field["id"] == field_id:
+                        logger.debug(
+                            f"Found field {field_id} with value {field['value']}"
+                        )
                         return field
+    logger.debug(f"Could not find field {field_id} for contact {contact_id}")
     return None
 
 

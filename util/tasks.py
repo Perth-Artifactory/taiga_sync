@@ -340,7 +340,7 @@ def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) ->
         )
         return False
 
-    if contact_number[-9:] == emergency_number["phone_number"][-9:]:
+    if contact_number[-9:] == emergency_number[-9:]:
         logger.debug(
             f"Contact {contact_id} has the same emergency contact number as their own"
         )
@@ -394,7 +394,7 @@ def check_all_tasks(
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
 
-            if task.status == 4:
+            if task.status in [4, 23]:
                 logger.debug(f"Task {task.subject} is already completed")
                 continue
             if task.subject not in task_function_map:

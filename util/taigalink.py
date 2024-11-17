@@ -85,15 +85,29 @@ def update_task(
 
 
 def progress_story(
-    story_id: str, taigacon, taiga_auth_token: str, config: dict
+    story_id: str, taigacon, taiga_auth_token: str, config: dict, story_statuses: dict
 ) -> bool:
     """Increment the story status by 1. Does not check for the existence of a next status."""
     # Get the current status of the story
     story = taigacon.user_stories.get(story_id)
     current_status = int(story.status)
 
-    if current_status == 5:
-        logger.info(f"User story {story_id} is already complete")
+    # Get the order of the current status
+    current_order = id_to_order(story_statuses, current_status)
+
+    # Check if we're at the end of the statuses
+    if current_order == len(story_statuses) - 1:
+        logger.error(f"Story {story_id} is already at the end of the statuses")
+        return False
+
+    # Increment the order by one
+    new_order = current_order + 1
+
+    # Get the ID of the new status
+    new_status = order_to_id(story_statuses, new_order)
+
+    if not new_status:
+        logger.error(f"Failed to find a status with order {new_order}")
         return False
 
     update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
@@ -103,11 +117,11 @@ def progress_story(
             "Authorization": f"Bearer {taiga_auth_token}",
             "Content-Type": "application/json",
         },
-        json={"status": current_status + 1, "version": story.version},
+        json={"status": new_status, "version": story.version},
     )
 
     if response.status_code == 200:
-        logger.debug(f"User story {story_id} status updated to {current_status + 1}")
+        logger.debug(f"User story {story_id} status updated to {new_status + 1}")
         return True
     else:
         logger.error(
@@ -256,7 +270,6 @@ def create_issue(
     if response.status_code == 201:
         logger.info(f"Created issue {response.json()['id']} on project {project_id}")
         # Print the raw request that was made to taiga
-        pprint(response.json())
         return response.json()["id"]
     else:
         logger.error(
@@ -335,3 +348,24 @@ def create_link_to_entry(
         return False
 
     return f"{config['taiga']['url']}/project/{project_str}/{entry_map[entry_type]}/{entry_id}"
+
+
+def order_to_id(story_statuses: dict, order: int) -> int:
+    """Takes the position of a story status column and returns the ID of the status."""
+
+    # Iterate over statuses and return the ID of the status with the matching order
+    for status in story_statuses:
+        if story_statuses[status]["order"] == order:
+            return status
+    logger.error(f"Status with order {order} not found")
+    return False
+
+
+def id_to_order(story_statuses: dict, status_id: int) -> int:
+    """Takes the ID of a story status column and returns the position of the column."""
+
+    if status_id not in story_statuses:
+        logger.error(f"Status with ID {status_id} not found")
+        return False
+
+    return story_statuses[status_id]["order"]

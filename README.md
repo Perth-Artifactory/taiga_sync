@@ -75,7 +75,7 @@ Tasks are arranged so that once all tasks in a status are complete the attendee 
 |---------------------------------|------------------|-----------------|------------------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Respond to query                | 1.Intake         | ❔Req email proc | ✅3.Attendee      | 4.New Member      | The root status that user stories are created under when they start as an email query                                                                       |
 | Determine project viability     | 2.Prospective    | ❔Req email gpt  | ➖ N/A            | 5.Member (comp)   | Could conceivably be moved to 3.Attendee but this way we can mark the task as failed if it's clear from an enquiry email that we're not a suitable workshop |
-| Encourage to visit              | 2.Prospective    | ❔Req email gpt  | ✅3.Attendee      | 4.New Member      | The primary target/goal for this status                                                                                                                     |
+| Encourage to visit              | 2.Prospective    | ❔Req email gpt  | ✅5.Member        | N/A               | The primary target/goal for this status                                                                                                                     |
 | Visit                           | 2.Prospective    | ➖ N/A           | ✅3.Attendee      | 4.New Member      | Primarily used to trigger the move to the next status                                                                                                       |
 | Join Slack                      | 3.Attendee       | ✅               | ➖ N/A            | N/A               | Slack sign up is typically promoted during the first visit. Until this happens it shouldn't be treated as a blocker for progression                         |
 | Participated in an event        | 3.Attendee       | ➖ N/A           | ➖ N/A            | 7.Keyholder       | The primary target/goal for this status                                                                                                                     |
@@ -127,8 +127,10 @@ If any of these steps indicate that they've made changes to the board the entire
 1. Progress user stories based on task completion
    If all tasks on the current story are marked as complete progress the story to the next column. This checks against **all tasks** not just ones added by the current column template.
 1. Tick off tasks that can be closed by story status
-1. Progress tasks based on TidyHQ sign up
-   If a prospective story has a TidyHQ ID set then that story has naturally progressed to the next stage outside of Taiga. Most of the close by code steps don't begin until status 2 so this has been added as a quality of life measure primarily for stories created by the TidyHQ sync step.
+1. Progress stories based on TidyHQ sign up
+   If a prospective/intake story has a TidyHQ ID set then that story has naturally progressed to the next stage outside of Taiga. Most of the close by code steps don't begin until status 3 so this has been added as a quality of life measure primarily for stories created by the TidyHQ sync step.
+1. Progress stories based on AF membership
+   If an attendee story has a membership progress them to the new member column
 
 ### Service load considerations
 
