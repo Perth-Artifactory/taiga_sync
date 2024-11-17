@@ -2,3 +2,4 @@ config.json
 cache.json
 template_actions.json
 *.pyc
+attendee.lock
