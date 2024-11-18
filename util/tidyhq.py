@@ -583,3 +583,62 @@ def map_tidyhq_to_taiga(
         return taiga_id["value"]
     else:
         return None
+
+
+def map_taiga_to_slack(tidyhq_cache: dict, taiga_id: str | int, config: dict):
+    """Map Taiga user IDs to Slack user IDs."""
+    # Get the TidyHQ contact ID from the Taiga user ID
+
+    tidyhq_id = map_taiga_to_tidyhq(tidyhq_cache, taiga_id, config)
+
+    if not tidyhq_id:
+        return None
+
+    # Look for a Slack ID
+    slack_id = get_custom_field(
+        config=config, contact_id=tidyhq_id, cache=tidyhq_cache, field_map_name="slack"
+    )
+
+    if slack_id:
+        return slack_id["value"]
+    else:
+        return None
+
+
+def map_slack_to_taiga(tidyhq_cache: dict, slack_id: str, config: dict):
+    """Map Slack user IDs to Taiga user IDs."""
+
+    # Get the TidyHQ contact ID from the Slack user ID
+
+    tidyhq_id = map_slack_to_tidyhq(tidyhq_cache, slack_id, config)
+
+    if not tidyhq_id:
+        return None
+
+    # Look for a Taiga ID
+    taiga_id = get_custom_field(
+        config=config, contact_id=tidyhq_id, cache=tidyhq_cache, field_map_name="taiga"
+    )
+
+    if taiga_id:
+        return taiga_id["value"]
+    else:
+        return None
+
+
+def map_slack_to_tidyhq(tidyhq_cache: dict, slack_id: str, config: dict):
+    """Map Slack user IDs to TidyHQ contact IDs."""
+
+    # Look for a TidyHQ ID with the matching Slack ID
+    for contact in tidyhq_cache["contacts"]:
+        slack_field = get_custom_field(
+            config=config,
+            contact_id=contact["id"],
+            cache=tidyhq_cache,
+            field_map_name="slack",
+        )
+        if slack_field:
+            if slack_field["value"] == slack_id:
+                return contact["id"]
+
+    return None
