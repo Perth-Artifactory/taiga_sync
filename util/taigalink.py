@@ -5,7 +5,7 @@ from pprint import pprint
 import requests
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.ERROR)
 
 
 def get_custom_fields_for_story(
@@ -59,6 +59,14 @@ def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | 
     return custom_attributes.get("3", None)
 
 
+def get_member_type(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
+    """Retrieve the member type for a specific story if set."""
+    custom_attributes, version = get_custom_fields_for_story(
+        story_id, taiga_auth_token, config
+    )
+    return custom_attributes.get("4", None)
+
+
 def update_task(
     task_id: str, status: int, taiga_auth_token: str, config: dict, version: int
 ) -> bool:
@@ -97,7 +105,7 @@ def progress_story(
 
     # Check if we're at the end of the statuses
     if current_order == len(story_statuses) - 1:
-        logger.error(f"Story {story_id} is already at the end of the statuses")
+        logger.debug(f"Story {story_id} is already at the end of the statuses")
         return False
 
     # Increment the order by one
