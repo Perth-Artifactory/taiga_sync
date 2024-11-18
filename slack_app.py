@@ -11,7 +11,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from util import taigalink
+from util import taigalink, tidyhq, slack_formatters, slack, strings, blocks
 
 
 # Stand in testing function that simulates issue creation while testing Slack parts
@@ -123,6 +123,12 @@ project_ids["infra"] = project_ids["infrastructure"]
 project_ids["laser"] = project_ids["lasers"]
 project_ids["printer"] = project_ids["3d"]
 project_ids["printers"] = project_ids["3d"]
+
+# Set up TidyHQ cache
+tidyhq_cache = tidyhq.fresh_cache(config=config)
+setup_logger.info(
+    f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
+)
 
 # Initialize the app with your bot token and signing secret
 app = App(token=config["slack"]["bot_token"], logger=slack_logger)
@@ -295,18 +301,144 @@ def handle_task_command(ack, respond, command, client):
 def handle_app_home_opened_events(body, client, logger):
     user_id = body["event"]["user"]
 
-    # Define the view payload
+    # Check if the user has a Taiga account
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+        config=config,
+        slack_id=user_id,
+    )
+
+    if not taiga_id:
+        # We don't recognise the user
+
+        # Construct blocks
+        block_list = []
+        block_list += blocks.header
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.header
+        )
+        block_list += blocks.text  # type: ignore
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.unrecognised
+        )
+        block_list += blocks.divider
+        block_list += blocks.text
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.do_instead
+        )
+        block_list += blocks.context
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.footer
+        )
+
+    else:
+        # We recognise the user
+
+        # Construct blocks
+        block_list = []
+        block_list += blocks.header
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.header
+        )
+        block_list += blocks.text
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.explainer
+        )
+        block_list += blocks.divider
+
+        block_list += blocks.header
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text="Assigned Cards"
+        )
+
+        # Get all assigned user stories for the user
+        user_stories = taigalink.get_stories(
+            taiga_id=taiga_id, config=config, taiga_auth_token=taiga_auth_token
+        )
+
+        if len(user_stories) == 0:
+            block_list += blocks.text
+            block_list = slack_formatters.inject_text(
+                block_list=block_list, text=strings.no_stories
+            )
+            block_list += blocks.divider
+
+        else:
+            # Sort the user stories by project
+            sorted_stories = taigalink.sort_stories_by_project(user_stories)
+
+            for project in sorted_stories:
+                header, body = slack_formatters.stories(sorted_stories[project])
+                block_list += blocks.text
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text=f"*{header}*"
+                )
+                block_list += blocks.text
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text=body
+                )
+
+        block_list += blocks.divider
+
+        block_list += blocks.header
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text="Assigned Tasks"
+        )
+
+        # Get all tasks for the user
+        tasks = taigalink.get_tasks(
+            taiga_id=5, config=config, taiga_auth_token=taiga_auth_token
+        )
+
+        if len(tasks) == 0:
+            block_list += blocks.text
+            block_list = slack_formatters.inject_text(
+                block_list=block_list, text=strings.no_tasks
+            )
+            block_list += blocks.divider
+            block_list += blocks.context
+            block_list = slack_formatters.inject_text(
+                block_list=block_list, text=strings.footer
+            )
+
+        else:
+
+            # Sort the tasks based on user story
+            sorted_tasks = taigalink.sort_tasks_by_user_story(tasks)
+
+            # Things will start to break down if there are too many tasks
+            displayed_tasks = 0
+            trimmed = True
+            for project in sorted_tasks:
+                if displayed_tasks >= 50:
+                    break
+                displayed_tasks += 1
+                header, body = slack_formatters.tasks(sorted_tasks[project])
+                block_list += blocks.text
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text=f"*{header}*"
+                )
+                block_list += blocks.text
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text=body
+                )
+            else:
+                trimmed = False
+
+            if trimmed:
+                block_list += blocks.divider
+                block_list += blocks.text
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text=strings.trimmed
+                )
+        block_list += blocks.context
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text=strings.footer
+        )
+
     view = {
         "type": "home",
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": "Welcome to Taiga! This is a placeholder message.",
-                },
-            }
-        ],
+        "blocks": block_list,
     }
 
     try:

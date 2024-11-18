@@ -458,3 +458,49 @@ def id_to_order(story_statuses: dict, status_id: int) -> int:
         return False
 
     return story_statuses[status_id]["order"]
+
+
+def get_tasks(taiga_id: int, config: dict, taiga_auth_token: str):
+    """Get all tasks assigned to a user."""
+
+    url = f"{config['taiga']['url']}/api/v1/tasks"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"assigned_to": taiga_id},
+    )
+    tasks = response.json()
+    return tasks
+
+
+def get_stories(taiga_id: int, config: dict, taiga_auth_token: str):
+    """Get all stories assigned to a user."""
+
+    url = f"{config['taiga']['url']}/api/v1/userstories"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"assigned_to": taiga_id},
+    )
+    stories = response.json()
+    return stories
+
+
+def sort_tasks_by_user_story(tasks):
+    """Sort tasks by user story."""
+    user_stories = {}
+    for task in tasks:
+        if task["user_story"] not in user_stories:
+            user_stories[task["user_story"]] = []
+        user_stories[task["user_story"]].append(task)
+    return user_stories
+
+
+def sort_stories_by_project(stories):
+    """Sort stories by project."""
+    projects = {}
+    for story in stories:
+        if story["project"] not in projects:
+            projects[story["project"]] = []
+        projects[story["project"]].append(story)
+    return projects
