@@ -385,7 +385,7 @@ def get_custom_field(
     cache: dict,
     field_id: str | None = None,
     field_map_name: str | None = None,
-) -> str | None:
+) -> dict | None:
     """Get the value of a custom field for a contact within TidyHQ.
 
     The field can be specified by either its ID or its name in the config file.
@@ -409,6 +409,37 @@ def get_custom_field(
                         return field
     logger.debug(f"Could not find field {field_id} for contact {contact_id}")
     return None
+
+
+def set_custom_field(
+    contact_id: str,
+    value: str,
+    config: dict,
+    field_id: str | None = None,
+    field_map_name: str | None = None,
+):
+    if field_map_name and not field_id:
+        field_id = config["tidyhq"]["ids"].get(field_map_name, None)
+
+    if not field_id:
+        logger.error("No field ID provided or found in config")
+        return False
+
+    logger.debug(f"Setting field {field_id} to {value} for contact {contact_id}")
+
+    r = requests.put(
+        f"https://api.tidyhq.com/v1/contacts/{contact_id}",
+        params={"access_token": config["tidyhq"]["token"]},
+        json={"custom_fields": {field_id: value}},
+    )
+    if r.status_code != 200:
+        logger.error(
+            f"Failed to set field {field_id} to {value} for contact {contact_id}"
+        )
+        return False
+    else:
+        logger.debug(f"Set field {field_id} to {value} for contact {contact_id}")
+        return True
 
 
 def check_for_groups(
@@ -517,3 +548,38 @@ def get_membership_type(contact_id, tidyhq_cache):
         return "Sponsor"
 
     return None
+
+
+def map_taiga_to_tidyhq(
+    tidyhq_cache: dict, taiga_id: str | int, config: dict
+) -> str | None:
+    """Accepts a Taiga user ID and returns the TidyHQ contact ID if one is found.
+
+    This function is comparatively slow"""
+    for contact in tidyhq_cache["contacts"]:
+        taiga_field = get_custom_field(
+            config=config,
+            contact_id=contact["id"],
+            cache=tidyhq_cache,
+            field_map_name="taiga",
+        )
+        if taiga_field:
+            if str(taiga_field["value"]) == taiga_id:
+                return contact["id"]
+
+
+def map_tidyhq_to_taiga(
+    tidyhq_cache: dict, config: dict, tidyhq_id: str | int
+) -> int | None:
+    """Accepts a TidyHQ contact ID and returns the Taiga user ID if one is found."""
+
+    tidyhq_id = str(tidyhq_id)
+
+    taiga_id = get_custom_field(
+        config=config, contact_id=tidyhq_id, cache=tidyhq_cache, field_map_name="taiga"
+    )
+
+    if taiga_id:
+        return taiga_id["value"]
+    else:
+        return None
