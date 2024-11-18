@@ -229,7 +229,7 @@ def base_create_issue(
     )
     if response.status_code == 201:
         logger.info(f"Created issue {response.json()['id']} on project {project_id}")
-        return response.json()["id"]
+        return response.json()
     else:
         logger.error(
             f"Failed to create issue on project {project_id}: {response.status_code}"

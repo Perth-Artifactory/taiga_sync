@@ -42,7 +42,7 @@ def issue_creation(board, description, subject, by):
         logger.error(f"Failed to create issue on board {board}")
         return False
 
-    issue_info = issue.json()
+    issue_info = issue
 
     return issue_info
 
