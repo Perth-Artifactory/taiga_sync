@@ -178,7 +178,7 @@ for message in conversation_history:
     # Send a DM to the reporter
     if reporter_id:
 
-        message_str = f"Thank you for reporting an issue to the Infrastructure team. We have created a ticket on Taiga to track this issue. You can view it <{issue_url}|here>."
+        message_str = f"Thank you for reporting an issue to the Infrastructure team. We have created a ticket on Taiga to track this issue. You may be able to view it <https://tasks.artifactory.org.au|here>."
         slack.send_dm(slack_id=reporter_id, message=message_str, slack_app=app)
 
     # Remove the reporter from the list of people to notify
@@ -189,7 +189,7 @@ for message in conversation_history:
     for user in discussed_with_id:
         message_str = f"""An issue has been reported to the Infrastructure team by <@{reporter_id}> and you were mentioned as someone who was involved in the discussion.
         
-        You can view the issue <{issue_url}|here>. If you feel there's more information or context you can add to the report please do so."""
+        You may be able to view the issue <https://tasks.artifactory.org.au|here>. If you feel there's more information or context you can add to the report please do so."""
         slack.send_dm(slack_id=user, message=message_str, slack_app=app)
 
     # Add a reaction to the message
