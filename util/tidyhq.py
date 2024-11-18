@@ -381,8 +381,9 @@ def get_memberships_for_contact(contact_id: str, cache: dict) -> list:
 
 def get_custom_field(
     config: dict,
-    contact_id: str,
     cache: dict,
+    contact_id: str | None = None,
+    contact: dict | None = None,
     field_id: str | None = None,
     field_map_name: str | None = None,
 ) -> dict | None:
@@ -399,14 +400,25 @@ def get_custom_field(
         logger.error("No field ID provided or found in config")
         return None
 
-    for contact in cache["contacts"]:
-        if str(contact["id"]) == str(contact_id):
-            for field in contact["custom_fields"]:
-                if field["id"] == field_id:
-                    logger.info(f"Found field {field_id} with value {field['value']}")
-                    return field
-                else:
-                    logger.debug(f"Field {field_id} does not match {field['id']}")
+    if not contact and contact_id:
+        for c in cache["contacts"]:
+            if str(c["id"]) == str(contact_id):
+                contact = c
+                break
+    elif not contact and not contact_id:
+        logger.error("No contact ID or contact provided")
+        return None
+
+    if not contact:
+        logger.error(f"Contact {contact_id} not found in cache or we failed to find it")
+        return None
+
+    for field in contact["custom_fields"]:
+        if field["id"] == field_id:
+            logger.info(f"Found field {field_id} with value {field['value']}")
+            return field
+        else:
+            logger.debug(f"Field {field_id} does not match {field['id']}")
     logger.debug(f"Could not find field {field_id} for contact {contact_id}")
     return None
 
@@ -564,7 +576,7 @@ def map_taiga_to_tidyhq(
     for contact in tidyhq_cache["contacts"]:
         taiga_field = get_custom_field(
             config=config,
-            contact_id=contact["id"],
+            contact=contact,
             cache=tidyhq_cache,
             field_map_name="taiga",
         )
@@ -659,7 +671,7 @@ def map_slack_to_tidyhq(tidyhq_cache: dict, slack_id: str, config: dict) -> str 
     for contact in tidyhq_cache["contacts"]:
         slack_field = get_custom_field(
             config=config,
-            contact_id=contact["id"],
+            contact=contact,
             cache=tidyhq_cache,
             field_map_name="slack",
         )
