@@ -134,11 +134,11 @@ channels = client.conversations_list(types="public_channel")["channels"]
 for channel in channels:
     # Skip archived channels
     if channel["is_archived"]:
-        setup_logger.info(f"Skipping archived channel {channel['name']}")
+        setup_logger.debug(f"Skipping archived channel {channel['name']}")
         continue
     # Check if the bot is already in the channel
     if channel["is_member"]:
-        setup_logger.info(f"Already in channel {channel['name']}")
+        setup_logger.debug(f"Already in channel {channel['name']}")
         continue
 
     # Join the channel if not already in and not archived
