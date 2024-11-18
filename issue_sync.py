@@ -85,6 +85,7 @@ result = app.client.conversations_history(channel=config["slack"]["issue_channel
 
 conversation_history = result["messages"]
 
+count = 0
 for message in conversation_history:
     # Check if the message is a message from the workflow
     if message["subtype"] != "bot_message":
@@ -101,6 +102,7 @@ for message in conversation_history:
         if reacted and not testing:
             logger.debug(f"Already reacted to message {message['ts']}")
             continue
+    count += 1
 
     # Get the variables from the message
     variables = slack.extract_message_vars(message=message)
@@ -200,3 +202,5 @@ for message in conversation_history:
         )
     else:
         logger.info("Test mode: skipping reaction")
+
+logger.info(f"Finished processing messages {count}/{len(conversation_history)}")
