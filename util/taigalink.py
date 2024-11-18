@@ -192,16 +192,62 @@ def set_custom_field(
     return False
 
 
-def create_issue(
+def base_create_issue(
     taiga_auth_token: str,
     project_id: str,
+    config: dict,
+    subject: str,
+    description: str | None = None,
+    type_id: str | int | None = None,
+    priority_id: str | int | None = None,
+    severity_id: str | int | None = None,
+    tags: list = [],
+):
+    """Create an issue on a Taiga project. Does no mapping and supports IDs only"""
+
+    data = {
+        "project": project_id,
+        "subject": subject,
+        "tags": tags + ["slack"],
+    }
+    if description:
+        data["description"] = description
+    if type_id:
+        data["type"] = type_id
+    if priority_id:
+        data["priority"] = priority_id
+    if severity_id:
+        data["severity"] = severity_id
+
+    create_url = f"{config['taiga']['url']}/api/v1/issues"
+    response = requests.post(
+        create_url,
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+        },
+        json=data,
+    )
+    if response.status_code == 201:
+        logger.info(f"Created issue {response.json()['id']} on project {project_id}")
+        return response.json()["id"]
+    else:
+        logger.error(
+            f"Failed to create issue on project {project_id}: {response.status_code}"
+        )
+        logger.error(response.json())
+        return False
+
+
+def create_issue(
+    taiga_auth_token: str,
+    taigacon,
+    project_id: str | None,
     config: dict,
     description: str = "No description provided",
     severity_id: int | None = None,
     severity_str: str | None = None,
-    type_id: int | None = None,
-    type_str: str | None = None,
-    priority_id: int | None = 4,
+    board_str: str = "Something else (Including administrative issues)",
+    priority_id: int | None = None,
     subject: str = "Untriaged issue reported on Slack",
     tags: list = [],
     watchers: list = [],
@@ -217,16 +263,31 @@ def create_issue(
         "This affects a large number of members": "Important - This is a key tool/equipment/resource for members",
         "There is a risk of injury or damage to infrastructure": "Critical - This has the potential to cause injury",
     }
-    type_map = {
-        "Broken/Damaged tool": "Broken Tool/Equipment",
-        "Broken infrastructure (doors etc)": "Broken Infrastructure",
-        "IT fault": "IT Fault",
-        "Something else": "Uncategorised",
+    board_map = {
+        "Broken/Damaged tool, Broken Infrastructure": "infrastructure",
+        "IT fault": "it",
+        "3D printer/scanner problem": "3d",
+        "Laser cutter problem": "laser",
+        "Something else (Including administrative issues)": "committee",
     }
 
     # Convert all maps to lowercase
     severity_map = {key.lower(): value for key, value in severity_map.items()}
-    type_map = {key.lower(): value for key, value in type_map.items()}
+    board_map = {key.lower(): value for key, value in board_map.items()}
+
+    logger.debug(f"Attempting to match board: {board_str}")
+    board_str = board_map.get(board_str.lower(), "committee")
+    project_id = str(
+        item_mapper(
+            item=board_str,
+            field_type="board",
+            project_id=None,
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            taigacon=taigacon,
+        )
+    )
+    logger.debug(f"Matched project: {project_id}")
 
     # Get the severity, priority and type IDs
     if severity_id is None and severity_str:
@@ -238,21 +299,22 @@ def create_issue(
             project_id=project_id,
             taiga_auth_token=taiga_auth_token,
             config=config,
+            taigacon=taigacon,
         )
         logger.debug(f"Matched severity: {severity_id}")
-    if type_id is None and type_str:
-        logger.debug(f"Attempting to match type: {type_str}")
-        type_str = type_map.get(type_str.lower(), None)
-        type_id = item_mapper(
-            item=type_str,
-            field_type="type",
+
+    # Get the priority ID for untriaged issues
+    if not priority_id:
+        priority_id = item_mapper(
+            item="Untriaged",
+            field_type="priority",
             project_id=project_id,
             taiga_auth_token=taiga_auth_token,
             config=config,
+            taigacon=taigacon,
         )
-        logger.debug(f"Matched type: {type_id}")
 
-    if not severity_id and priority_id and type_id:
+    if not severity_id and priority_id and project_id:
         logger.error("Severity, priority and type IDs not found")
         return False
 
@@ -270,7 +332,6 @@ def create_issue(
             "tags": tags + ["slack"],
             "severity": severity_id,
             "priority": priority_id,
-            "type": type_id,
             "watchers": watchers,
         },
     )
@@ -284,15 +345,17 @@ def create_issue(
             f"Failed to create issue on project {project_id}: {response.status_code}"
         )
         logger.error(response.json())
+        logger.error(response.request.body)
         return False
 
 
 def item_mapper(
     item: str | None,
     field_type: str,
-    project_id: str,
+    project_id: str | None,
     taiga_auth_token: str,
     config: dict,
+    taigacon,
 ) -> int:
     """Map an item to a Taiga ID."""
     if not item:
@@ -304,6 +367,24 @@ def item_mapper(
         url = f"{config['taiga']['url']}/api/v1/priorities?project={project_id}"
     elif field_type == "type":
         url = f"{config['taiga']['url']}/api/v1/issue-types?project={project_id}"
+    elif field_type == "board":
+        # Map project names to IDs
+        projects = taigacon.projects.list()
+        project_ids: dict[str, int] = {
+            project.name.lower(): project.id for project in projects
+        }
+
+        # Duplicate similar board names for QoL
+        project_ids["infra"] = project_ids["infrastructure"]
+        project_ids["laser"] = project_ids["lasers"]
+        project_ids["printer"] = project_ids["3d"]
+        project_ids["printers"] = project_ids["3d"]
+
+        project_id = project_ids.get(item.lower(), None)  # type: ignore
+        if not project_id:
+            logger.error(f"Project ID for {item} not found")
+            return False
+        return int(project_id)
 
     # Fetch the items
     response = requests.get(

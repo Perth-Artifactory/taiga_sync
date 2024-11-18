@@ -66,15 +66,6 @@ for project in projects:
         infrastructure_project = project
         break
 
-# Get the issue priority for untriaged issues
-priority_id = taigalink.item_mapper(
-    item="Untriaged",
-    field_type="priority",
-    project_id=infrastructure_project.id,
-    taiga_auth_token=taiga_auth_token,
-    config=config,
-)
-
 # Get a list of all users in the project
 raw_users = taigacon.users.list(project=infrastructure_project.id)
 taiga_users = {}
@@ -153,15 +144,15 @@ for message in conversation_history:
     logger.info("Creating issue on Taiga")
     success = taigalink.create_issue(
         taiga_auth_token=taiga_auth_token,
-        project_id=infrastructure_project.id,
+        project_id=None,
         config=config,
         description=description,
         severity_str=variables.get("How severe is the issue?", "Not found in message"),
-        type_str=variables.get(
+        board_str=variables.get(
             "What type of fault would you like to report?", "Not found in message"
         ),
-        priority_id=priority_id,
         watchers=watchers,
+        taigacon=taigacon,
     )
     if success:
         logger.info("Issue created successfully")
@@ -172,6 +163,7 @@ for message in conversation_history:
         continue
 
     # TODO Figure out if the entry IDs are always four off
+    # They're not :(
     issue_url = taigalink.create_link_to_entry(
         config=config,
         taiga_auth_token=taiga_auth_token,
