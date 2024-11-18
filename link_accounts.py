@@ -69,7 +69,6 @@ setup_logger.info(
 )
 
 # Get all Taiga users via the Taiga api
-# Taigalink doesn't have anything for this
 url = f"{config['taiga']['url']}/api/v1/users"
 
 response = requests.get(url, headers={"Authorization": f"Bearer {taiga_auth_token}"})
