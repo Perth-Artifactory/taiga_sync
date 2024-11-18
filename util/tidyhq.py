@@ -391,22 +391,22 @@ def get_custom_field(
     The field can be specified by either its ID or its name in the config file.
     """
     if field_map_name:
+        logger.debug(f"Looking for field {field_map_name} for contact {contact_id}")
         field_id = config["tidyhq"]["ids"].get(field_map_name, None)
+        logger.debug(f"Field ID for {field_map_name} is {field_id}")
 
     if not field_id:
         logger.error("No field ID provided or found in config")
         return None
 
-    logger.debug(f"Looking for custom field {field_id} for contact {contact_id}")
     for contact in cache["contacts"]:
-        if contact["id"] == contact_id:
+        if str(contact["id"]) == str(contact_id):
             for field in contact["custom_fields"]:
-                if field_id:
-                    if field["id"] == field_id:
-                        logger.debug(
-                            f"Found field {field_id} with value {field['value']}"
-                        )
-                        return field
+                if field["id"] == field_id:
+                    logger.info(f"Found field {field_id} with value {field['value']}")
+                    return field
+                else:
+                    logger.debug(f"Field {field_id} does not match {field['id']}")
     logger.debug(f"Could not find field {field_id} for contact {contact_id}")
     return None
 
@@ -556,6 +556,11 @@ def map_taiga_to_tidyhq(
     """Accepts a Taiga user ID and returns the TidyHQ contact ID if one is found.
 
     This function is comparatively slow"""
+
+    # Taiga IDs are stored as strings in TidyHQ
+    taiga_id = str(taiga_id)
+
+    logger.debug(f"Looking for TidyHQ contact with Taiga ID {taiga_id}")
     for contact in tidyhq_cache["contacts"]:
         taiga_field = get_custom_field(
             config=config,
@@ -565,13 +570,18 @@ def map_taiga_to_tidyhq(
         )
         if taiga_field:
             if str(taiga_field["value"]) == taiga_id:
-                return contact["id"]
+                logger.info(f"Found TidyHQ contact with Taiga ID {taiga_id}")
+                return str(contact["id"])
+    logger.debug(f"Could not find TidyHQ contact with Taiga ID {taiga_id}")
+    return None
 
 
 def map_tidyhq_to_taiga(
     tidyhq_cache: dict, config: dict, tidyhq_id: str | int
 ) -> int | None:
     """Accepts a TidyHQ contact ID and returns the Taiga user ID if one is found."""
+
+    logger.debug(f"Looking for Taiga ID for TidyHQ contact {tidyhq_id}")
 
     tidyhq_id = str(tidyhq_id)
 
@@ -580,14 +590,22 @@ def map_tidyhq_to_taiga(
     )
 
     if taiga_id:
-        return taiga_id["value"]
+        logger.info(
+            f"Found Taiga ID {taiga_id['value']} for TidyHQ contact {tidyhq_id}"
+        )
+        return int(taiga_id["value"])
     else:
+        logger.debug(f"Could not find Taiga ID for TidyHQ contact {tidyhq_id}")
         return None
 
 
-def map_taiga_to_slack(tidyhq_cache: dict, taiga_id: str | int, config: dict):
+def map_taiga_to_slack(
+    tidyhq_cache: dict, taiga_id: str | int, config: dict
+) -> str | None:
     """Map Taiga user IDs to Slack user IDs."""
     # Get the TidyHQ contact ID from the Taiga user ID
+
+    logger.debug(f"Looking for Slack ID for Taiga user {taiga_id}")
 
     tidyhq_id = map_taiga_to_tidyhq(tidyhq_cache, taiga_id, config)
 
@@ -600,15 +618,19 @@ def map_taiga_to_slack(tidyhq_cache: dict, taiga_id: str | int, config: dict):
     )
 
     if slack_id:
+        logger.info(f"Found Slack ID {slack_id['value']} for Taiga user {taiga_id}")
         return slack_id["value"]
     else:
+        logger.debug(f"Could not find Slack ID for Taiga user {taiga_id}")
         return None
 
 
-def map_slack_to_taiga(tidyhq_cache: dict, slack_id: str, config: dict):
+def map_slack_to_taiga(tidyhq_cache: dict, slack_id: str, config: dict) -> int | None:
     """Map Slack user IDs to Taiga user IDs."""
 
     # Get the TidyHQ contact ID from the Slack user ID
+
+    logger.debug(f"Looking for Taiga ID for Slack user {slack_id}")
 
     tidyhq_id = map_slack_to_tidyhq(tidyhq_cache, slack_id, config)
 
@@ -621,13 +643,17 @@ def map_slack_to_taiga(tidyhq_cache: dict, slack_id: str, config: dict):
     )
 
     if taiga_id:
-        return taiga_id["value"]
+        logger.info(f"Found Taiga ID {taiga_id['value']} for Slack user {slack_id}")
+        return int(taiga_id["value"])
     else:
+        logger.debug(f"Could not find Taiga ID for Slack user {slack_id}")
         return None
 
 
-def map_slack_to_tidyhq(tidyhq_cache: dict, slack_id: str, config: dict):
+def map_slack_to_tidyhq(tidyhq_cache: dict, slack_id: str, config: dict) -> str | None:
     """Map Slack user IDs to TidyHQ contact IDs."""
+
+    logger.debug(f"Looking for TidyHQ contact with Slack ID {slack_id}")
 
     # Look for a TidyHQ ID with the matching Slack ID
     for contact in tidyhq_cache["contacts"]:
@@ -639,6 +665,8 @@ def map_slack_to_tidyhq(tidyhq_cache: dict, slack_id: str, config: dict):
         )
         if slack_field:
             if slack_field["value"] == slack_id:
-                return contact["id"]
+                logger.info(f"Found TidyHQ contact with Slack ID {slack_id}")
+                return str(contact["id"])
 
+    logger.debug(f"Could not find TidyHQ contact with Slack ID {slack_id}")
     return None
