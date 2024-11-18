@@ -266,7 +266,9 @@ def add_useful_fields(
 ):
     """Add useful fields to stories.
 
-    Current useful field is a clickable TidyHQ contact link.
+    Current useful fields:
+    * Clickable TidyHQ contact link
+    * Membership type
     """
     # Iterate over all user stories
     stories = taigacon.user_stories.list(project=project_id)
@@ -291,22 +293,58 @@ def add_useful_fields(
 
         if tidyhq_url:
             logger.debug(f"Story {story.subject} already has a TidyHQ URL set")
-            continue
+        else:
+            # Check if the story has a TidyHQ ID set
+            tidyhq_id = taigalink.get_tidyhq_id(
+                story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+            )
 
-        # Check if the story has a TidyHQ ID set
-        tidyhq_id = taigalink.get_tidyhq_id(
+            if tidyhq_id:
+                logger.debug(f"Story {story.subject} has a TidyHQ ID set but no URL")
+
+                # Set the TidyHQ URL
+                taigalink.set_custom_field(
+                    config=config,
+                    taiga_auth_token=taiga_auth_token,
+                    story_id=story.id,
+                    field_id=3,
+                    value=f"https://{tidyhq_cache['org']['domain_prefix']}.tidyhq.com/contacts/{tidyhq_id}",
+                )
+
+        # Set TidyHQ membership type
+
+        # Check if the story has a membership type set
+        membership_type = taigalink.get_member_type(
             story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
         )
 
-        if not tidyhq_id:
-            logger.debug(f"Story {story.subject} does not have a TidyHQ ID set")
-            continue
+        if not membership_type:
+            # Check if the story has a TidyHQ ID set
+            tidyhq_id = taigalink.get_tidyhq_id(
+                story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
+            )
 
-        # Set the TidyHQ URL
-        taigalink.set_custom_field(
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            story_id=story.id,
-            field_id=3,
-            value=f"https://{tidyhq_cache['org']['domain_prefix']}.tidyhq.com/contacts/{tidyhq_id}",
-        )
+            if tidyhq_id:
+                # Get the membership type
+                membership = tidyhq.get_membership_type(
+                    contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
+                )
+
+                if membership:
+                    logger.debug(
+                        f"Setting membership type for story {story.subject} to {membership}"
+                    )
+                    taigalink.set_custom_field(
+                        config=config,
+                        taiga_auth_token=taiga_auth_token,
+                        story_id=story.id,
+                        field_id=4,
+                        value=membership,
+                    )
+                else:
+                    logger.debug(f"Contact {tidyhq_id} does not have a membership")
+            else:
+                logger.debug(f"Story {story.subject} does not have a TidyHQ ID set")
+        else:
+            logger.debug(f"Story {story.subject} already has a membership type set")
+            continue
