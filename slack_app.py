@@ -130,7 +130,18 @@ app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
 channels = client.conversations_list(types="public_channel")["channels"]
+
 for channel in channels:
+    # Skip archived channels
+    if channel["is_archived"]:
+        setup_logger.info(f"Skipping archived channel {channel['name']}")
+        continue
+    # Check if the bot is already in the channel
+    if channel["is_member"]:
+        setup_logger.info(f"Already in channel {channel['name']}")
+        continue
+
+    # Join the channel if not already in and not archived
     try:
         setup_logger.info(f"Joining channel {channel['name']}")
         client.conversations_join(channel=channel["id"])
