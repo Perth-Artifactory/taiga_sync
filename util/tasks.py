@@ -432,7 +432,7 @@ def check_all_tasks(
                     )
                     updating = taigalink.update_task(
                         task_id=task.id,
-                        status=5,
+                        status=23,
                         taiga_auth_token=taiga_auth_token,
                         config=config,
                         version=task.version,
