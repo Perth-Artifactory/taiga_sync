@@ -41,11 +41,13 @@ def stories(story_list):
 
 def inject_text(block_list, text):
     block_list = copy(block_list)
-    if block_list[-1]["type"] in ["section", "header"]:
+    if block_list[-1]["type"] in ["section", "header", "button"]:
         block_list[-1]["text"]["text"] = text
-    elif block_list[-1]["type"] == "context":
+    elif block_list[-1]["type"] in ["context"]:
         block_list[-1]["elements"][0]["text"] = text
     elif block_list[-1]["type"] == "modal":
         block_list[-1]["title"]["text"] = text
+    elif block_list[-1]["type"] == "rich_text":
+        block_list[-1]["elements"][0]["elements"][0]["text"] = text
 
     return block_list

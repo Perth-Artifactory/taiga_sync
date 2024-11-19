@@ -297,6 +297,11 @@ def handle_task_command(ack, respond, command, client):
         respond("The issue has been created on Taiga, thanks!")
 
 
+@app.action("view_in_taiga")
+def ignore_button_presses(ack):
+    ack()
+
+
 @app.event("app_home_opened")
 def handle_app_home_opened_events(body, client, logger):
     user_id = body["event"]["user"]
@@ -446,6 +451,7 @@ def handle_app_home_opened_events(body, client, logger):
         client.views_publish(user_id=user_id, view=view)
         logger.info("App Home content set successfully.")
     except Exception as e:
+        pprint(block_list)
         logger.error(f"Error publishing App Home content: {e}")
 
 

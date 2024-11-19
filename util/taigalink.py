@@ -4,6 +4,8 @@ from pprint import pprint
 
 import requests
 
+from util import tidyhq
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
@@ -251,7 +253,7 @@ def create_issue(
     subject: str = "Untriaged issue reported on Slack",
     tags: list = [],
     watchers: list = [],
-) -> bool:
+) -> dict:
     """Create an issue on a Taiga project."""
 
     # Maps
@@ -316,7 +318,7 @@ def create_issue(
 
     if not severity_id and priority_id and project_id:
         logger.error("Severity, priority and type IDs not found")
-        return False
+        return {}
 
     create_url = f"{config['taiga']['url']}/api/v1/issues"
     logger.warning(watchers)
@@ -339,14 +341,14 @@ def create_issue(
     if response.status_code == 201:
         logger.info(f"Created issue {response.json()['id']} on project {project_id}")
         # Print the raw request that was made to taiga
-        return response.json()["id"]
+        return response.json()
     else:
         logger.error(
             f"Failed to create issue on project {project_id}: {response.status_code}"
         )
         logger.error(response.json())
         logger.error(response.request.body)
-        return False
+        return {}
 
 
 def item_mapper(
@@ -416,12 +418,12 @@ def map_slack_names_to_taiga_usernames(input_string: str, taiga_users: dict) -> 
 def create_link_to_entry(
     config,
     taiga_auth_token,
-    entry_id: int,
+    entry_ref: int,
     project_id: int | None = None,
     project_str: str | None = None,
     entry_type: str = "story",
 ):
-    """Create a link to the TidyHQ entry for the project."""
+    """Create a link to the Taiga entry for the project."""
     if project_str is None and project_id:
         # Fetch the project name
         # TODO retrieve the project name from the ID.
@@ -430,13 +432,13 @@ def create_link_to_entry(
             "Project name not provided and this function is not yet capable of retrieving it from the ID"
         )
     # Remap entry_type to the versions used in URLs
-    entry_map = {"story": "us", "issue": "issue", "task": "task"}
+    entry_map = {"story": "us", "userstory": "us", "issue": "issue", "task": "task"}
 
     if entry_type not in entry_map:
         logger.error(f"Entry type {entry_type} not supported")
         return False
 
-    return f"{config['taiga']['url']}/project/{project_str}/{entry_map[entry_type]}/{entry_id}"
+    return f"{config['taiga']['url']}/project/{project_str}/{entry_map[entry_type]}/{entry_ref}"
 
 
 def order_to_id(story_statuses: dict, order: int) -> int:
@@ -504,3 +506,60 @@ def sort_stories_by_project(stories):
             projects[story["project"]] = []
         projects[story["project"]].append(story)
     return projects
+
+
+def parse_webhook_action_into_str(
+    data: dict, tidyhq_cache: dict, config: dict, taiga_auth_token
+) -> str:
+    """Parse the data of a webhook into a human-readable string."""
+    action_map = {
+        "create": "created",
+        "change": "changed",
+        "delete": "deleted",
+    }
+
+    type_map = {"userstory": "card", "task": "task", "issue": "issue"}
+
+    action = data.get("action", None)
+
+    if not action:
+        logger.error(
+            "Action not found in webhook data or isn't one of: create, change or delete"
+        )
+
+    subject = data["data"]["subject"]
+    by_name = data["by"]["full_name"]
+    by_id = data["by"]["id"]
+    # Get the Slack ID of the user if it exists
+    slack_id = tidyhq.map_taiga_to_slack(
+        tidyhq_cache=tidyhq_cache, taiga_id=by_id, config=config
+    )
+    if slack_id:
+        by_name = f"<@{slack_id}>"
+
+    description = "\n"
+
+    if action == "change":
+        for diff in data["change"]["diff"]:
+            description += f"{diff} from: {data['change']['diff'][diff]['from']} to: {data['change']['diff'][diff]['to']}\n"
+        if data["change"]["comment"]:
+            description += f"Comment: {data['change']['comment']}"
+
+    elif action == "delete":
+        # Nothing we need to do here
+        pass
+
+    elif action == "create":
+        if data["data"]["assigned_to"]:
+            assigned_id = data["data"]["assigned_to"]["id"]
+            assigned_name = data["data"]["assigned_to"]["full_name"]
+            # Get the Slack ID of the assigned user if it exists
+            slack_id = tidyhq.map_taiga_to_slack(
+                tidyhq_cache=tidyhq_cache, taiga_id=assigned_id, config=config
+            )
+            if slack_id:
+                assigned_name = f"<@{slack_id}>"
+
+            description += f"Assigned to: {assigned_name}\n"
+
+    return f"""{by_name} {action_map[action]} the {type_map.get(data["type"], "item")}: {subject}{description}"""

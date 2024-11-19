@@ -2,3 +2,5 @@ requests
 python-taiga
 slack-bolt
 phonenumbers
+flask
+waitress

@@ -1,6 +1,8 @@
 import logging
 from pprint import pprint
 
+from util import tidyhq
+
 # Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -65,7 +67,7 @@ def name_mapper(slack_id: str, slack_app) -> str:
     return user_info["user"]["profile"]["display_name"]
 
 
-def send_dm(slack_id: str, message: str, slack_app) -> bool:
+def send_dm(slack_id: str, message: str, slack_app, blocks: list = []) -> bool:
     """
     Send a direct message to a user including conversation creation
     """
@@ -75,7 +77,9 @@ def send_dm(slack_id: str, message: str, slack_app) -> bool:
     conversation_id = conversation["channel"]["id"]
 
     # Send the message
-    m = slack_app.client.chat_postMessage(channel=conversation_id, text=message)
+    m = slack_app.client.chat_postMessage(
+        channel=conversation_id, text=message, blocks=blocks
+    )
 
     if not m["ok"]:
         logger.error(f"Failed to send message to {slack_id}")
@@ -84,3 +88,27 @@ def send_dm(slack_id: str, message: str, slack_app) -> bool:
 
     logger.info(f"Sent message to {slack_id}")
     return True
+
+
+def map_recipients(list_of_recipients: list, tidyhq_cache: dict, config: dict) -> dict:
+    """
+    Maps a list of slack recipients to the appropriate pathways
+    """
+
+    recipients = {"user": [], "channel": []}
+    for recipient in list_of_recipients:
+        if recipient[0] == "U":
+            recipients["user"].append(recipient)
+        elif recipient[0] == "C":
+            recipients["channel"].append(recipient)
+        else:
+            # Assume it's a Taiga user ID
+            slack_id = tidyhq.map_taiga_to_slack(
+                tidyhq_cache=tidyhq_cache, taiga_id=recipient, config=config
+            )
+            if slack_id:
+                recipients["user"].append(slack_id)
+            else:
+                logger.error(f"No slack ID found for Taiga user {recipient}")
+
+    return recipients

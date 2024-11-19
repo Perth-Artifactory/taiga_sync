@@ -164,12 +164,10 @@ for message in conversation_history:
         logger.error(variables)
         continue
 
-    # TODO Figure out if the entry IDs are always four off
-    # They're not :(
     issue_url = taigalink.create_link_to_entry(
         config=config,
         taiga_auth_token=taiga_auth_token,
-        entry_id=success + 4,
+        entry_ref=success["ref"],
         project_id=None,
         project_str=infrastructure_project.slug,
         entry_type="issue",
