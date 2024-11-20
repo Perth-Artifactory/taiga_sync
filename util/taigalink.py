@@ -462,7 +462,9 @@ def id_to_order(story_statuses: dict, status_id: int) -> int:
     return story_statuses[status_id]["order"]
 
 
-def get_tasks(taiga_id: int, config: dict, taiga_auth_token: str):
+def get_tasks(
+    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+):
     """Get all tasks assigned to a user."""
 
     url = f"{config['taiga']['url']}/api/v1/tasks"
@@ -472,10 +474,15 @@ def get_tasks(taiga_id: int, config: dict, taiga_auth_token: str):
         params={"assigned_to": taiga_id},
     )
     tasks = response.json()
+
+    if exclude_done:
+        tasks = [task for task in tasks if not task["is_closed"]]
     return tasks
 
 
-def get_stories(taiga_id: int, config: dict, taiga_auth_token: str):
+def get_stories(
+    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+):
     """Get all stories assigned to a user."""
 
     url = f"{config['taiga']['url']}/api/v1/userstories"
@@ -485,6 +492,8 @@ def get_stories(taiga_id: int, config: dict, taiga_auth_token: str):
         params={"assigned_to": taiga_id},
     )
     stories = response.json()
+    if exclude_done:
+        stories = [story for story in stories if not story["is_closed"]]
     return stories
 
 

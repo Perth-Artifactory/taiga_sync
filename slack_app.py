@@ -365,7 +365,10 @@ def handle_app_home_opened_events(body, client, logger):
 
         # Get all assigned user stories for the user
         user_stories = taigalink.get_stories(
-            taiga_id=taiga_id, config=config, taiga_auth_token=taiga_auth_token
+            taiga_id=taiga_id,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=True,
         )
 
         if len(user_stories) == 0:
@@ -399,7 +402,10 @@ def handle_app_home_opened_events(body, client, logger):
 
         # Get all tasks for the user
         tasks = taigalink.get_tasks(
-            taiga_id=5, config=config, taiga_auth_token=taiga_auth_token
+            taiga_id=5,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=True,
         )
 
         if len(tasks) == 0:
