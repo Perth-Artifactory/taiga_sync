@@ -541,7 +541,7 @@ def parse_webhook_action_into_str(
 
     if action == "change":
         for diff in data["change"]["diff"]:
-            description += f"{diff} from: {data['change']['diff'][diff]['from']} to: {data['change']['diff'][diff]['to']}\n"
+            description += f"{diff} from: {data['change']['diff'][diff].get('from','-')} to: {data['change']['diff'][diff]['to']}\n"
         if data["change"]["comment"]:
             description += f"Comment: {data['change']['comment']}"
 
