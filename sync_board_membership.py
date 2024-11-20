@@ -162,7 +162,11 @@ for channel in slack_channels:
             taiga_id = tidyhq.map_slack_to_taiga(
                 tidyhq_cache=tidyhq_cache, slack_id=member, config=config
             )
-            logger.debug(f"Taiga ID for user {member_name} ({member}) is {taiga_id}")
+            logger.info(f"Taiga ID for user {member_name} ({member}) is {taiga_id}")
+
+            if not taiga_id:
+                logger.error(f"No Taiga ID found for user {member_name} ({member})")
+                continue
 
             # Check if the user is a member of the project
             if channel["name"] in taiga_users[taiga_id]["project_names"]:
