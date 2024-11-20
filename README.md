@@ -136,3 +136,20 @@ If any of these steps indicate that they've made changes to the board the entire
 
 * TidyHQ - All results are accessed through a time cache (not just runtime) so queries to TidyHQ are reduced
 * Taiga - Very little consideration has been put into reducing the number of calls to Taiga as the service is self hosted.
+
+## Get Taiga token
+
+Some of this code cannot easily refresh tokens so we can generate a long lived one using the code below (ran on the Taiga host)
+
+* `./taiga-manage.sh shell`
+
+```python
+from datetime import timedelta
+from taiga.users.models import User
+from taiga.auth.tokens import AccessToken
+AccessToken.lifetime = timedelta(days=365*100)
+AccessToken.lifetime
+user = User.objects.get(email="email@address")
+token = AccessToken.for_user(user)
+print(token)
+```

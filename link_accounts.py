@@ -42,23 +42,29 @@ if "--cron" in sys.argv:
 if "--fresh" in sys.argv:
     config["cache_expiry"] = 1
 
-# Get auth token for Taiga
-# This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
-auth_url = f"{config['taiga']['url']}/api/v1/auth"
-auth_data = {
-    "password": config["taiga"]["password"],
-    "type": "normal",
-    "username": config["taiga"]["username"],
-}
-response = requests.post(
-    auth_url, headers={"Content-Type": "application/json"}, data=json.dumps(auth_data)
-)
+if not config["taiga"].get("auth_token"):
+    # Get auth token for Taiga
+    # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
+    auth_url = f"{config['taiga']['url']}/api/v1/auth"
+    auth_data = {
+        "password": config["taiga"]["password"],
+        "type": "normal",
+        "username": config["taiga"]["username"],
+    }
+    response = requests.post(
+        auth_url,
+        headers={"Content-Type": "application/json"},
+        data=json.dumps(auth_data),
+    )
 
-if response.status_code == 200:
-    taiga_auth_token = response.json().get("auth_token")
+    if response.status_code == 200:
+        taiga_auth_token = response.json().get("auth_token")
+    else:
+        setup_logger.error(f"Failed to get auth token: {response.status_code}")
+        sys.exit(1)
+
 else:
-    setup_logger.error(f"Failed to get auth token: {response.status_code}")
-    sys.exit(1)
+    taiga_auth_token = config["taiga"]["auth_token"]
 
 taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
 
