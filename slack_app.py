@@ -4,6 +4,7 @@ import os
 import sys
 from pprint import pprint
 from taiga import TaigaAPI
+import re
 
 import requests
 from slack_bolt import App
@@ -297,7 +298,7 @@ def handle_task_command(ack, respond, command, client):
         respond("The issue has been created on Taiga, thanks!")
 
 
-@app.action("view_in_taiga")
+@app.action(re.compile(r"^tlink.*"))
 def ignore_button_presses(ack):
     ack()
 

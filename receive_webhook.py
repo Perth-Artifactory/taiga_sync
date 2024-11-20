@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import sys
+import uuid
 from copy import deepcopy as copy
 from pprint import pprint
 
@@ -189,7 +190,7 @@ def incoming():
         button = copy(blocks.button)
         button["text"]["text"] = "View in Taiga"
         button["url"] = url
-        button["action_id"] = "view_in_taiga"
+        button["action_id"] = f"tlink{uuid.uuid4().hex}"
         block_list += blocks.actions
         block_list[-1]["elements"].append(button)
 
