@@ -563,3 +563,37 @@ def parse_webhook_action_into_str(
             description += f"Assigned to: {assigned_name}\n"
 
     return f"""{by_name} {action_map[action]} the {type_map.get(data["type"], "item")}: {subject}{description}"""
+
+
+def get_info(
+    taiga_auth_token: str,
+    config: dict,
+    story_id: int | None = None,
+    task_id: int | None = None,
+    issue_id: int | None = None,
+):
+    """Get the info of a story, task or issue."""
+    if story_id:
+        url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
+    elif task_id:
+        url = f"{config['taiga']['url']}/api/v1/tasks/{task_id}"
+    elif issue_id:
+        url = f"{config['taiga']['url']}/api/v1/issues/{issue_id}"
+
+    if not url:
+        logger.error("No ID provided")
+        return False
+
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+
+    if response.status_code == 200:
+        return response.json()
+
+    logger.error(
+        f"Failed to get info for {story_id} {task_id} {issue_id}: {response.status_code}"
+    )
+    logger.error(response.json())
+    return False

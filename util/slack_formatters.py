@@ -1,5 +1,8 @@
 from copy import deepcopy as copy
 from pprint import pprint
+from datetime import datetime
+
+from util import blocks
 
 
 def tasks(task_list):
@@ -37,6 +40,52 @@ def stories(story_list):
     out_str = "\n".join(story_strs)
 
     return header_str, out_str
+
+
+def due_item(item: dict, item_type: str, for_user: str):
+    assigned_info = " (Watching)"
+    if for_user in item.get("assigned_users", []):
+        assigned_info = " (Assigned)"
+    elif for_user.startswith("C"):
+        assigned_info = ""
+
+    due_date = datetime.strptime(item["due_date"], "%Y-%m-%d")
+    days = (due_date - datetime.now()).days
+    project_slug = item["project_extra_info"]["slug"]
+    ref = item["ref"]
+
+    if item_type == "story":
+        story_url = f"https://tasks.artifactory.org.au/project/{project_slug}/us/{ref}"
+    elif item_type == "issue":
+        story_url = (
+            f"https://tasks.artifactory.org.au/project/{project_slug}/issue/{ref}"
+        )
+    else:
+        raise ValueError(f"Invalid item: must be 'story' or 'issue' got {item_type}")
+    story_name = item["subject"]
+    story_status = item["status_extra_info"]["name"]
+    string = (
+        f"• {days} days: <{story_url}|{story_name}> ({story_status}){assigned_info}"
+    )
+    return string
+
+
+def construct_reminder_section(reminders: dict) -> list:
+    block_list = []
+    if reminders["story"] != []:
+        block_list += blocks.header
+        block_list = inject_text(block_list, "Cards")
+        block_list += blocks.text
+        block_list = inject_text(block_list, "\n".join(reminders["story"]))
+    if reminders["issue"] != []:
+        if block_list != []:
+            block_list += blocks.divider
+        block_list += blocks.header
+        block_list = inject_text(block_list, "Issues")
+        block_list += blocks.text
+        block_list = inject_text(block_list, "\n".join(reminders["issue"]))
+
+    return block_list
 
 
 def inject_text(block_list, text):
