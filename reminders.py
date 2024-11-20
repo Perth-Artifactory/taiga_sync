@@ -195,14 +195,16 @@ if not working:
 for assignee in working:
     block_list = []
     block_list += blocks.text
-    block_list = slack_formatters.inject_text(block_list, "")
+    block_list = slack_formatters.inject_text(block_list, message)
     reminder_blocks = slack_formatters.construct_reminder_section(weekly[assignee])
     if not reminder_blocks:
         continue
     assignee = str(assignee)
     if assignee.startswith("C"):
         app.client.chat_postMessage(
-            channel=assignee, blocks=reminder_blocks, text="Weekly reminders"
+            channel=assignee,
+            blocks=block_list + reminder_blocks,
+            text="Weekly reminders",
         )
     else:
         # Translate from Taiga ID to slack ID
