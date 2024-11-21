@@ -129,6 +129,12 @@ def incoming():
         slack_channel = config["taiga-channel"][project_id]
 
     if data["action"] == "create":
+        # If the created thing is an issue it must be created by Giant Robot for us to send a notification
+        # It's assumed that issues created by people directly in Taiga are already being handled appropriately
+        if data["type"] == "issue" and data["by"]["full_name"] != "Giant Robot":
+            logger.debug("Issue created by non-Giant Robot user, no action required")
+            return "No action required", 200
+
         new_thing = True
         assigned_to = data["data"]["assigned_to"]
         if assigned_to:
