@@ -614,3 +614,64 @@ def get_info(
     )
     logger.error(response.json())
     return False
+
+
+def add_comment(
+    type_str: str,
+    item_id: int,
+    comment: str,
+    taiga_auth_token: str,
+    config: dict,
+    version: int,
+):
+    """Add a comment to a story or issue."""
+    type_map = {"userstory": "userstories", "issue": "issues"}
+    if type_str not in type_map:
+        logger.error(f"Type {type_str} not supported")
+        return False
+
+    url = f"{config['taiga']['url']}/api/v1/{type_map[type_str]}/{item_id}"
+
+    response = requests.patch(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        json={"comment": comment, "version": version},
+    )
+    if response.status_code == 200:
+        return True
+    else:
+        logger.error(
+            f"Failed to add comment to {type_str} {item_id}: {response.status_code}"
+        )
+        return False
+
+
+def watch(
+    type_str: str,
+    item_id: int,
+    watchers: list,
+    taiga_id: int,
+    taiga_auth_token: str,
+    config: dict,
+    version: int,
+):
+    """Add a watcher to a story or issue."""
+    type_map = {"userstory": "userstories", "issue": "issues"}
+    if type_str not in type_map:
+        logger.error(f"Type {type_str} not supported")
+        return False
+
+    url = f"{config['taiga']['url']}/api/v1/{type_map[type_str]}/{item_id}"
+
+    response = requests.patch(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        json={"watchers": watchers + [taiga_id], "version": version},
+    )
+    if response.status_code == 200:
+        return True
+    else:
+        logger.error(
+            f"Failed to add watcher to {type_str} {item_id}: {response.status_code}"
+        )
+        return False

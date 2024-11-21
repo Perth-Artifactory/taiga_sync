@@ -26,10 +26,6 @@ header = [{"type": "header", "text": {"type": "plain_text", "text": "", "emoji":
 
 accessory_image = {"type": "image", "image_url": "", "alt_text": ""}
 
-button = {
-    "type": "button",
-    "text": {"type": "plain_text", "text": ""},
-    "url": "",
-}
+button = {"type": "button", "text": {"type": "plain_text", "text": ""}}
 
-actions = [{"type": "actions", "block_id": "actions1", "elements": []}]
+actions = [{"type": "actions", "block_id": "button_actions", "elements": []}]
