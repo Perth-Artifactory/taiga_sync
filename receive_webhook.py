@@ -197,7 +197,7 @@ def incoming():
         button["text"]["text"] = "View in Taiga"
         button["url"] = url
         button["action_id"] = f"tlink{uuid.uuid4().hex}"
-        block_list += blocks.actions
+        block_list += copy(blocks.actions)
         block_list[-1]["elements"].append(button)
 
     # map recipients to slack IDs
