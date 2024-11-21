@@ -183,18 +183,9 @@ def incoming():
         taiga_auth_token=taiga_auth_token,
     )
 
-    # Check if there's an image to attach
-    image = data["by"].get("photo", None)
     block_list = []
     block_list += blocks.text
     block_list = slack_formatters.inject_text(block_list, message)
-    if image and data["action"] == "create":
-        # Create an image accessory
-        accessory = copy(blocks.accessory_image)
-        accessory["image_url"] = image
-        accessory["alt_text"] = f"Photo of {data['by']['full_name']}"
-        # Attach the accessory to the last block
-        block_list[-1]["accessory"] = accessory
 
     # Check if there's a url to attach
     url = data["data"].get("permalink", None)
@@ -211,6 +202,14 @@ def incoming():
         list_of_recipients=send_to, tidyhq_cache=tidyhq_cache, config=config
     )
 
+    # Decide who we're sending as
+    sender_image = None
+    sender_name = None
+
+    if data["by"]["full_name"] != "Giant Robot":
+        sender_image = data["by"].get("photo", None)
+        sender_name = f"{data['by']['full_name'].split(' ')[0]} | Taiga"
+
     for user in recipients["user"]:
         slack.send_dm(
             slack_id=user, message=message, slack_app=slack_app, blocks=block_list
@@ -219,7 +218,11 @@ def incoming():
     for channel in recipients["channel"]:
         try:
             slack_app.client.chat_postMessage(
-                channel=channel, text=message, blocks=block_list
+                channel=channel,
+                text=message,
+                blocks=block_list,
+                icon_url=sender_image,
+                username=sender_name,
             )
         except SlackApiError as e:
             logger.error(f"Failed to send message to channel {channel}")

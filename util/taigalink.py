@@ -579,7 +579,7 @@ def parse_webhook_action_into_str(
 
             description += f"Assigned to: {assigned_name}\n"
 
-    return f"""{by_name} {action_map[action]} the {type_map.get(data["type"], "item")}: {subject}{description}"""
+    return f"""{type_map.get(data["type"], "item")} {action_map[action]}: {subject}{description}"""
 
 
 def get_info(
