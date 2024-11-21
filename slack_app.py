@@ -165,6 +165,7 @@ for channel in channels:
 # Event listener for messages that mention the bot
 @app.event("app_mention")
 def handle_app_mention(event, say, client, respond):
+    """Respond to a mention of the bot with a message"""
     user = event["user"]
     text = event["text"]
     channel = event["channel"]
@@ -236,6 +237,7 @@ def handle_app_mention(event, say, client, respond):
 # Event listener for direct messages to the bot
 @app.event("message")
 def handle_message(event, say, client, ack):
+    """Respond to direct messages sent to the bot"""
     if event.get("channel_type") != "im":
         ack()
         return
@@ -274,6 +276,7 @@ def handle_message(event, say, client, ack):
 # Command listener for /issue
 @app.command("/issue")
 def handle_task_command(ack, respond, command, client):
+    """Raise issues on Taiga via /issue"""
     logger.info(f"Received /issue command")
     ack()
     user = command["user_id"]
@@ -305,12 +308,109 @@ def handle_task_command(ack, respond, command, client):
 
 
 @app.action(re.compile(r"^tlink.*"))
-def ignore_button_presses(ack):
+def ignore_link_button_presses(ack):
+    """Dummy function to ignore link button presses"""
+    ack()
+
+
+@app.action(re.compile(r"^twatch.*"))
+def watch_button(ack, body, respond):
+    """Watch items on Taiga via a button
+
+    Watch button values are a dict with:
+    * project_id: The ID of the Taiga project the item is in
+    * item_id: The ID of the item
+    * type: The type of item (e.g. userstory, issue)
+    * permalink: The permalink to the URL in Taiga, if available"""
+    ack()
+    watch_target = json.loads(body["actions"][0]["value"])
+
+    # Check if the Slack user can be mapped to a Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    # If the Slack user can't be mapped to a Taiga user the best we can do is tell them to watch it themselves
+    if not taiga_id:
+        message = """Sorry, I can't watch this item for you as I don't know who you are in Taiga\nIf you think this is an error please reach out to #it."""
+        if watch_target.get("permalink"):
+            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+        client.chat_postEphemeral(
+            channel=body["channel"]["id"], user=body["user"]["id"], text=message
+        )
+        return
+
+    # Get the item in Taiga
+
+    # Translate the type field to an argument get_info can use
+    type_to_arg = {
+        "issue": "issue_id",
+        "userstory": "story_id",
+        "task": "task_id",
+        # Add other types as needed
+    }
+
+    item_info = taigalink.get_info(
+        taiga_auth_token=taiga_auth_token,
+        config=config,
+        **{type_to_arg.get(watch_target["type"], "story_id"): watch_target["item_id"]},
+    )
+
+    # Add a catch for get_info screwing up
+    if not item_info:
+        message = "Sorry, I'm having trouble accessing Taiga right now. Please try again later."
+        if watch_target.get("permalink"):
+            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+        client.chat_postEphemeral(
+            channel=body["channel"]["id"], user=body["user"]["id"], text=message
+        )
+        return
+
+    # Check if the user is already watching the item
+    if int(taiga_id) in item_info["watchers"]:
+        message = f"You're already watching this {watch_target['type']} in Taiga!"
+        client.chat_postEphemeral(
+            channel=body["channel"]["id"], user=body["user"]["id"], text=message
+        )
+        return
+
+    # Add the user to the watchers list
+    add_watcher_response = taigalink.watch(
+        type_str=watch_target["type"],
+        item_id=watch_target["item_id"],
+        watchers=item_info["watchers"],
+        taiga_id=taiga_id,
+        taiga_auth_token=taiga_auth_token,
+        config=config,
+        version=item_info["version"],
+    )
+
+    if not add_watcher_response:
+        message = "Sorry, I'm having trouble accessing Taiga right now. Please try again later."
+        if watch_target.get("permalink"):
+            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+        client.chat_postEphemeral(
+            channel=body["channel"]["id"], user=body["user"]["id"], text=message
+        )
+        return
+
+    message = f"You're now watching this {watch_target['type']} in Taiga!"
+    client.chat_postEphemeral(
+        channel=body["channel"]["id"], user=body["user"]["id"], text=message
+    )
+
+
+@app.event("reaction_added")
+def handle_reaction_added_events(ack):
+    """Dummy function to ignore emoji reactions to messages"""
     ack()
 
 
 @app.event("app_home_opened")
 def handle_app_home_opened_events(body, client, logger):
+    """Render app homes"""
     user_id = body["event"]["user"]
 
     # Check if the user has a Taiga account

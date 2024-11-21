@@ -188,14 +188,32 @@ def incoming():
     block_list = slack_formatters.inject_text(block_list, message)
 
     # Check if there's a url to attach
+    # This is also where we add a watch button
     url = data["data"].get("permalink", None)
     if url:
-        button = copy(blocks.button)
-        button["text"]["text"] = "View in Taiga"
-        button["url"] = url
-        button["action_id"] = f"tlink{uuid.uuid4().hex}"
+        # Construct the "View in Taiga" button
+        visit_button = copy(blocks.button)
+        visit_button["text"]["text"] = "View in Taiga"
+        visit_button["url"] = url
+        visit_button["action_id"] = f"tlink{uuid.uuid4().hex}"
+
+        # Construct the "Watch" button
+        watch_button = copy(blocks.button)
+        watch_button["text"]["text"] = "Watch"
+        watch_button["action_id"] = f"twatch{uuid.uuid4().hex}"
+        # Create a value that will let us identify the issue later
+        item_data = {
+            "project_id": project_id,
+            "item_id": data["data"]["id"],
+            "type": data["type"],
+            "permalink": url,
+        }
+        watch_button["value"] = json.dumps(item_data)
+
+        # Create an action block and add the buttons
         block_list += copy(blocks.actions)
-        block_list[-1]["elements"].append(button)
+        block_list[-1]["elements"].append(visit_button)
+        block_list[-1]["elements"].append(watch_button)
 
     # map recipients to slack IDs
     recipients = slack.map_recipients(
