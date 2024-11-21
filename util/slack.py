@@ -67,7 +67,16 @@ def name_mapper(slack_id: str, slack_app) -> str:
     return user_info["user"]["profile"]["display_name"]
 
 
-def send_dm(slack_id: str, message: str, slack_app, blocks: list = [], unfurl_links: bool = True, unfurl_media: bool = True) -> bool:
+def send_dm(
+    slack_id: str,
+    message: str,
+    slack_app,
+    blocks: list = [],
+    unfurl_links: bool = True,
+    unfurl_media: bool = True,
+    username: str | None = None,
+    photo: str | None = None,
+) -> bool:
     """
     Send a direct message to a user including conversation creation
     """
@@ -78,7 +87,13 @@ def send_dm(slack_id: str, message: str, slack_app, blocks: list = [], unfurl_li
 
     # Send the message
     m = slack_app.client.chat_postMessage(
-        channel=conversation_id, text=message, blocks=blocks, unfurl_links=unfurl_links, unfurl_media=unfurl_media
+        channel=conversation_id,
+        text=message,
+        blocks=blocks,
+        unfurl_links=unfurl_links,
+        unfurl_media=unfurl_media,
+        username=username,
+        icon_url=photo,
     )
 
     if not m["ok"]:
