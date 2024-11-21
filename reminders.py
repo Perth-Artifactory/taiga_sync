@@ -211,6 +211,8 @@ for assignee in working:
             channel=assignee,
             blocks=block_list + reminder_blocks,
             text="Weekly reminders",
+            unfurl_links=False,
+            unfurl_media=False,
         )
     else:
         # Translate from Taiga ID to slack ID
@@ -225,4 +227,6 @@ for assignee in working:
             message="Upcoming due items on Taiga",
             slack_app=app,
             blocks=reminder_blocks,
+            unfurl_links=False,
+            unfurl_media=False,
         )
