@@ -284,7 +284,7 @@ def handle_message(event, say, client, ack):
 
 # Command listener for /issue
 @app.command("/issue")
-def handle_issue_command(ack, respond, command, client):
+def handle_task_command(ack, respond, command, client):
     """Raise issues on Taiga via /issue"""
     logger.info(f"Received /issue command")
     ack()
