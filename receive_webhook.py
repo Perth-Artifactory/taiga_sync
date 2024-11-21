@@ -212,7 +212,12 @@ def incoming():
 
     for user in recipients["user"]:
         slack.send_dm(
-            slack_id=user, message=message, slack_app=slack_app, blocks=block_list
+            slack_id=user,
+            message=message,
+            slack_app=slack_app,
+            blocks=block_list,
+            photo=sender_image,
+            username=sender_name,
         )
 
     for channel in recipients["channel"]:
