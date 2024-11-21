@@ -15,40 +15,7 @@ from slack_sdk.errors import SlackApiError
 from util import taigalink, tidyhq, slack_formatters, slack, strings, blocks
 
 
-# Stand in testing function that simulates issue creation while testing Slack parts
-def dummy_issue_creation(board, description, subject, by):
-    description = f"{description}\n\nby: {by}"
-    print(
-        f"Created issue on {board} board with description: {description} and subject: {subject}"
-    )
-    return True
-
-
-def issue_creation(board, description, subject, by):
-    description = f"{description}\n\nAdded to Taiga by: {by}"
-    project_id = project_ids.get(board)
-    if not project_id:
-        logger.error(f"Project ID not found for board {board}")
-        return False
-
-    issue = taigalink.base_create_issue(
-        taiga_auth_token=taiga_auth_token,
-        project_id=project_id,
-        subject=subject,
-        description=description,
-        config=config,
-    )
-
-    if not issue:
-        logger.error(f"Failed to create issue on board {board}")
-        return False
-
-    issue_info = issue
-
-    return issue_info
-
-
-def extract_issue_particulars(message):
+def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
     # Discard everything before the bot is mentioned, including the mention itself
     try:
         message = message[message.index(">") + 1 :]
@@ -140,6 +107,10 @@ setup_logger.info(
 # Initialize the app with your bot token and signing secret
 app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
+# Get the ID for our team via the API
+auth_test = app.client.auth_test()
+slack_team_id = auth_test["team_id"]
+
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
 channels = client.conversations_list(types="public_channel")["channels"]
@@ -206,12 +177,30 @@ def handle_app_mention(event, say, client, respond):
             )
 
             board, description = extract_issue_particulars(message=text)
-            issue = issue_creation(
+            if not board or not description:
+                client.chat_postEphemeral(
+                    channel=channel,
+                    user=user,
+                    text=(
+                        "Sorry, I couldn't understand your message. Please try again.\n"
+                        "It should be in the format of <board name> <description>\n"
+                        "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
+                    ),
+                    thread_ts=thread_ts,
+                )
+                return
+
+            issue = taigalink.create_slack_issue(
                 board=board,
                 description=f"From {root_user_display_name} on Slack: {root_text}",
                 subject=description,
-                by=user_display_name,
+                by_slack=user_info,
+                project_ids=project_ids,
+                config=config,
+                taiga_auth_token=taiga_auth_token,
+                slack_team_id=slack_team_id,
             )
+
             if issue:
                 client.chat_postMessage(
                     channel=channel,
@@ -220,11 +209,27 @@ def handle_app_mention(event, say, client, respond):
                 )
     else:
         board, description = extract_issue_particulars(message=text)
-        issue = issue_creation(
+        if not board or not description:
+            client.chat_postEphemeral(
+                channel=channel,
+                user=user,
+                text=(
+                    "Sorry, I couldn't understand your message. Please try again.\n"
+                    "It should be in the format of <board name> <description>\n"
+                    "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
+                ),
+            )
+            return
+
+        issue = taigalink.create_slack_issue(
             board=board,
             description="",
             subject=description,
-            by=user_display_name,
+            by_slack=user_info,
+            project_ids=project_ids,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            slack_team_id=slack_team_id,
         )
         if issue:
             client.chat_postMessage(
@@ -263,11 +268,15 @@ def handle_message(event, say, client, ack):
         )
         return
 
-    issue = issue_creation(
+    issue = taigalink.create_slack_issue(
         board=board,
         description="",
         subject=description,
-        by=user_display_name,
+        by_slack=user_info,
+        project_ids=project_ids,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        slack_team_id=slack_team_id,
     )
     if issue:
         say("The issue has been created on Taiga, thanks!")
@@ -296,11 +305,15 @@ def handle_task_command(ack, respond, command, client):
         )
         return
 
-    issue = issue_creation(
+    issue = taigalink.create_slack_issue(
         board=board,
         description="",
         subject=description,
-        by=user_display_name,
+        by_slack=user_info,
+        project_ids=project_ids,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        slack_team_id=slack_team_id,
     )
 
     if issue:
