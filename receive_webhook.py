@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import sys
 import uuid
 from copy import deepcopy as copy
@@ -127,6 +128,7 @@ def incoming():
     slack_channel = None
     if project_id in config["taiga-channel"]:
         slack_channel = config["taiga-channel"][project_id]
+    from_slack_id = None
 
     if data["action"] == "create":
         # If the created thing is an issue it must be created by Giant Robot for us to send a notification
@@ -134,7 +136,13 @@ def incoming():
         if data["type"] == "issue" and data["by"]["full_name"] != "Giant Robot":
             logger.debug("Issue created by non-Giant Robot user, no action required")
             return "No action required", 200
-
+        elif data["type"] == "issue":
+            # Giant Robot only raises issues based on Slack interactions.
+            # We can find the user who initiated the action by looking at the description
+            pattern = re.compile(r"Added to Taiga by: .* \((\w+)\)")
+            match = pattern.search(data["data"]["description"])
+            if match:
+                from_slack_id = match.group(1)
         new_thing = True
         assigned_to = data["data"]["assigned_to"]
         if assigned_to:
@@ -227,6 +235,13 @@ def incoming():
     if data["by"]["full_name"] != "Giant Robot":
         sender_image = data["by"].get("photo", None)
         sender_name = f"{data['by']['full_name'].split(' ')[0]} | Taiga"
+
+    # If we know the slack ID of the user who initiated the action, send the message as them
+    if from_slack_id:
+        # Get the Slack user's details
+        user = slack_app.client.users_info(user=from_slack_id)
+        sender_image = user["user"]["profile"]["image_72"]
+        sender_name = f"{user['user']['profile']['display_name_normalized']} | Taiga"
 
     for user in recipients["user"]:
         slack.send_dm(
