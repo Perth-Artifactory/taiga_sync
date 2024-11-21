@@ -131,13 +131,14 @@ daily = {}
 # TODO: Make this not repeat
 
 for assignee in assignees:
+    root_assignee = assignee
     weekly[assignee] = {"story": [], "issue": []}
     daily[assignee] = {"story": [], "issue": []}
 
     for item in assignees[assignee]["story"]:
         if assignee == "unassigned":
             # Translate to the appropriate slack channel
-            assignee = config["taiga-channel"][item["project_extra_info"]["id"]]
+            assignee = config["taiga-channel"][str(item["project_extra_info"]["id"])]
             if assignee not in weekly:
                 weekly[assignee] = {"story": [], "issue": []}
                 daily[assignee] = {"story": [], "issue": []}
@@ -158,6 +159,8 @@ for assignee in assignees:
     # Sort stories by days until due
     daily[assignee]["story"].sort(key=lambda x: x.split()[1])
     weekly[assignee]["story"].sort(key=lambda x: x.split()[1])
+
+    assignee = root_assignee
 
     for item in assignees[assignee]["issue"]:
         if assignee == "unassigned":
@@ -196,6 +199,9 @@ if "--daily" in sys.argv:
 
 if not working:
     logger.error("No working mode specified. Use --weekly or --daily")
+    pprint(daily)
+    print("\n" * 3)
+    pprint(weekly)
     sys.exit()
 
 for assignee in working:
