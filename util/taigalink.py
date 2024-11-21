@@ -351,6 +351,48 @@ def create_issue(
         return {}
 
 
+def create_slack_issue(
+    board: str,
+    description: str,
+    subject: str,
+    by_slack: dict,
+    project_ids: dict,
+    taiga_auth_token: str,
+    config: dict,
+    slack_team_id: str,
+):
+    # Construct the by line. by_slack is a slack user object
+    # The by-line should be a deep slack link to the user
+    name_str = by_slack["user"]["profile"].get(
+        "real_name", by_slack["user"]["profile"]["display_name"]
+    )
+    slack_id = by_slack["user"]["id"]
+    deep_link = f"slack://user?team={slack_team_id}&id={by_slack['id']}"
+    by = f"{name_str} ({slack_id})"
+
+    description = f"{description}\n\nAdded to Taiga by: {by}"
+    project_id = project_ids.get(board)
+    if not project_id:
+        logger.error(f"Project ID not found for board {board}")
+        return False
+
+    issue = base_create_issue(
+        taiga_auth_token=taiga_auth_token,
+        project_id=project_id,
+        subject=subject,
+        description=description,
+        config=config,
+    )
+
+    if not issue:
+        logger.error(f"Failed to create issue on board {board}")
+        return False
+
+    issue_info = issue
+
+    return issue_info
+
+
 def item_mapper(
     item: str | None,
     field_type: str,
