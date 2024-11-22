@@ -411,6 +411,8 @@ def item_mapper(
         url = f"{config['taiga']['url']}/api/v1/priorities?project={project_id}"
     elif field_type == "type":
         url = f"{config['taiga']['url']}/api/v1/issue-types?project={project_id}"
+    elif field_type == "status":
+        url = f"{config['taiga']['url']}/api/v1/statuses?project={project_id}"
     elif field_type == "board":
         # Map project names to IDs
         projects = taigacon.projects.list()
@@ -592,7 +594,7 @@ def parse_webhook_action_into_str(
 
     if action == "change":
         for diff in data["change"]["diff"]:
-            if diff in ["kanban_order", "finish_date"]:
+            if diff in ["kanban_order", "finish_date", "taskboard_order"]:
                 continue
             elif diff == "is_closed":
                 if data["change"]["diff"][diff]["to"] == True:
@@ -621,7 +623,12 @@ def parse_webhook_action_into_str(
 
             description += f"Assigned to: {assigned_name}\n"
 
-    return f"""{type_map.get(data["type"], "item")} {action_map[action]}: {subject}{description}"""
+    # We don't get a lot of information from some task subjects so add in the title oof the user story as well
+    card_name = ""
+    if data["type"] == "task":
+        card_name = f' ({data["data"]["user_story"]["subject"]})'
+
+    return f"""{type_map.get(data["type"], "item")} {action_map[action]}: {subject}{card_name}{description}"""
 
 
 def get_info(
