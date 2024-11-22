@@ -49,7 +49,7 @@ urllib3_logger.setLevel(logging.INFO)
 slack_logger = logging.getLogger("slack")
 slack_logger.setLevel(logging.INFO)
 setup_logger = logging.getLogger("setup")
-logger = logging.getLogger("issue_sync")
+logger = logging.getLogger("slack_app")
 
 # Load config
 try:
@@ -426,146 +426,12 @@ def handle_app_home_opened_events(body, client, logger):
     """Render app homes"""
     user_id = body["event"]["user"]
 
-    # Check if the user has a Taiga account
-    taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+    block_list = slack_formatters.app_home(
+        user_id=user_id,
         config=config,
-        slack_id=user_id,
+        tidyhq_cache=tidyhq_cache,
+        taiga_auth_token=taiga_auth_token,
     )
-
-    if not taiga_id:
-        # We don't recognise the user
-
-        # Construct blocks
-        block_list = []
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.header
-        )
-        block_list += blocks.text  # type: ignore
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.unrecognised
-        )
-        block_list += blocks.divider
-        block_list += blocks.text
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.do_instead
-        )
-        block_list += blocks.context
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.footer
-        )
-
-    else:
-        # We recognise the user
-
-        # Construct blocks
-        block_list = []
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.header
-        )
-        block_list += blocks.text
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.explainer
-        )
-        block_list += blocks.divider
-
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text="Assigned Cards"
-        )
-
-        # Get all assigned user stories for the user
-        user_stories = taigalink.get_stories(
-            taiga_id=taiga_id,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            exclude_done=True,
-        )
-
-        if len(user_stories) == 0:
-            block_list += blocks.text
-            block_list = slack_formatters.inject_text(
-                block_list=block_list, text=strings.no_stories
-            )
-            block_list += blocks.divider
-
-        else:
-            # Sort the user stories by project
-            sorted_stories = taigalink.sort_stories_by_project(user_stories)
-
-            for project in sorted_stories:
-                header, body = slack_formatters.stories(sorted_stories[project])
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=f"*{header}*"
-                )
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=body
-                )
-
-        block_list += blocks.divider
-
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text="Assigned Tasks"
-        )
-
-        # Get all tasks for the user
-        tasks = taigalink.get_tasks(
-            taiga_id=taiga_id,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            exclude_done=True,
-        )
-
-        if len(tasks) == 0:
-            block_list += blocks.text
-            block_list = slack_formatters.inject_text(
-                block_list=block_list, text=strings.no_tasks
-            )
-
-        else:
-
-            # Sort the tasks based on user story
-            sorted_tasks = taigalink.sort_tasks_by_user_story(tasks)
-
-            # Things will start to break down if there are too many tasks
-            displayed_tasks = 0
-            trimmed = True
-            for project in sorted_tasks:
-                if displayed_tasks >= 50:
-                    break
-                header, body = slack_formatters.tasks(sorted_tasks[project])
-
-                # Skip over tasks assigned in template cards
-                if "template" in header.lower():
-                    continue
-
-                displayed_tasks += 1
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=f"*{header}*"
-                )
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=body
-                )
-            else:
-                trimmed = False
-
-            if trimmed:
-                block_list += blocks.divider
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=strings.trimmed
-                )
-        block_list += blocks.context
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.footer
-        )
 
     view = {
         "type": "home",
@@ -575,10 +441,65 @@ def handle_app_home_opened_events(body, client, logger):
     try:
         # Publish the view to the App Home
         client.views_publish(user_id=user_id, view=view)
-        logger.info("App Home content set successfully.")
+        logger.info(f"Set app home for {user}")
     except Exception as e:
         pprint(block_list)
         logger.error(f"Error publishing App Home content: {e}")
+
+
+# The cron mode renders the app home for every user in the workspace
+if "--cron" in sys.argv:
+    # Update homes for all slack users
+    logger.info("Updating homes for all users")
+
+    # Get a list of all users from slack
+    slack_response = app.client.users_list()
+    slack_users = []
+    while slack_response.data.get("response_metadata", {}).get("next_cursor"):  # type: ignore
+        slack_users += slack_response.data["members"]  # type: ignore
+        slack_response = app.client.users_list(cursor=slack_response.data["response_metadata"]["next_cursor"])  # type: ignore
+    slack_users += slack_response.data["members"]  # type: ignore
+
+    users = []
+
+    # Convert slack response to list of users since it comes as an odd iterable
+    for user in slack_users:
+        if user["is_bot"] or user["deleted"]:
+            continue
+        users.append(user)
+
+    logger.info(f"Found {len(users)} users")
+
+    x = 1
+
+    for user in users:
+        user_id = user["id"]
+        block_list = slack_formatters.app_home(
+            user_id=user_id,
+            config=config,
+            tidyhq_cache=tidyhq_cache,
+            taiga_auth_token=taiga_auth_token,
+        )
+
+        view = {
+            "type": "home",
+            "blocks": block_list,
+        }
+
+        try:
+            # Publish the view to the App Home
+            logger.debug("Setting app home for {user_id}")
+            client.views_publish(user_id=user_id, view=view)
+        except Exception as e:
+            pprint(block_list)
+            logger.error(f"Error publishing App Home content: {e}")
+
+        logger.info(
+            f"Updated home for {user_id} - {user['profile']['display_name_normalized']} ({x}/{len(users)})"
+        )
+        x += 1
+    logger.info(f"All homes updated ({x})")
+    sys.exit(0)
 
 
 # Start the app

@@ -2,10 +2,10 @@ from copy import deepcopy as copy
 from pprint import pprint
 from datetime import datetime
 
-from util import blocks
+from util import blocks, tidyhq, strings, taigalink
 
 
-def tasks(task_list):
+def format_tasks(task_list):
     # Get the user story info
     project_slug = task_list[0]["project_extra_info"]["slug"]
     project_name = task_list[0]["project_extra_info"]["name"]
@@ -23,7 +23,7 @@ def tasks(task_list):
     return user_story_str, out_str
 
 
-def stories(story_list):
+def format_stories(story_list):
     project_slug = story_list[0]["project_extra_info"]["slug"]
     header = story_list[0]["project_extra_info"]["name"]
     header_str = (
@@ -98,5 +98,121 @@ def inject_text(block_list, text):
         block_list[-1]["title"]["text"] = text
     elif block_list[-1]["type"] == "rich_text":
         block_list[-1]["elements"][0]["elements"][0]["text"] = text
+
+    return block_list
+
+
+def app_home(
+    user_id: str, config: dict, tidyhq_cache: dict, taiga_auth_token: str
+) -> list:
+    """Generate the app home view for a specified user and return it as a list of blocks."""
+    # Check if the user has a Taiga account
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+        config=config,
+        slack_id=user_id,
+    )
+
+    if not taiga_id:
+        # We don't recognise the user
+
+        # Construct blocks
+        block_list = []
+        block_list += blocks.header
+        block_list = inject_text(block_list=block_list, text=strings.header)
+        block_list += blocks.text  # type: ignore
+        block_list = inject_text(block_list=block_list, text=strings.unrecognised)
+        block_list += blocks.divider
+        block_list += blocks.text
+        block_list = inject_text(block_list=block_list, text=strings.do_instead)
+        block_list += blocks.context
+        block_list = inject_text(block_list=block_list, text=strings.footer)
+
+    else:
+        # We recognise the user
+
+        # Construct blocks
+        block_list = []
+        block_list += blocks.header
+        block_list = inject_text(block_list=block_list, text=strings.header)
+        block_list += blocks.text
+        block_list = inject_text(block_list=block_list, text=strings.explainer)
+        block_list += blocks.divider
+
+        block_list += blocks.header
+        block_list = inject_text(block_list=block_list, text="Assigned Cards")
+
+        # Get all assigned user stories for the user
+        user_stories = taigalink.get_stories(
+            taiga_id=taiga_id,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=True,
+        )
+
+        if len(user_stories) == 0:
+            block_list += blocks.text
+            block_list = inject_text(block_list=block_list, text=strings.no_stories)
+            block_list += blocks.divider
+
+        else:
+            # Sort the user stories by project
+            sorted_stories = taigalink.sort_stories_by_project(user_stories)
+
+            for project in sorted_stories:
+                header, body = format_stories(sorted_stories[project])
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=f"*{header}*")
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=body)
+
+        block_list += blocks.divider
+
+        block_list += blocks.header
+        block_list = inject_text(block_list=block_list, text="Assigned Tasks")
+
+        # Get all tasks for the user
+        tasks = taigalink.get_tasks(
+            taiga_id=taiga_id,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=True,
+        )
+
+        if len(tasks) == 0:
+            block_list += blocks.text
+            block_list = inject_text(block_list=block_list, text=strings.no_tasks)
+
+        else:
+
+            # Sort the tasks based on user story
+            sorted_tasks = taigalink.sort_tasks_by_user_story(tasks)
+
+            # Things will start to break down if there are too many tasks
+            displayed_tasks = 0
+            trimmed = True
+            for project in sorted_tasks:
+                if displayed_tasks >= 50:
+                    break
+                header, body = format_tasks(sorted_tasks[project])
+
+                # Skip over tasks assigned in template cards
+                if "template" in header.lower():
+                    continue
+
+                displayed_tasks += 1
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=f"*{header}*")
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=body)
+            else:
+                trimmed = False
+
+            if trimmed:
+                block_list += blocks.divider
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=strings.trimmed)
+        block_list += blocks.context
+        block_list = inject_text(block_list=block_list, text=strings.footer)
 
     return block_list
