@@ -155,9 +155,9 @@ def progress_stories(
 
 def progress_on_tidyhq(
     taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
-) -> bool:
+) -> int:
     """Progress stories from column 2 to column 3 when a TidyHQ ID is set."""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -197,7 +197,7 @@ def progress_on_tidyhq(
                 story_statuses=story_statuses,
             )
 
-            made_changes = True
+            made_changes += 1
 
     return made_changes
 
