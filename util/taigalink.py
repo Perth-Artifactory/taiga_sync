@@ -623,7 +623,10 @@ def parse_webhook_action_into_str(
 
     if action == "change":
         for diff in data["change"]["diff"]:
-            if diff in ["kanban_order", "finish_date", "taskboard_order"]:
+            if diff in ["finish_date"]:
+                continue
+            # We never care about the order of the item (and it's a different name for each item type)
+            if "order" in diff:
                 continue
             elif diff == "is_closed":
                 if data["change"]["diff"][diff]["to"] == True:
