@@ -543,8 +543,13 @@ def handle_app_home_opened_events(body, client, logger):
             for project in sorted_tasks:
                 if displayed_tasks >= 50:
                     break
-                displayed_tasks += 1
                 header, body = slack_formatters.tasks(sorted_tasks[project])
+
+                # Skip over tasks assigned in template cards
+                if header == "Template":
+                    continue
+
+                displayed_tasks += 1
                 block_list += blocks.text
                 block_list = slack_formatters.inject_text(
                     block_list=block_list, text=f"*{header}*"
