@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
-def sync_templates(taigacon, project_id: str) -> bool:
+def sync_templates(taigacon, project_id: str) -> int:
     """Copy tasks from template stories to user stories."""
-    made_changes: bool = False
+    made_changes: int = 0
 
     # Load a list of past actions
     try:
@@ -82,7 +82,7 @@ def sync_templates(taigacon, project_id: str) -> bool:
                 status=task["status"],
                 subject=task["subject"],
             )
-            made_changes = True
+            made_changes += 1
 
         if str(story.id) not in actions:
             actions[str(story.id)] = []
