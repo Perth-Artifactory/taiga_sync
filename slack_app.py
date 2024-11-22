@@ -526,11 +526,6 @@ def handle_app_home_opened_events(body, client, logger):
             block_list = slack_formatters.inject_text(
                 block_list=block_list, text=strings.no_tasks
             )
-            block_list += blocks.divider
-            block_list += blocks.context
-            block_list = slack_formatters.inject_text(
-                block_list=block_list, text=strings.footer
-            )
 
         else:
 
