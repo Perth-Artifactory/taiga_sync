@@ -142,14 +142,14 @@ setup_logger.info(
 
 
 # Enter processing loop
-email_mapping_changes = False
-intake_from_tidyhq = False
-template_changes = False
-task_changes = False
-progress_changes = False
-closed_by_order = False
-progress_on_tidyhq = False
-progress_on_membership = False
+email_mapping_changes = 0
+intake_from_tidyhq = 0
+template_changes = 0
+task_changes = 0
+progress_changes = 0
+closed_by_order = 0
+progress_on_tidyhq = 0
+progress_on_membership = 0
 first = True
 
 loop_logger.info("Starting processing loop")
@@ -170,21 +170,23 @@ while (
         # Show which modules made changes in the last iteration
         loop_logger.info("Changes made in the last iteration:")
         if email_mapping_changes:
-            loop_logger.info("Email mapping")
+            loop_logger.info(f"Email mapping ({email_mapping_changes} changes)")
         if intake_from_tidyhq:
-            loop_logger.info("Intake from TidyHQ")
+            loop_logger.info(f"Intake from TidyHQ ({intake_from_tidyhq} changes)")
         if template_changes:
-            loop_logger.info("Templates")
+            loop_logger.info(f"Templates ({template_changes} changes)")
         if task_changes:
-            loop_logger.info("Tasks")
+            loop_logger.info(f"Tasks ({task_changes} changes)")
         if progress_changes:
-            loop_logger.info("Progress")
+            loop_logger.info(f"Progress ({progress_changes} changes)")
         if closed_by_order:
-            loop_logger.info("Closed by order")
+            loop_logger.info(f"Closed by order ({closed_by_order} changes)")
         if progress_on_tidyhq:
-            loop_logger.info("Progress on tidyhq")
+            loop_logger.info(f"Progress on tidyhq ({progress_on_tidyhq} changes)")
         if progress_on_membership:
-            loop_logger.info("Progress on membership")
+            loop_logger.info(
+                f"Progress on membership ({progress_on_membership} changes)"
+            )
         loop_logger.info("---")
     else:
         first = False
@@ -198,6 +200,7 @@ while (
         taiga_auth_token=taiga_auth_token,
         project_id=attendee_project.id,
     )
+    loop_logger.info(f"Changes: {email_mapping_changes}")
 
     # Create new cards based on existing TidyHQ contacts
     if import_from_tidyhq:
@@ -209,6 +212,7 @@ while (
             taiga_auth_token=taiga_auth_token,
             project_id=attendee_project.id,
         )
+        loop_logger.info(f"Changes: {intake_from_tidyhq}")
     else:
         loop_logger.info("Skipping TidyHQ import due to --no-import flag")
 
@@ -217,6 +221,7 @@ while (
     template_changes = taiga_janitor.sync_templates(
         taigacon=taigacon, project_id=attendee_project.id
     )
+    loop_logger.info(f"Changes: {template_changes}")
 
     # Run through tasks
     loop_logger.info("Checking all tasks")
@@ -228,6 +233,7 @@ while (
         project_id=attendee_project.id,
         task_statuses=task_statuses,
     )
+    loop_logger.info(f"Changes: {task_changes}")
 
     # Progress user stories based on task completion
     loop_logger.info("Progressing user stories")
@@ -239,6 +245,7 @@ while (
         story_statuses=story_statuses,
         task_statuses=task_statuses,
     )
+    loop_logger.info(f"Changes: {progress_changes}")
 
     # Close tasks based on story status
     loop_logger.info("Checking for tasks that can be closed based on story order")
@@ -249,6 +256,7 @@ while (
         taiga_auth_token=taiga_auth_token,
         story_statuses=story_statuses,
     )
+    loop_logger.info(f"Changes: {closed_by_order}")
 
     # Move stories from column 2 to 3 if they have a TidyHQ ID
     loop_logger.info(
@@ -261,6 +269,7 @@ while (
         config=config,
         story_statuses=story_statuses,
     )
+    loop_logger.info(f"Changes: {progress_on_tidyhq}")
 
     # Move stories from column 3 to 4 if they have a membership
     loop_logger.info(
@@ -274,6 +283,7 @@ while (
         story_statuses=story_statuses,
         tidyhq_cache=tidyhq_cache,
     )
+    loop_logger.info(f"Changes: {progress_on_membership}")
     iteration += 1
 
 # Perform once off housekeeping tasks
