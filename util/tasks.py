@@ -432,9 +432,9 @@ def check_all_tasks(
     tidyhq_cache: dict,
     project_id: str,
     task_statuses: dict,
-):
+) -> int:
     """Check for incomplete tasks that have a mapped function to check if they are complete."""
-    made_changes = False
+    made_changes = 0
     task_function_map = {
         "Join Slack": joined_slack,
         "Signed up as a visitor": visitor_signup,
@@ -514,7 +514,7 @@ def check_all_tasks(
                 )
                 if updating:
                     logger.info(f"Task {task.subject} marked as complete")
-                    made_changes = True
+                    made_changes += 1
                 else:
                     logger.error(f"Failed to mark task {task.subject} as complete")
             else:
@@ -536,7 +536,7 @@ def check_all_tasks(
                     )
                     if updating:
                         logger.info(f"Task {task.subject} marked as not applicable")
-                        made_changes = True
+                        made_changes += 1
                     else:
                         logger.error(
                             f"Failed to mark task {task.subject} as not applicable"
