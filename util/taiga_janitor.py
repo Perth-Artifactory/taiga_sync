@@ -1,6 +1,7 @@
 import json
 import logging
 import sys
+from pprint import pprint
 
 from util import taigalink, tidyhq
 
@@ -95,7 +96,12 @@ def sync_templates(taigacon, project_id: str) -> bool:
 
 
 def progress_stories(
-    taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
+    taigacon,
+    project_id: str,
+    taiga_auth_token: str,
+    config: dict,
+    story_statuses: dict,
+    task_statuses: dict,
 ) -> bool:
     """Progress stories to the next status that have all tasks complete."""
     made_changes: bool = False
@@ -121,9 +127,12 @@ def progress_stories(
         complete = True
 
         for task in tasks:
-            if task.status not in [4, 23]:
+            if task.is_closed == False and task_statuses[task.status] not in [
+                "Optional",
+                "Not applicable",
+            ]:
                 complete = False
-                logger.debug(f"Task {task.subject} is not complete")
+                logger.debug(f"Task {task.subject} is not complete, optional, or N/A")
                 break
 
         if complete:
