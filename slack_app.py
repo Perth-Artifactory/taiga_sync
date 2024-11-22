@@ -515,7 +515,7 @@ def handle_app_home_opened_events(body, client, logger):
 
         # Get all tasks for the user
         tasks = taigalink.get_tasks(
-            taiga_id=5,
+            taiga_id=taiga_id,
             config=config,
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
