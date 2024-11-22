@@ -546,7 +546,7 @@ def handle_app_home_opened_events(body, client, logger):
                 header, body = slack_formatters.tasks(sorted_tasks[project])
 
                 # Skip over tasks assigned in template cards
-                if header == "Template":
+                if "template" in header.lower():
                     continue
 
                 displayed_tasks += 1
