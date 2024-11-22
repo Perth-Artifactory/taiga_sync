@@ -143,10 +143,10 @@ for message in conversation_history:
                 f"Due to a bug in the Taiga API this doesn't actually work ...yet"
             )
 
-    # Tag mentioned users in the description
-    description = taigalink.map_slack_names_to_taiga_usernames(
-        input_string=description, taiga_users=taiga_users
-    )
+        # Tag mentioned users in the description
+        # description = taigalink.map_slack_names_to_taiga_usernames(
+        input_string = description, taiga_users = taiga_users
+    # )
 
     # Create the issue on the board
     logger.info("Creating issue on Taiga")

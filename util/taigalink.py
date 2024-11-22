@@ -1,6 +1,6 @@
 import logging
 import sys
-from pprint import pprint
+from pprint import pprint, pformat
 
 import requests
 
@@ -291,6 +291,10 @@ def create_issue(
     )
     logger.debug(f"Matched project: {project_id}")
 
+    if not project_id:
+        logger.error("Project ID not found")
+        return {}
+
     # Get the severity, priority and type IDs
     if severity_id is None and severity_str:
         logger.debug(f"Attempting to match severity: {severity_str}")
@@ -321,21 +325,36 @@ def create_issue(
         return {}
 
     create_url = f"{config['taiga']['url']}/api/v1/issues"
-    logger.warning(watchers)
+
+    final_watchers = []
+    for user in watchers:
+        # Get a list all projects this user is a member of
+        projects = taigacon.projects.list(member=user)
+        # Get the IDs of the projects
+        project_ids = [project.id for project in projects]
+        # Check if the project we're creating an issue in is one of the projects the user is a member of
+        if int(project_id) in project_ids:
+            final_watchers.append(user)
+        else:
+            logger.error(f"User {user} is not a member of project {project_id}")
+
+    data = {
+        "project": project_id,
+        "subject": subject,
+        "description": description,
+        "tags": tags + ["slack"],
+        "watchers": final_watchers,
+    }
+    if severity_id:
+        data["severity"] = severity_id
+    if priority_id:
+        data["priority"] = priority_id
     response = requests.post(
         create_url,
         headers={
             "Authorization": f"Bearer {taiga_auth_token}",
         },
-        json={
-            "project": project_id,
-            "subject": subject,
-            "description": description,
-            "tags": tags + ["slack"],
-            "severity": severity_id,
-            "priority": priority_id,
-            "watchers": watchers,
-        },
+        json=data,
     )
 
     if response.status_code == 201:
@@ -437,14 +456,24 @@ def item_mapper(
         url,
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
     )
+
+    if response.status_code != 200:
+        logger.error(f"Failed to fetch {field_type}: {response.status_code}")
+        logger.error(pformat(response.json()))
+        logger.error(response.request.url)
+        return False
+
     objects = response.json()
 
     logger.debug(f"Fetched objects: {objects}")
     logger.debug(f"Looking for item: {item}")
 
     for object in objects:
-        if object["name"].lower() == item.lower():
-            return object["id"]
+        try:
+            if object["name"].lower() == item.lower():
+                return object["id"]
+        except TypeError:
+            print(object)
 
     return False
 
