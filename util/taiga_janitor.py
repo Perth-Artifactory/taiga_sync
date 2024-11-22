@@ -102,9 +102,9 @@ def progress_stories(
     config: dict,
     story_statuses: dict,
     task_statuses: dict,
-) -> bool:
+) -> int:
     """Progress stories to the next status that have all tasks complete."""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -148,7 +148,7 @@ def progress_stories(
             )
 
             if changed:
-                made_changes = True
+                made_changes += 1
 
     return made_changes
 
