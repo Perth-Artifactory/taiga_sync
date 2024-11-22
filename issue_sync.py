@@ -127,7 +127,7 @@ for message in conversation_history:
     description += f"Discussed with: {slack.name_mapper(variables.get('Have you reported the incident to a volunteer in person?', 'No one'), slack_app=app)}\n\n"
     description += f"Tagged out: {variables.get('Have you tagged out the affected item?', 'No')}\n\n"
     description += f"Reporter wants to be contacted: {variables.get('Do you want to be contacted regarding this report?', 'No')}\n\n"
-    description += f"Reporter: {slack.name_mapper(slack_id=variables.get('Reporter', 'Unknown'), slack_app=app)}\n\n"
+    description += f"Added to Taiga by: {slack.name_mapper(slack_id=variables.get('Reporter', 'Unknown'), slack_app=app)} ({variables.get('Reporter', 'Unknown')})\n\n"
 
     # Look for watchers in discussed with field
     watchers = []
