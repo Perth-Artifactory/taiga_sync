@@ -226,6 +226,7 @@ while (
         config=config,
         tidyhq_cache=tidyhq_cache,
         project_id=attendee_project.id,
+        task_statuses=task_statuses,
     )
 
     # Progress user stories based on task completion
@@ -236,6 +237,7 @@ while (
         taiga_auth_token=taiga_auth_token,
         config=config,
         story_statuses=story_statuses,
+        task_statuses=task_statuses,
     )
 
     # Close tasks based on story status
