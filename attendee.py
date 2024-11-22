@@ -170,22 +170,34 @@ while (
         # Show which modules made changes in the last iteration
         loop_logger.info("Changes made in the last iteration:")
         if email_mapping_changes:
-            loop_logger.info(f"Email mapping ({email_mapping_changes} changes)")
+            loop_logger.info(
+                f"Cards with emails mapped to TidyHQ contacts ({email_mapping_changes} changes)"
+            )
         if intake_from_tidyhq:
-            loop_logger.info(f"Intake from TidyHQ ({intake_from_tidyhq} changes)")
+            loop_logger.info(
+                f"TidyHQ members added as cards({intake_from_tidyhq} changes)"
+            )
         if template_changes:
-            loop_logger.info(f"Templates ({template_changes} changes)")
+            loop_logger.info(
+                f"Tasks added to cards that have progressed to a new column ({template_changes} changes)"
+            )
         if task_changes:
-            loop_logger.info(f"Tasks ({task_changes} changes)")
+            loop_logger.info(f"Tasks ticked off via code ({task_changes} changes)")
         if progress_changes:
-            loop_logger.info(f"Progress ({progress_changes} changes)")
+            loop_logger.info(
+                f"Cards moved to a new column due to task completion ({progress_changes} changes)"
+            )
         if closed_by_order:
-            loop_logger.info(f"Closed by order ({closed_by_order} changes)")
+            loop_logger.info(
+                f"Tasks closed because a card has progressed to a specific column ({closed_by_order} changes)"
+            )
         if progress_on_tidyhq:
-            loop_logger.info(f"Progress on tidyhq ({progress_on_tidyhq} changes)")
+            loop_logger.info(
+                f"Cards progressed to a new column based on being registered in TidyHQ({progress_on_tidyhq} changes)"
+            )
         if progress_on_membership:
             loop_logger.info(
-                f"Progress on membership ({progress_on_membership} changes)"
+                f"Cards progressed based on TidyHQ memberships ({progress_on_membership} changes)"
             )
         loop_logger.info("---")
     else:
