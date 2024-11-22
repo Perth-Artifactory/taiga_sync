@@ -164,6 +164,11 @@ def check_payment_method(
 
     contact_id = str(contact_id)
 
+    # Confirm that the contact has at least one invoice
+    if contact_id not in tidyhq_cache["invoices"]:
+        logger.debug(f"Contact {contact_id} has no invoices")
+        return False
+
     # Iterate over invoices for given contact id. Invoices are sorted newest first
     for invoice in tidyhq_cache["invoices"][contact_id]:
         if invoice["paid"]:
@@ -305,6 +310,56 @@ def member_2week(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bo
     return False
 
 
+def member_6month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check whether the member has held their current membership for at least six months (180 days)."""
+
+    if contact_id == None:
+        return False
+
+    memberships = tidyhq.get_memberships_for_contact(
+        cache=tidyhq_cache, contact_id=contact_id
+    )
+
+    most_recent = tidyhq.return_most_recent_membership(memberships)
+
+    # Check if the start date of the membership is at least two weeks ago
+    # Format is 2019-11-01T08:00:00+08:00
+    start_date = most_recent["start_date"].split("T")[0]
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    days = (datetime.now() - start_date).days
+    if days >= 180:
+        logger.debug(
+            f"Contact {contact_id} has held their membership for at least 6 months"
+        )
+        return True
+    return False
+
+
+def member_18month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check whether the member has held their current membership for at least 18 months (540 days)."""
+
+    if contact_id == None:
+        return False
+
+    memberships = tidyhq.get_memberships_for_contact(
+        cache=tidyhq_cache, contact_id=contact_id
+    )
+
+    most_recent = tidyhq.return_most_recent_membership(memberships)
+
+    # Check if the start date of the membership is at least two weeks ago
+    # Format is 2019-11-01T08:00:00+08:00
+    start_date = most_recent["start_date"].split("T")[0]
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    days = (datetime.now() - start_date).days
+    if days >= 540:
+        logger.debug(
+            f"Contact {contact_id} has held their membership for at least 18 months"
+        )
+        return True
+    return False
+
+
 def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has valid emergency contact details."""
 
@@ -349,8 +404,34 @@ def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) ->
     return True
 
 
+def has_key(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
+    """Check if the contact has a key enabled"""
+    if contact_id == None:
+        return False
+
+    key_status = tidyhq.get_custom_field(
+        config=config,
+        contact_id=contact_id,
+        cache=tidyhq_cache,
+        field_map_name="key_status",
+    )
+
+    if not key_status:
+        return False
+
+    for value in key_status["value"]:
+        if value["title"] == "Enabled":
+            return True
+    return False
+
+
 def check_all_tasks(
-    taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict, project_id: str
+    taigacon,
+    taiga_auth_token: str,
+    config: dict,
+    tidyhq_cache: dict,
+    project_id: str,
+    task_statuses: dict,
 ):
     """Check for incomplete tasks that have a mapped function to check if they are complete."""
     made_changes = False
@@ -371,6 +452,20 @@ def check_all_tasks(
         "Held membership for at least two weeks": member_2week,
         "Confirmed bond invoice paid": bond_invoice_paid,
         "Has valid emergency contact details": valid_emergency,
+        "Keyholder motion put to committee": has_key,
+        "Keyholder motion successful": has_key,
+        "Send keyholder documentation": has_key,
+        "Send bond invoice": has_key,
+        "Confirmed bond invoice paid": has_key,
+        "No indications of Code of Conduct violations": has_key,
+        "Competent to decide who can come in outside of events": has_key,
+        "Works well unsupervised": has_key,
+        "Undertakes tasks safely": has_key,
+        "Cleans own work area": has_key,
+        "Communicates issues to Management Committee if they arise": has_key,
+        "Offered backing for key": has_key,
+        "Planned first project": member_6month,
+        "No history of invoice deliquency": member_18month,
     }
 
     # Find all user stories that include our bot managed tag
@@ -394,8 +489,10 @@ def check_all_tasks(
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
 
-            if task.status in [4, 23]:
-                logger.debug(f"Task {task.subject} is already completed")
+            if task.is_closed == True or task_statuses[task.status] in [
+                "Not applicable",
+            ]:
+                logger.debug(f"Task {task.subject} is not complete, optional, or N/A")
                 continue
             if task.subject not in task_function_map:
                 logger.debug(f"No function found for task {task.subject}")
