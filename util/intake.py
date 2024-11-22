@@ -8,12 +8,12 @@ logger.setLevel(logging.ERROR)
 
 def pull_tidyhq(
     config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
-) -> bool:
+) -> int:
     """Return a list of TidyHQ contact IDs that do not have cards but should.
 
     Contacts with memberships/visitor registrations that have not expired should have cards.
     """
-    made_changes: bool = False
+    made_changes = 0
 
     contacts = tidyhq.get_useful_contacts(tidyhq_cache=tidyhq_cache)
 
@@ -53,7 +53,7 @@ def pull_tidyhq(
                 tags=["bot-managed"],
                 status=2,
             )
-            made_changes = True
+            made_changes += 1
             logger.debug(f"Created story {story.subject} for contact {contact}")
 
             # Set the TidyHQ ID for the story

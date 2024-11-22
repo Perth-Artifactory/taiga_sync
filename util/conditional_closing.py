@@ -9,9 +9,9 @@ logger.setLevel(logging.ERROR)
 
 def close_by_order(
     taigacon, project_id: str, config: dict, taiga_auth_token: str, story_statuses: dict
-) -> bool:
+) -> int:
     """Close tasks once a story reaches a certain order."""
-    made_changes: bool = False
+    made_changes: int = 0
     # Reminder: Orders are 0-indexed
     task_map: dict[int, list] = {
         3: ["Respond to enquiry", "Encourage to visit"],
@@ -72,7 +72,7 @@ def close_by_order(
                     )
                     if updating:
                         logger.info(f"Task {task.subject} marked as complete")
-                        made_changes = True
+                        made_changes += 1
                     else:
                         logger.error(f"Failed to mark task {task.subject} as complete")
     return made_changes

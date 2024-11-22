@@ -9,9 +9,9 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
-def sync_templates(taigacon, project_id: str) -> bool:
+def sync_templates(taigacon, project_id: str) -> int:
     """Copy tasks from template stories to user stories."""
-    made_changes: bool = False
+    made_changes: int = 0
 
     # Load a list of past actions
     try:
@@ -82,7 +82,7 @@ def sync_templates(taigacon, project_id: str) -> bool:
                 status=task["status"],
                 subject=task["subject"],
             )
-            made_changes = True
+            made_changes += 1
 
         if str(story.id) not in actions:
             actions[str(story.id)] = []
@@ -102,9 +102,9 @@ def progress_stories(
     config: dict,
     story_statuses: dict,
     task_statuses: dict,
-) -> bool:
+) -> int:
     """Progress stories to the next status that have all tasks complete."""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -148,16 +148,16 @@ def progress_stories(
             )
 
             if changed:
-                made_changes = True
+                made_changes += 1
 
     return made_changes
 
 
 def progress_on_tidyhq(
     taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
-) -> bool:
+) -> int:
     """Progress stories from column 2 to column 3 when a TidyHQ ID is set."""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -197,7 +197,7 @@ def progress_on_tidyhq(
                 story_statuses=story_statuses,
             )
 
-            made_changes = True
+            made_changes += 1
 
     return made_changes
 
@@ -209,9 +209,9 @@ def progress_on_membership(
     config: dict,
     story_statuses: dict,
     tidyhq_cache: dict,
-) -> bool:
+) -> int:
     """Progress stories from column 3 to column 4 the contact has a membership"""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -265,7 +265,7 @@ def progress_on_membership(
             story_statuses=story_statuses,
         )
 
-        made_changes = True
+        made_changes += 1
 
     return made_changes
 

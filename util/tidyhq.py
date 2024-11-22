@@ -279,13 +279,13 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
 
 def email_to_tidyhq(
     config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
-) -> bool:
+) -> int:
     """Map email addresses to TidyHQ contacts in Taiga user stories and update the stories with the TidyHQ contact ID.
 
     Searches all TidyHQ contacts, not just those with active memberships.
     """
     # Map email addresses to TidyHQ members
-    made_changes = False
+    made_changes = 0
 
     # Get the list of user stories
 
@@ -359,7 +359,7 @@ def email_to_tidyhq(
                     logger.info(
                         f"Updated story {story.id} with TidyHQ ID {contact['id']}"
                     )
-                    made_changes = True
+                    made_changes += 1
 
                 else:
                     logger.error(
