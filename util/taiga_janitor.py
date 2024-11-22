@@ -209,9 +209,9 @@ def progress_on_membership(
     config: dict,
     story_statuses: dict,
     tidyhq_cache: dict,
-) -> bool:
+) -> int:
     """Progress stories from column 3 to column 4 the contact has a membership"""
-    made_changes: bool = False
+    made_changes: int = 0
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id)
 
@@ -265,7 +265,7 @@ def progress_on_membership(
             story_statuses=story_statuses,
         )
 
-        made_changes = True
+        made_changes += 1
 
     return made_changes
 
