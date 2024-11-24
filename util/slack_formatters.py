@@ -96,7 +96,7 @@ def construct_reminder_section(reminders: dict) -> list:
     return block_list
 
 
-def inject_text(block_list, text):
+def inject_text(block_list: list, text: str) -> list[dict]:
     block_list = copy(block_list)
     if block_list[-1]["type"] in ["section", "header", "button"]:
         block_list[-1]["text"]["text"] = text
@@ -107,6 +107,17 @@ def inject_text(block_list, text):
     elif block_list[-1]["type"] == "rich_text":
         block_list[-1]["elements"][0]["elements"][0]["text"] = text
 
+    return block_list
+
+
+def add_block(block_list: list, block: dict | list) -> list[dict]:
+    """Adds a block to the block list and returns the updated list."""
+    block = copy(block)
+    block_list = copy(block_list)
+    if type(block) == list:
+        block_list += block
+    elif type(block) == dict:
+        block_list.append(block)
     return block_list
 
 

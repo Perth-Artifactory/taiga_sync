@@ -6,10 +6,11 @@ from slack_bolt import App
 from datetime import datetime
 from pprint import pprint, pformat
 import time
+import urllib.parse
 
 from taiga import TaigaAPI
 
-from util import slack, taigalink, blocks, slack_formatters
+from util import slack, taigalink, blocks, slack_formatters, slack_forms
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +21,7 @@ urllib3_logger.setLevel(logging.INFO)
 slack_logger = logging.getLogger("slack")
 slack_logger.setLevel(logging.INFO)
 setup_logger = logging.getLogger("setup")
-logger = logging.getLogger("issue_sync")
+logger = logging.getLogger("block validation")
 
 # Check for testing mode
 testing = False
@@ -60,16 +61,98 @@ if not config["taiga"].get("auth_token"):
         sys.exit(1)
 
 
-block_list = []
-block_list += blocks.text
-block_list = slack_formatters.inject_text(block_list=block_list, text="Hello")
+questions = []
+
+form = "injury"
+
+if form == "injury":
+    questions.append(
+        {"text": "Please answer the following questions to the best of your ability."}
+    )
+    questions.append(
+        {
+            "type": "long",
+            "text": "What happened?",
+            "placeholder": "In the event of a near miss, what was the potential outcome?",
+        }
+    )
+    questions.append({"type": "multi_users_select", "text": "Who was involved?"})
+    questions.append({"type": "date", "text": "When did it happen?"})
+    questions.append(
+        {
+            "type": "short",
+            "text": "Where in the space did the incident occur?",
+            "placeholder": "e.g. Machine Room, Project Area etc",
+        }
+    )
+    questions.append(
+        {"type": "multi_users_select", "text": "Did anyone witness the incident?"}
+    )
+    questions.append(
+        {
+            "type": "long",
+            "text": "Were there any injuries?",
+            "placeholder": "Include a description of injuries if applicable",
+        }
+    )
+    questions.append(
+        {
+            "type": "long",
+            "text": "Was there any damage to property?",
+            "placeholder": "e.g. tools, equipment, buildings, personal belongings",
+        }
+    )
+
+    questions.append(
+        {
+            "type": "long",
+            "text": "What factors contributed to the incident?",
+            "placeholder": "e.g. environmental conditions, equipment failure, human error",
+        }
+    )
+
+    questions.append(
+        {
+            "type": "long",
+            "text": "Were there any immediate corrective actions taken at the time of the incident?",
+            "placeholder": "e.g. first aid, stopping work, isolating equipment",
+        }
+    )
+
+    questions.append(
+        {
+            "type": "long",
+            "text": "What controls could be put in place to prevent this from happening again?",
+            "placeholder": "e.g. training, signage, engineering controls",
+        }
+    )
+
+    questions.append(
+        {
+            "type": "static_dropdown",
+            "text": "Would you like us to contact you regarding the outcome of this report?",
+            "options": ["Yes", "No"],
+            "action_id": "contact",
+        }
+    )
+
+
+else:
+    questions.append({"text": "This is some explainer text"})
+
+block_list = slack_forms.questions_to_blocks(questions)
 
 # save as blocks.json
 with open("test.blocks.json", "w") as f:
     json.dump(block_list, f, indent=4)
 
-# Deliberately break the blocks
-block_list[0]["type"] = ["sectionn"]
-
 # Validate the blocks
-slack_formatters.validate(blocks=block_list)
+if slack_formatters.validate(blocks=block_list):
+    logger.info("Blocks are valid")
+
+# Convert blocks to url encoded json
+string = json.dumps({"blocks": block_list})
+encoded_string = urllib.parse.quote(string)
+
+url = f"https://app.slack.com/block-kit-builder/T0LQE2JNR#{encoded_string}"
+print(f"View: {url}")
