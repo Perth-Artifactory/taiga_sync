@@ -67,3 +67,9 @@ block_list = slack_formatters.inject_text(block_list=block_list, text="Hello")
 # save as blocks.json
 with open("test.blocks.json", "w") as f:
     json.dump(block_list, f, indent=4)
+
+# Deliberately break the blocks
+block_list[0]["type"] = ["sectionn"]
+
+# Validate the blocks
+slack_formatters.validate(blocks=block_list)

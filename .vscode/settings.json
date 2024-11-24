@@ -6,6 +6,7 @@
         "mngt",
         "phonenumbers",
         "phonenumberutil",
+        "schemalogger",
         "taigacon",
         "taigalink",
         "taskboard",
