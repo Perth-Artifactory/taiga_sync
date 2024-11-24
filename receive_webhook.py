@@ -149,7 +149,9 @@ def incoming():
             watchers = [assigned_to["id"]]
         # Add the corresponding slack channel as a recipient if it exists
         if slack_channel:
-            send_to.append(slack_channel)
+            # Don't send notifications to slack channels for new tasks
+            if data["type"] != "task":
+                send_to.append(slack_channel)
 
     elif "important" in data["data"]["tags"]:
         important = True
