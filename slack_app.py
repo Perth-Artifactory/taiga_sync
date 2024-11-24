@@ -375,7 +375,7 @@ def watch_button(ack, body, respond):
     if not item_info:
         message = "Sorry, I'm having trouble accessing Taiga right now. Please try again later."
         if watch_target.get("permalink"):
-            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+            message += f"\n\nYou can view the item yourself <{watch_target['permalink']}|here>."
         client.chat_postEphemeral(
             channel=body["channel"]["id"], user=body["user"]["id"], text=message
         )
@@ -403,7 +403,7 @@ def watch_button(ack, body, respond):
     if not add_watcher_response:
         message = "Sorry, I'm having trouble accessing Taiga right now. Please try again later."
         if watch_target.get("permalink"):
-            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+            message += f"\n\nYou can view the item yourself <{watch_target['permalink']}|here>."
         client.chat_postEphemeral(
             channel=body["channel"]["id"], user=body["user"]["id"], text=message
         )
