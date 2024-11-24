@@ -16,5 +16,13 @@
         "Untriaged",
         "userstories",
         "userstory"
+    ],
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "**/*.blocks.json"
+            ],
+            "url": "./block-kit-schema.json"
+        }
     ]
 }
