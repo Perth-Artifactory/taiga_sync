@@ -37,6 +37,7 @@ def sync_templates(taigacon, project_id: str) -> int:
             templates[story.status] = tasks
 
     # Find all user stories that include our bot managed tag
+    # We don't filter the bot-managed tag in the query because template stories don't have that tag
     for story in stories:
         tagged = False
         for tag in story.tags:
@@ -106,19 +107,9 @@ def progress_stories(
     """Progress stories to the next status that have all tasks complete."""
     made_changes: int = 0
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-        # Check if the story is managed by us
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-                break
-
-        if not tagged:
-            continue
 
         # Check if all tasks are complete
 
@@ -159,19 +150,9 @@ def progress_on_tidyhq(
     """Progress stories from column 2 to column 3 when a TidyHQ ID is set."""
     made_changes: int = 0
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-        # Check if the story is managed by us
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-                break
-
-        if not tagged:
-            continue
 
         # Check if the story is in the prospective column
         if story_statuses[story.status]["name"] not in ["Prospective", "Intake"]:
@@ -213,19 +194,9 @@ def progress_on_membership(
     """Progress stories from column 3 to column 4 the contact has a membership"""
     made_changes: int = 0
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-        # Check if the story is managed by us
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-                break
-
-        if not tagged:
-            continue
 
         # Check if the story is in the attendee column
         if story_statuses[story.status]["name"] != "Attendee":
@@ -280,18 +251,8 @@ def add_useful_fields(
     * Membership type
     """
     # Iterate over all user stories
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-        # Check if the story is managed by us
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-                break
-
-        if not tagged:
-            continue
 
         # Set TidyHQ contact URL
 

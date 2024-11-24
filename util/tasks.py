@@ -469,16 +469,8 @@ def check_all_tasks(
     }
 
     # Find all user stories that include our bot managed tag
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-
-        if not tagged:
-            continue
 
         # Retrieve the TidyHQ ID for the story
         tidyhq_id = taigalink.get_tidyhq_id(

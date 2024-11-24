@@ -34,16 +34,8 @@ def close_by_order(
         ],
     }
 
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-
-        if not tagged:
-            continue
 
         # Check over each task in the story
         tasks = taigacon.tasks.list(user_story=story.id)

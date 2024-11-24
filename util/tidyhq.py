@@ -290,17 +290,8 @@ def email_to_tidyhq(
     # Get the list of user stories
 
     # Iterate over the project's user stories
-    stories = taigacon.user_stories.list(project=project_id)
+    stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-        # Check if the story is managed by us
-        tagged = False
-        for tag in story.tags:
-            if tag[0] == "bot-managed":
-                logger.debug(f"Story {story.subject} includes the tag 'bot-managed'")
-                tagged = True
-
-        if not tagged:
-            continue
 
         # Fetch custom fields of the story
         custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story.id}"
