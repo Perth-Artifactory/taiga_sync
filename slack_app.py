@@ -349,7 +349,7 @@ def watch_button(ack, body, respond):
     if not taiga_id:
         message = """Sorry, I can't watch this item for you as I don't know who you are in Taiga\nIf you think this is an error please reach out to #it."""
         if watch_target.get("permalink"):
-            message += f"\n\nYou can view the item yourself [here]({watch_target['permalink']})"
+            message += f"\n\nYou can view the item yourself <{watch_target['permalink']}|here>."
         client.chat_postEphemeral(
             channel=body["channel"]["id"], user=body["user"]["id"], text=message
         )
