@@ -660,7 +660,7 @@ def parse_webhook_action_into_str(
     if data["type"] == "task":
         card_name = f' ({data["data"]["user_story"]["subject"]})'
 
-    return f"""{type_map.get(data["type"], "item")} {action_map[action]}: {subject}{card_name}{description}"""
+    return f"""{type_map.get(data["type"], "item").capitalize()} {action_map[action]}: {subject}{card_name}{description}"""
 
 
 def get_info(
