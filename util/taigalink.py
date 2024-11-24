@@ -600,7 +600,7 @@ def parse_webhook_action_into_str(
         "delete": "deleted",
     }
 
-    type_map = {"userstory": "card", "task": "task", "issue": "issue"}
+    type_map = {"userstory": "card", "task": "task", "issue": "issue", "epic": "epic"}
 
     action = data.get("action", None)
 
