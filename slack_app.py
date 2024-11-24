@@ -467,7 +467,6 @@ if "--cron" in sys.argv:
         if user["is_bot"] or user["deleted"]:
             continue
         users.append(user)
-
     logger.info(f"Found {len(users)} users")
 
     x = 1
@@ -495,7 +494,7 @@ if "--cron" in sys.argv:
             logger.error(f"Error publishing App Home content: {e}")
 
         logger.info(
-            f"Updated home for {user_id} - {user['profile']['display_name_normalized']} ({x}/{len(users)})"
+            f"Updated home for {user_id} - {user['profile']['real_name_normalized']} ({x}/{len(users)})"
         )
         x += 1
     logger.info(f"All homes updated ({x})")

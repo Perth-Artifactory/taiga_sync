@@ -1,8 +1,13 @@
 from copy import deepcopy as copy
 from pprint import pprint
 from datetime import datetime
+import logging
 
 from util import blocks, tidyhq, strings, taigalink
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("slack_formatters")
 
 
 def format_tasks(task_list):
@@ -114,6 +119,7 @@ def app_home(
     )
 
     if not taiga_id:
+        logger.info(f"User {user_id} does not have a Taiga account.")
         # We don't recognise the user
 
         # Construct blocks
@@ -129,6 +135,7 @@ def app_home(
         block_list = inject_text(block_list=block_list, text=strings.footer)
 
     else:
+        logger.info(f"User {user_id} has a Taiga account. - {taiga_id}")
         # We recognise the user
 
         # Construct blocks
