@@ -12,7 +12,8 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from util import taigalink, tidyhq, slack_formatters, slack, strings, blocks
+from editable_resources import strings
+from util import taigalink, tidyhq, slack_formatters, slack, blocks
 
 
 def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:

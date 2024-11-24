@@ -6,7 +6,8 @@ from pprint import pprint
 
 import jsonschema
 
-from util import blocks, strings, taigalink, tidyhq
+from editable_resources import strings
+from util import blocks, taigalink, tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
