@@ -339,7 +339,7 @@ def handle_form_command(ack, respond, command, client, body):
     tidyhq_id = tidyhq.map_slack_to_tidyhq(
         tidyhq_cache=tidyhq_cache,
         config=config,
-        slack_id=user,
+        slack_id=user["id"],
     )
 
     if tidyhq_id:
