@@ -1,14 +1,14 @@
 # Questions that can be added to forms
 
 contact = {
-    "type": "static_dropdown",
+    "type": "radio",
     "text": "Would you like us to contact you regarding the outcome of this report?",
     "options": ["Yes", "No"],
     "action_id": "contact",
 }
 
 tagged_out = {
-    "type": "static_dropdown",
+    "type": "radio",
     "text": "Has the equipment/tool been tagged out?",
     "action_id": "tagged_out",
 }
@@ -126,7 +126,6 @@ injury_questions = [
         "placeholder": "e.g. training, signage, engineering controls",
         "optional": True,
     },
-    {"type": "static_dropdown", "text": "Srs?", "taiga_map": "severity"},
     contact,
 ]
 
@@ -134,7 +133,7 @@ injury_questions = [
 locker_questions = [
     {"text": "Please answer the following questions to the best of your ability."},
     {
-        "type": "static_dropdown",
+        "type": "radio",
         "text": "Do you currently have a locker assigned?",
         "options": ["Yes", "No"],
         "action_id": "locker",
@@ -161,11 +160,79 @@ locker_questions = [
         "placeholder": "e.g. accessibility requirements, height, weight of items etc",
     },
     {
-        "type": "static_dropdown",
+        "type": "radio",
         "text": "Do you understand that lockers are assigned on a best effort basis and are not guaranteed?",
         "options": ["Yes", "No"],
     },
 ]
+
+# Access key
+key_questions = [
+    {
+        "text": "The following questions will help us determine whether you are eligible for a key."
+    },
+    {
+        "type": "radio",
+        "text": "Have you held your current membership for a minimum of two weeks?",
+        "options": ["Yes", "No"],
+    },
+    {
+        "type": "radio",
+        "text": "Have you set up a scheduled bank transfer to pay your membership invoices?",
+        "options": ["Yes", "No"],
+    },
+    {
+        "type": "radio",
+        "text": "Have you uploaded a photo of yourself to TidyHQ?",
+        "options": ["Yes", "No"],
+    },
+    {
+        "type": "radio",
+        "text": "Have you abided by our code of conduct and training procedures?",
+        "options": ["Yes", "No"],
+    },
+    {
+        "type": "radio",
+        "text": "Do you clean up after yourself and leave the space in a better state than you found it?",
+        "options": ["Yes", "No"],
+    },
+    {"text": "Please answer the following questions to the best of your ability."},
+    {
+        "type": "checkboxes",
+        "text": "Which events have you attended so far?",
+        "options": [
+            "Open Day",
+            "General Hacking Day (Sat)",
+            "Talkshop/Social Wednesday",
+            "Metal, Mechanical, and Modelling Monday",
+            "Arduino U",
+            "Women's Woodworking",
+            "Boardgames Afternoon",
+            "Modsynth",
+            "Open Source Hackers",
+            "Other",
+        ],
+    },
+    {"type": "long", "text": "What have you been working on in the workshop?"},
+    {
+        "type": "long",
+        "text": "How would your use of the workshop differ if you had a key?",
+    },
+    {
+        "text": "The Artifactory is entirely run by volunteers and we rely on members of our community to help out."
+    },
+    {
+        "type": "long",
+        "text": "How have you contributed to the community so far? (e.g. cleaning, tours, fixing equipment, helping others)",
+    },
+    {
+        "type": "multi_users_select",
+        "text": "Which members have you interacted with so far? (Committee members and event hosts are particularly relevant)",
+        "optional": True,
+    },
+]
+
+
 ###################### Forms
 
 # Broken 3d printer
@@ -212,6 +279,17 @@ locker = {
     "taiga_issue_title": "New member storage request",
 }
 
+# Key request
+key = {
+    "title": "Apply for a key",
+    "description": "Apply for a 24/7 access key",
+    "questions": key_questions,
+    "members_only": True,
+    "action_name": "Apply",
+    "taiga_project": "taiga",
+    "taiga_issue_title": "New keyholder request",
+}
+
 
 # Set IDs
 
@@ -220,4 +298,5 @@ forms = {
     "3d": broken_printer,
     "laser": broken_laser,
     "locker": locker,
+    "key": key,
 }
