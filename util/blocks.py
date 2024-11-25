@@ -97,3 +97,12 @@ file_input = {
         "type": "file_input",
     },
 }
+
+checkboxes = {
+    "type": "input",
+    "element": {"type": "checkboxes", "options": []},
+    "label": {
+        "type": "plain_text",
+        "text": "",
+    },
+}

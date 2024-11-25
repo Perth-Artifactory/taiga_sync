@@ -43,9 +43,11 @@ def render_form_list(form_list: dict, member=False) -> list[dict]:
         form = form_list[form_id]
         if form["members_only"] and not member:
             unavailable_forms.append(form_id)
+            continue
         block_list = slack_formatters.add_block(block_list, blocks.header)
         block_list = slack_formatters.inject_text(
-            block_list=block_list, text=form["title"]
+            block_list=block_list,
+            text=f'{form["title"]}{":artifactory:" if form["members_only"] else ""}',
         )
         block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
@@ -282,6 +284,7 @@ def questions_to_blocks(
             if question.get("optional"):
                 block_list[-1]["optional"] = True
 
+        # Check if we're adding a file upload
         elif question["type"] == "file":
             block_list = slack_formatters.add_block(block_list, blocks.file_input)
             block_list[-1]["label"]["text"] = question.get("text", "Upload a file")
@@ -303,6 +306,20 @@ def questions_to_blocks(
                 if 11 < question["max_files"] < 1:
                     raise ValueError("Max files must be between 1 and 10")
                 block_list[-1]["element"]["max_files"] = question
+
+        # Check if we're adding checkboxes
+        elif question["type"] == "checkboxes":
+            if "options" not in question:
+                raise ValueError("Checkbox question must have options")
+            options = text_to_options(question["options"])
+            block_list = slack_formatters.add_block(block_list, blocks.checkboxes)
+            block_list[-1]["label"]["text"] = question.get("text", "Choose an option")
+            block_list[-1]["element"]["options"] = options
+            block_list[-1]["element"]["action_id"] = question.get(
+                "action_id", hash_question(question["text"])
+            )
+            if question.get("optional"):
+                block_list[-1]["optional"] = True
 
         else:
             raise ValueError("Invalid question type")
