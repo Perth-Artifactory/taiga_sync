@@ -60,6 +60,10 @@ if not config["taiga"].get("auth_token"):
     else:
         setup_logger.error(f"Failed to get auth token: {response.status_code}")
         sys.exit(1)
+else:
+    taiga_auth_token = config["taiga"]["auth_token"]
+
+taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
 
 
 questions = []
@@ -67,10 +71,12 @@ questions = []
 form = "injury"
 
 if form == "injury":
-    questions = forms.injury
+    form = forms.forms["injury"]
 
 
-block_list = slack_forms.questions_to_blocks(questions)
+block_list = slack_forms.questions_to_blocks(
+    form["questions"], taigacon=taigacon, taiga_project=form.get("taiga_project")
+)
 
 # save as blocks.json
 with open("test.blocks.json", "w") as f:

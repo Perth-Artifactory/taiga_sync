@@ -432,7 +432,7 @@ def item_mapper(
         url = f"{config['taiga']['url']}/api/v1/issue-types?project={project_id}"
     elif field_type == "status":
         url = f"{config['taiga']['url']}/api/v1/statuses?project={project_id}"
-    elif field_type == "board":
+    elif field_type in ["board", "project"]:
         # Map project names to IDs
         projects = taigacon.projects.list()
         project_ids: dict[str, int] = {
@@ -766,3 +766,20 @@ def watch(
             f"Failed to add watcher to {type_str} {item_id}: {response.status_code}"
         )
         return False
+
+
+def validate_form_options(project_id: int, option_type: str, options: list, taigacon):
+    valid_options = []
+
+    if option_type == "severity":
+        options = taigacon.severities.list(project=project_id)
+        valid_options = [option.name.lower() for option in options]
+    elif option_type == "type":
+        options = taigacon.issue_types.list(project=project_id)
+        valid_options = [option.name.lower() for option in options]
+
+    for option in options:
+        if option not in valid_options:
+            logger.error(f"Invalid option: {option}")
+            return False
+    return True

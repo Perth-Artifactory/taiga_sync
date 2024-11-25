@@ -77,16 +77,23 @@ multi_users_select = {
 }
 
 date_select = {
-    "type": "actions",
-    "elements": [
-        {
-            "type": "datepicker",
-            "placeholder": {
-                "type": "plain_text",
-                "text": "",
-                "emoji": True,
-            },
-            "action_id": "",
+    "type": "input",
+    "element": {
+        "type": "datepicker",
+        "placeholder": {
+            "type": "plain_text",
+            "text": "",
+            "emoji": True,
         },
-    ],
+        "action_id": "",
+    },
+    "label": {"type": "plain_text", "text": "", "emoji": True},
+}
+
+file_input = {
+    "type": "input",
+    "label": {"type": "plain_text", "text": ""},
+    "element": {
+        "type": "file_input",
+    },
 }
