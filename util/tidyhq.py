@@ -365,7 +365,7 @@ def get_memberships_for_contact(contact_id: str, cache: dict) -> list:
     """Filter memberships to only those for a specific contact."""
     memberships = []
     for membership in cache["memberships"]:
-        if membership["contact_id"] == contact_id:
+        if str(membership["contact_id"]) == str(contact_id):
             memberships.append(membership)
     return memberships
 
@@ -526,7 +526,6 @@ def get_membership_type(contact_id, tidyhq_cache):
 
     One of : "None", "Expired", "Concession", "Full", "Visitor", "Sponsor"
     """
-
     memberships = get_memberships_for_contact(contact_id, tidyhq_cache)
     if not memberships:
         logger.debug(f"Contact {contact_id} has no memberships")
