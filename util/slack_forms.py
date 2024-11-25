@@ -32,6 +32,7 @@ def text_to_options(options: list[str]):
 
 
 def render_form_list(form_list: dict, member=False) -> list[dict]:
+    """Takes a list of forms and renders them as a list of blocks"""
     block_list = []
     block_list = slack_formatters.add_block(block_list, blocks.text)
     block_list = slack_formatters.inject_text(
@@ -310,6 +311,7 @@ def questions_to_blocks(
 
 
 def hash_question(question_text: str) -> str:
+    """Converts a string into a hash for use as a repeatable but unique action_id"""
 
     # strip non alphanumeric/space characters
     question_text = "".join(
@@ -327,33 +329,44 @@ def form_submission_to_description(
 ) -> tuple[str, list[str]]:
     """Convert a form submission to a string description and list of files to download"""
     description = ""
-    # Get the order of the questions from the submission
+    files = []
+    # Get the order of the questions from the submission, the blocks here are ordered but the values later on aren't
     order = []
     questions = {}
-    files = []
     for block in submission["view"]["blocks"]:
         if block["type"] == "input":
             order.append(block["block_id"])
             questions[order[-1]] = block
 
+    # Iterate over the provided values to render "answers"
     for block in order:
         question = questions[block]["label"]["text"]
-        # Get the answer
         answer = ""
+        # There's always only one dict. I've split the value calculation here to make it easier to read
         value = submission["view"]["state"]["values"][block]
-        # There's always only one dict
         value = value[list(value.keys())[0]]
+
+        # The key for submitted values differs depending on the type of question because Slack
+        # TODO refactor this with a map of question types to value keys
+
+        # Static dropdowns
         if value["type"] == "static_select":
             if not value["selected_option"]:
                 answer = "Question not answered"
             elif value["selected_option"]["value"]:
                 answer = value["selected_option"]["value"]
+
+        # File uploads
+        # These are handled differently since we need to download the files later
         elif value["type"] == "file_input":
             filenames = []
             for singlefile in value["files"]:
                 files.append(singlefile["url_private_download"])
                 filenames.append(singlefile["title"])
             answer = f"Files uploaded: {', '.join(filenames)} (see attachments)"
+
+        # User mentions
+        # We get the name here for easy reading within Taiga but still include the Slack ID incase we want to replace it with Taiga @s later or something
         elif value["type"] == "multi_users_select":
             if not value["selected_users"]:
                 answer = "Question not answered"
@@ -367,11 +380,19 @@ def form_submission_to_description(
                     slack_id = user["user"]["id"]
                     answer += f"{name_str} ({slack_id}), "
                 answer = answer[:-2]
+
+        # Date picker
+        # No sense in converting this to a datetime since it's just going to be a string in Taiga
+        # Could include a delta from now if we wanted to be fancy
+        # TODO add delta from now
         elif value["type"] == "datepicker":
             if not value["selected_date"]:
                 answer = "Question not answered"
             else:
                 answer = value["selected_date"]
+
+        # Every other type of question
+        # This definitely isn't exhaustive but we'll just add support as required rather than implementing everything now
         else:
             answer = value["value"]
 
@@ -380,10 +401,11 @@ def form_submission_to_description(
     # Get the user who submitted the form
     user = slack_app.client.users_info(user=submission["user"]["id"])
 
+    # Format the name to match the version used by issue submissions
+    # This way it should already support customised webhook notifications
     name_str = user["user"]["profile"].get(
         "real_name", user["user"]["profile"]["display_name"]
     )
-
     slack_id = user["user"]["id"]
     by = f"{name_str} ({slack_id})"
 
