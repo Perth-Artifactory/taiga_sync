@@ -408,9 +408,30 @@ def form_submission_to_description(
             else:
                 answer = value["selected_date"]
 
+        # Radio buttons
+        # These are just a single value so we can just grab the value
+        elif value["type"] == "radio_buttons":
+            if not value["selected_option"]:
+                answer = "Question not answered"
+            elif value["selected_option"]["value"]:
+                answer = value["selected_option"]["value"]
+            else:
+                answer = "Question not answered"
+
+        # Checkboxes
+        # These come in as a list of values so we'll just join them
+        elif value["type"] == "checkboxes":
+            if not value["selected_options"]:
+                answer = "Question not answered"
+            else:
+                answer = ", ".join(
+                    [option["value"] for option in value["selected_options"]]
+                )
+
         # Every other type of question
         # This definitely isn't exhaustive but we'll just add support as required rather than implementing everything now
         else:
+            pprint(value)
             answer = value["value"]
 
         description += f"**{question}**\n{answer}\n\n"
