@@ -13,9 +13,9 @@ tagged_out = {
     "action_id": "tagged_out",
 }
 
-# Question sets
+###################### Question sets
 
-# Broken 3d printer questions
+# Broken 3d printer
 broken_printer_questions = [
     {"text": "Please answer the following questions to the best of your ability."},
     {
@@ -46,6 +46,29 @@ broken_printer_questions = [
     contact,
 ]
 
+# Broken laser cutter
+broken_laser_questions = [
+    {"text": "Please answer the following questions to the best of your ability."},
+    {
+        "type": "static_dropdown",
+        "text": "Which laser has the issue?",
+        "options": [
+            "Big Red",
+            "Middle Red",
+            "Fibre Laser",
+        ],
+        "action_id": "laser",
+        "optional": True,
+    },
+    {
+        "type": "long",
+        "text": "Describe the issue",
+        "optional": True,
+    },
+    {"type": "file", "text": "Upload photos of the issue", "optional": True},
+    tagged_out,
+    contact,
+]
 
 # Injury/near miss
 injury_questions = [
@@ -107,18 +130,43 @@ injury_questions = [
     contact,
 ]
 
-# Forms
-
-# Injury/near miss
-injury = {
-    "title": "Injury/Near Miss Report",
-    "description": "Report an injury or near miss within the workshop",
-    "questions": injury_questions,
-    "members_only": False,
-    "action_name": "Report",
-    "taiga_project": "taiga",
-    "taiga_issue_title": "New Injury/Near Miss Report",
-}
+# Storage locker
+locker_questions = [
+    {"text": "Please answer the following questions to the best of your ability."},
+    {
+        "type": "static_dropdown",
+        "text": "Do you currently have a locker assigned?",
+        "options": ["Yes", "No"],
+        "action_id": "locker",
+    },
+    {
+        "type": "checkboxes",
+        "text": "What would you like to store in the locker?",
+        "options": [
+            "Personal items",
+            "Project materials",
+            "In progress projects",
+            "Tools",
+            "Safety equipment (PPE)",
+            "Aerosol cans",
+            "Chemicals",
+            "Perishable items",
+            "Other",
+        ],
+    },
+    {
+        "type": "long",
+        "text": "Is there anything we need to factor in when assigned a locker?",
+        "optional": True,
+        "placeholder": "e.g. accessibility requirements, height, weight of items etc",
+    },
+    {
+        "type": "static_dropdown",
+        "text": "Do you understand that lockers are assigned on a best effort basis and are not guaranteed?",
+        "options": ["Yes", "No"],
+    },
+]
+###################### Forms
 
 # Broken 3d printer
 broken_printer = {
@@ -131,6 +179,45 @@ broken_printer = {
     "taiga_issue_title": "New 3D Printer Report",
 }
 
-# Collection of all forms
+# Broken laser
+broken_laser = {
+    "title": "Broken Laser Cutter",
+    "description": "Report a broken/misbehaving/poorly cutting laser cutter",
+    "questions": broken_laser_questions,
+    "members_only": False,
+    "action_name": "Report",
+    "taiga_project": "taiga",
+    "taiga_issue_title": "New Laser Report",
+}
 
-forms = {"injury": injury, "3d": broken_printer}
+# Injury/near miss
+injury = {
+    "title": "Injury/Near Miss Report",
+    "description": "Report an injury or near miss within the workshop",
+    "questions": injury_questions,
+    "members_only": False,
+    "action_name": "Report",
+    "taiga_project": "taiga",
+    "taiga_issue_title": "New Injury/Near Miss Report",
+}
+
+# Locker request
+locker = {
+    "title": "Request a locker",
+    "description": "Request a member storage locker",
+    "questions": locker_questions,
+    "members_only": True,
+    "action_name": "Request",
+    "taiga_project": "taiga",
+    "taiga_issue_title": "New member storage request",
+}
+
+
+# Set IDs
+
+forms = {
+    "injury": injury,
+    "3d": broken_printer,
+    "laser": broken_laser,
+    "locker": locker,
+}
