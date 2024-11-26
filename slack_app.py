@@ -322,7 +322,6 @@ def handle_issue_command(ack, respond, command, client):
 
 
 # Command listener for form selection
-@app.command("/form")
 @app.shortcut("form-selector-shortcut")
 def handle_form_command(ack, respond, command, client, body):
     """Load the form selection modal"""
@@ -538,6 +537,9 @@ def handle_app_home_opened_events(body, client, logger):
     """Render app homes"""
     user_id = body["event"]["user"]
 
+    # Get user details for more helpful console messages
+    user_info = client.users_info(user=user_id)
+
     block_list = slack_formatters.app_home(
         user_id=user_id,
         config=config,
@@ -553,7 +555,7 @@ def handle_app_home_opened_events(body, client, logger):
     try:
         # Publish the view to the App Home
         client.views_publish(user_id=user_id, view=view)
-        logger.info(f"Set app home for {user_id}")
+        logger.info(f"Set app home for {user_info['user']['name']} ({user_id}) ")
     except Exception as e:
         pprint(block_list)
         logger.error(f"Error publishing App Home content: {e}")
