@@ -113,8 +113,14 @@ def questions_to_blocks(
                     question.pop(key)
                     logger.warning(f"Empty {key} field removed from question")
 
-        # Check if we're just adding an explainer
-        if "text" in question and len(question) == 1:
+        # See if we need to add a divider before the question
+        if "divider" in question:
+            if question["divider"] == "before":
+                block_list = slack_formatters.add_block(block_list, blocks.divider)
+
+        # Check if we're just adding an explainer (divider is okay too)
+        params = [param for param in question.keys() if param != "divider"]
+        if "text" in question and len(params) == 1:
             block_list += blocks.text
             block_list = slack_formatters.inject_text(
                 block_list=block_list,
@@ -323,6 +329,11 @@ def questions_to_blocks(
 
         else:
             raise ValueError("Invalid question type")
+
+        # See if we need to add a divider after the question
+        if "divider" in question:
+            if question["divider"] == "after":
+                block_list = slack_formatters.add_block(block_list, blocks.divider)
 
     return block_list
 

@@ -84,7 +84,7 @@ injury_questions = [
         "text": "Who was involved?",
         "optional": True,
     },
-    {"type": "date", "text": "When the incident occur?", "optional": True},
+    {"type": "date", "text": "When did the incident occur?", "optional": True},
     {
         "type": "short",
         "text": "Where in the space did the incident occur?",
@@ -188,7 +188,7 @@ key_questions = [
     },
     {
         "type": "radio",
-        "text": "Have you abided by our code of conduct and training procedures?",
+        "text": "Have you abided by our code of conduct, training procedures and other policies?",
         "options": ["Yes", "No"],
     },
     {
@@ -196,7 +196,10 @@ key_questions = [
         "text": "Do you clean up after yourself and leave the space in a better state than you found it?",
         "options": ["Yes", "No"],
     },
-    {"text": "Please answer the following questions to the best of your ability."},
+    {
+        "text": "Please answer the following questions to the best of your ability.",
+        "divider": "before",
+    },
     {
         "type": "checkboxes",
         "text": "Which events have you attended so far?",
@@ -209,8 +212,8 @@ key_questions = [
             "Women's Woodworking",
             "Boardgames Afternoon",
             "Modsynth",
-            "Open Source Hackers",
             "Other",
+            "I haven't attended any events yet",
         ],
     },
     {"type": "long", "text": "What have you been working on in the workshop?"},
