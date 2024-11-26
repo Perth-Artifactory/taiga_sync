@@ -118,6 +118,11 @@ clean_questions = [
         "text": "What was left in an unacceptable state?",
         "optional": False,
     },
+    {
+        "type": "long",
+        "text": "Describe the issue",
+        "optional": False,
+    },
     {"type": "file", "text": "Upload photos of the issue", "optional": True},
     {
         "type": "date",
