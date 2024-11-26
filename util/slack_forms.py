@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from editable_resources import forms
 from util import taigalink
+import importlib
 
 # Set up logging
 logger = logging.getLogger("slack_forms")
@@ -469,6 +470,9 @@ def form_submission_to_metadata(
 
     Returns project_id, type, severity
     """
+
+    # Reload forms from file
+    importlib.reload(forms)
 
     # Retrieve the original form
     form_id = submission["view"]["private_metadata"]

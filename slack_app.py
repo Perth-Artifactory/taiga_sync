@@ -11,6 +11,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
+import importlib
 
 from editable_resources import strings, forms
 from util import blocks, slack, slack_formatters, slack_forms, taigalink, tidyhq
@@ -334,6 +335,9 @@ def handle_form_command(ack, respond, command, client, body):
     ack()
     user = body["user"]
 
+    # Reload forms from file
+    importlib.reload(forms)
+
     global tidyhq_cache
     tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
 
@@ -386,6 +390,9 @@ def handle_form_open_button(ack, body, client):
     ack()
     form_name = body["actions"][0]["value"]
 
+    # Reload forms from file
+    importlib.reload(forms)
+
     # Get the form details
     form = forms.forms[form_name]
 
@@ -436,6 +443,10 @@ def handle_form_submissions(ack, body, logger):
     project_id, taiga_type_id, taiga_severity_id = (
         slack_forms.form_submission_to_metadata(submission=body, taigacon=taigacon)
     )
+
+    # Reload forms from file
+    importlib.reload(forms)
+
     form = forms.forms[body["view"]["private_metadata"]]
 
     if "taiga_type" in form and project_id:
