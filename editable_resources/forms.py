@@ -380,7 +380,8 @@ key = {
 }
 
 clean = {
-    "title": "Workshop Cleanliness",
+    "title": "Workshop Cleanliness and Tool Damage",
+    "short_title": "Clean/Damage Report",
     "description": "Report an instance of poor cleanliness/tool damage in the workshop where the person responsible is unknown",
     "questions": key_questions,
     "members_only": False,
