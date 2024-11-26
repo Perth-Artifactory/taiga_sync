@@ -133,6 +133,12 @@ injury_questions = [
         "optional": True,
     },
     {
+        "type": "short",
+        "text": "What first aid supplies were used?",
+        "placeholder": "Band-aids, ice packs, etc",
+        "optional": False,
+    },
+    {
         "type": "long",
         "text": "Was there any damage to property?",
         "placeholder": "e.g. tools, equipment, buildings, personal belongings",
