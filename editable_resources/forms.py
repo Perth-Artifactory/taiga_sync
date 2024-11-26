@@ -129,7 +129,7 @@ clean_questions = [
         "optional": True,
     },
     {
-        "text": "Due to the nature of cleanliness reports, we will typically not contact you regarding the outcome."
+        "text": "Due to the nature of cleanliness reports, we will typically not contact you regarding the outcome beyond letting you know it's been resolved."
     },
 ]
 
