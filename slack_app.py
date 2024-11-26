@@ -325,7 +325,7 @@ def handle_issue_command(ack, respond, command, client):
 @app.shortcut("form-selector-shortcut")
 def handle_form_command(ack, respond, command, client, body):
     """Load the form selection modal"""
-    logger.info(f"Received /form command or form selection shortcut")
+    logger.info(f"Received form selection shortcut")
     ack()
     user = body["user"]
 
@@ -424,11 +424,43 @@ def handle_form_submissions(ack, body, logger):
     )
     form = forms.forms[body["view"]["private_metadata"]]
 
+    if "taiga_type" in form and project_id:
+        if taiga_type_id:
+            # If the form doesn't have a type set via a question then we don't need to log that we're override it
+            logger.debug("Overriding type with form-specific type")
+        try:
+            taiga_type_id = int(form["taiga_type"])
+        except ValueError:
+            # IDs are ints, if it's not then we need map from a name
+            taiga_type_id = taigalink.item_mapper(
+                item=form["taiga_type"],
+                field_type="type",
+                project_id=project_id,
+                taiga_auth_token=taiga_auth_token,
+                taigacon=taigacon,
+                config=config,
+            )
+            logger.info(f"Resolved {form['taiga_type']} to {taiga_type_id}")
+
     print(
         f"Creating issue in project {project_id} with type {taiga_type_id} and severity {taiga_severity_id}"
     )
     print(f"Issue title is: {form['taiga_issue_title']}")
     print(description)
+
+    issue = taigalink.base_create_issue(
+        taiga_auth_token=taiga_auth_token,
+        project_id=project_id,
+        config=config,
+        subject=form["taiga_issue_title"],
+        description=description,
+        type_id=taiga_type_id,
+        severity_id=taiga_severity_id,
+        tags=["slack", "form"],
+    )
+
+    pprint(issue)
+
     for filelink in files:
         print(filelink)
     ack()

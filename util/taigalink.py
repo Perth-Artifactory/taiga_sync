@@ -196,7 +196,7 @@ def set_custom_field(
 
 def base_create_issue(
     taiga_auth_token: str,
-    project_id: str,
+    project_id: str | int,
     config: dict,
     subject: str,
     description: str | None = None,
@@ -205,7 +205,9 @@ def base_create_issue(
     severity_id: str | int | None = None,
     tags: list = [],
 ):
-    """Create an issue on a Taiga project. Does no mapping and supports IDs only"""
+    """Create an issue on a Taiga project. Does no mapping and supports IDs only
+
+    Fields that accept None can still be passed None (unlike the API directly)"""
 
     data = {
         "project": project_id,
@@ -415,7 +417,7 @@ def create_slack_issue(
 def item_mapper(
     item: str | None,
     field_type: str,
-    project_id: str | None,
+    project_id: str | int | None,
     taiga_auth_token: str,
     config: dict,
     taigacon,

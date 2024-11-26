@@ -269,6 +269,7 @@ injury = {
     "action_name": "Report",
     "taiga_project": "taiga",
     "taiga_issue_title": "New Injury/Near Miss Report",
+    "taiga_type": "Injury report",
 }
 
 # Locker request
@@ -278,8 +279,9 @@ locker = {
     "questions": locker_questions,
     "members_only": True,
     "action_name": "Request",
-    "taiga_project": "taiga",
+    "taiga_project": "committee",
     "taiga_issue_title": "New member storage request",
+    "taiga_type": "Locker request",
 }
 
 # Key request
@@ -291,6 +293,7 @@ key = {
     "action_name": "Apply",
     "taiga_project": "taiga",
     "taiga_issue_title": "New keyholder request",
+    "taiga_type": "Key application",
 }
 
 
