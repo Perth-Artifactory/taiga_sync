@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import sys
+import time
 import uuid
 from copy import deepcopy as copy
 from pprint import pprint
@@ -256,6 +257,23 @@ def incoming():
         )
 
     for channel in recipients["channel"]:
+        # Check if we've muted the bot in the last day
+        # We mute the bot when a user sends 'MUTE' to the channel
+        channel_messages = slack_app.client.conversations_history(
+            channel=channel,
+            inclusive=True,
+            oldest=str(time.time() - 24 * 60 * 60),
+        )
+
+        muted = False
+        for channel_message in channel_messages["messages"]:
+            if channel_message["text"].startswith("MUTE"):
+                muted = True
+                break
+
+        if muted:
+            logger.info(f"Channel {channel} is muted, not sending message")
+            continue
         try:
             slack_app.client.chat_postMessage(
                 channel=channel,

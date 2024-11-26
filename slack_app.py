@@ -136,7 +136,7 @@ for channel in channels:
 
 # Event listener for messages that mention the bot
 @app.event("app_mention")
-def handle_app_mention(event, say, client, respond):
+def handle_app_mention(event, ack, client, respond):
     """Respond to a mention of the bot with a message"""
     user = event["user"]
     text = event["text"]
@@ -146,6 +146,11 @@ def handle_app_mention(event, say, client, respond):
     user_display_name = user_info["user"]["profile"].get(
         "real_name", user_info["user"]["profile"]["display_name"]
     )
+
+    # This command is used elsewhere to silence notifications
+    if text.startswith("MUTE"):
+        ack()
+        return
 
     board, description = extract_issue_particulars(message=text)
     if board not in project_ids or not description:
