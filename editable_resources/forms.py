@@ -77,7 +77,11 @@ broken_infra_questions = [
     {
         "type": "static_dropdown",
         "text": "What type of fault would you like to report?",
-        "options": ["Broken Tool/Equipment", "Broken Infrastructure"],
+        "options": [
+            "Broken Tool/Equipment",
+            "Broken Infrastructure",
+            "General Workshop Issue",
+        ],
         "taiga_map": "type",
     },
     {
