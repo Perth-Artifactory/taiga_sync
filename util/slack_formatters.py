@@ -1,9 +1,13 @@
-from copy import deepcopy as copy
-from pprint import pprint
-from datetime import datetime
+import json
 import logging
+from copy import deepcopy as copy
+from datetime import datetime
+from pprint import pprint
 
-from util import blocks, tidyhq, strings, taigalink
+import jsonschema
+
+from editable_resources import strings
+from util import blocks, taigalink, tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -93,7 +97,7 @@ def construct_reminder_section(reminders: dict) -> list:
     return block_list
 
 
-def inject_text(block_list, text):
+def inject_text(block_list: list, text: str) -> list[dict]:
     block_list = copy(block_list)
     if block_list[-1]["type"] in ["section", "header", "button"]:
         block_list[-1]["text"]["text"] = text
@@ -104,6 +108,17 @@ def inject_text(block_list, text):
     elif block_list[-1]["type"] == "rich_text":
         block_list[-1]["elements"][0]["elements"][0]["text"] = text
 
+    return block_list
+
+
+def add_block(block_list: list, block: dict | list) -> list[dict]:
+    """Adds a block to the block list and returns the updated list."""
+    block = copy(block)
+    block_list = copy(block_list)
+    if type(block) == list:
+        block_list += block
+    elif type(block) == dict:
+        block_list.append(block)
     return block_list
 
 
@@ -223,3 +238,19 @@ def app_home(
         block_list = inject_text(block_list=block_list, text=strings.footer)
 
     return block_list
+
+
+def validate(blocks):
+    # We want our own logger for this function
+    schemalogger = logging.getLogger("block-kit validator")
+
+    # Load the schema from file
+    with open("block-kit-schema.json") as f:
+        schema = json.load(f)
+
+    try:
+        jsonschema.validate(instance=blocks, schema=schema)
+    except jsonschema.exceptions.ValidationError as e:  # type: ignore
+        schemalogger.error(e)
+        return False
+    return True

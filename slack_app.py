@@ -1,18 +1,19 @@
 import json
 import logging
 import os
+import re
 import sys
 from pprint import pprint
-from taiga import TaigaAPI
-import re
 
 import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from taiga import TaigaAPI
 
-from util import taigalink, tidyhq, slack_formatters, slack, strings, blocks
+from editable_resources import strings, forms
+from util import blocks, slack, slack_formatters, slack_forms, taigalink, tidyhq
 
 
 def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
@@ -284,7 +285,7 @@ def handle_message(event, say, client, ack):
 
 # Command listener for /issue
 @app.command("/issue")
-def handle_task_command(ack, respond, command, client):
+def handle_issue_command(ack, respond, command, client):
     """Raise issues on Taiga via /issue"""
     logger.info(f"Received /issue command")
     ack()
@@ -320,9 +321,195 @@ def handle_task_command(ack, respond, command, client):
         respond("The issue has been created on Taiga, thanks!")
 
 
+# Command listener for form selection
+@app.shortcut("form-selector-shortcut")
+def handle_form_command(ack, respond, command, client, body):
+    """Load the form selection modal"""
+    logger.info(f"Received form selection shortcut")
+    ack()
+    user = body["user"]
+
+    global tidyhq_cache
+    tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
+
+    artifactory_member = False
+
+    # Check if the user is registered in TidyHQ
+    tidyhq_id = tidyhq.map_slack_to_tidyhq(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=user["id"],
+    )
+
+    if tidyhq_id:
+        # Get the type of membership held
+        membership_type = tidyhq.get_membership_type(
+            contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
+        )
+        if membership_type in ["Concession", "Full", "Sponsor"]:
+            artifactory_member = True
+
+    # Render the blocks for the form selection modal
+    block_list = slack_forms.render_form_list(
+        form_list=forms.forms, member=artifactory_member
+    )
+
+    # Open the modal
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "form_selection",
+                "title": {"type": "plain_text", "text": "Select a form"},
+                "blocks": block_list,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+
+
 @app.action(re.compile(r"^tlink.*"))
 def ignore_link_button_presses(ack):
     """Dummy function to ignore link button presses"""
+    ack()
+
+
+@app.action(re.compile(r"^form-open-.*"))
+def handle_form_open_button(ack, body, client):
+    """Open the selected form in a modal"""
+    ack()
+    form_name = body["actions"][0]["value"]
+
+    # Get the form details
+    form = forms.forms[form_name]
+
+    # Convert the form questions to blocks
+    block_list = slack_forms.questions_to_blocks(
+        form["questions"], taigacon=taigacon, taiga_project=form.get("taiga_project")
+    )
+
+    # Form title can only be 25 characters long
+    if len(form["title"]) > 25:
+        if not form.get("short_title"):
+            form_title = form["title"][:25]
+        else:
+            form_title = form["short_title"]
+    else:
+        form_title = form["title"]
+
+    # Open the modal
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "form_submission",
+                "title": {"type": "plain_text", "text": form_title},
+                "blocks": block_list,
+                "close": {
+                    "type": "plain_text",
+                    "text": "Cancel",
+                },
+                "submit": {
+                    "type": "plain_text",
+                    "text": form["action_name"],
+                },
+                "private_metadata": form_name,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(e)
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.view("form_submission")
+def handle_form_submissions(ack, body, logger):
+    description, files = slack_forms.form_submission_to_description(
+        submission=body, slack_app=app
+    )
+    project_id, taiga_type_id, taiga_severity_id = (
+        slack_forms.form_submission_to_metadata(submission=body, taigacon=taigacon)
+    )
+    form = forms.forms[body["view"]["private_metadata"]]
+
+    if "taiga_type" in form and project_id:
+        if taiga_type_id:
+            # If the form doesn't have a type set via a question then we don't need to log that we're override it
+            logger.debug("Overriding type with form-specific type")
+        try:
+            taiga_type_id = int(form["taiga_type"])
+        except ValueError:
+            # IDs are ints, if it's not then we need map from a name
+            taiga_type_id = taigalink.item_mapper(
+                item=form["taiga_type"],
+                field_type="type",
+                project_id=project_id,
+                taiga_auth_token=taiga_auth_token,
+                taigacon=taigacon,
+                config=config,
+            )
+            logger.info(f"Resolved {form['taiga_type']} to {taiga_type_id}")
+
+    # Get the user's name from their Slack ID
+    user_info = app.client.users_info(user=body["user"]["id"])
+    slack_name = user_info["user"]["profile"].get(
+        "real_name_normalized", user_info["user"]["profile"]["display_name_normalized"]
+    )
+
+    issue_title = form["taiga_issue_title"].format(slack_name=slack_name)
+
+    issue = taigalink.base_create_issue(
+        taiga_auth_token=taiga_auth_token,
+        project_id=project_id,
+        config=config,
+        subject=issue_title,
+        description=description,
+        type_id=taiga_type_id,
+        severity_id=taiga_severity_id,
+        tags=["slack", "form"],
+    )
+
+    if issue:
+        # We only have a certain amount of time to acknowledge the submission. This way the user gets an error if the submission fails
+        # and we get a log of which files are missing the next part fails
+        ack()
+    else:
+        logger.error("Failed to create issue")
+        return
+
+    upload_success = True
+    for filelink in files:
+        downloaded_file = slack.download_file(url=filelink, config=config)
+
+        if not downloaded_file:
+            logger.error(f"Failed to download file {filelink}")
+
+        # Upload the file to Taiga
+        upload = taigalink.attach_file(
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            project_id=project_id,
+            item_type="issue",
+            item_id=issue["id"],
+            url=filelink,
+        )
+
+        if not upload:
+            logger.error(f"Failed to upload file {filelink}")
+            upload_success = False
+
+    # DM the user to let them know their form was submitted successfully
+    message = strings.form_submission_success.format(form_name=form["title"])
+    if not upload_success:
+        message += "\n\n" + strings.file_upload_failure
+
+    slack.send_dm(slack_id=body["user"]["id"], message=message, slack_app=app)
+
+
+@app.view("form_submitted")
+def ignore_form_submitted(ack):
+    """Dummy function to ignore form submitted views"""
     ack()
 
 
@@ -338,9 +525,12 @@ def watch_button(ack, body, respond):
     ack()
     watch_target = json.loads(body["actions"][0]["value"])
 
+    global tidyhq_cache
+    tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
+
     # Check if the Slack user can be mapped to a Taiga user
     taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+        tidyhq_cache=tidyhq_cache,
         config=config,
         slack_id=body["user"]["id"],
     )
@@ -426,6 +616,9 @@ def handle_app_home_opened_events(body, client, logger):
     """Render app homes"""
     user_id = body["event"]["user"]
 
+    # Get user details for more helpful console messages
+    user_info = client.users_info(user=user_id)
+
     block_list = slack_formatters.app_home(
         user_id=user_id,
         config=config,
@@ -441,7 +634,7 @@ def handle_app_home_opened_events(body, client, logger):
     try:
         # Publish the view to the App Home
         client.views_publish(user_id=user_id, view=view)
-        logger.info(f"Set app home for {user}")
+        logger.info(f"Set app home for {user_info['user']['name']} ({user_id}) ")
     except Exception as e:
         pprint(block_list)
         logger.error(f"Error publishing App Home content: {e}")

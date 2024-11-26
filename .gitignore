@@ -4,3 +4,4 @@ template_actions.json
 *.pyc
 attendee.lock
 run.sh
+*.blocks.json

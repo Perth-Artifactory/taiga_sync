@@ -4,7 +4,7 @@ from pprint import pprint, pformat
 
 import requests
 
-from util import tidyhq
+from util import tidyhq, slack
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -196,7 +196,7 @@ def set_custom_field(
 
 def base_create_issue(
     taiga_auth_token: str,
-    project_id: str,
+    project_id: str | int,
     config: dict,
     subject: str,
     description: str | None = None,
@@ -205,7 +205,9 @@ def base_create_issue(
     severity_id: str | int | None = None,
     tags: list = [],
 ):
-    """Create an issue on a Taiga project. Does no mapping and supports IDs only"""
+    """Create an issue on a Taiga project. Does no mapping and supports IDs only
+
+    Fields that accept None can still be passed None (unlike the API directly)"""
 
     data = {
         "project": project_id,
@@ -415,7 +417,7 @@ def create_slack_issue(
 def item_mapper(
     item: str | None,
     field_type: str,
-    project_id: str | None,
+    project_id: str | int | None,
     taiga_auth_token: str,
     config: dict,
     taigacon,
@@ -432,7 +434,7 @@ def item_mapper(
         url = f"{config['taiga']['url']}/api/v1/issue-types?project={project_id}"
     elif field_type == "status":
         url = f"{config['taiga']['url']}/api/v1/statuses?project={project_id}"
-    elif field_type == "board":
+    elif field_type in ["board", "project"]:
         # Map project names to IDs
         projects = taigacon.projects.list()
         project_ids: dict[str, int] = {
@@ -765,4 +767,81 @@ def watch(
         logger.error(
             f"Failed to add watcher to {type_str} {item_id}: {response.status_code}"
         )
+        return False
+
+
+def validate_form_options(project_id: int, option_type: str, options: list, taigacon):
+    valid_options = []
+
+    if option_type == "severity":
+        raw_options = taigacon.severities.list(project=project_id)
+        valid_options = [option.name.lower() for option in raw_options]
+    elif option_type == "type":
+        raw_options = taigacon.issue_types.list(project=project_id)
+        valid_options = [option.name.lower() for option in raw_options]
+
+    for option in options:
+        if option.lower() not in valid_options:
+            logger.error(f"Invalid option: {option}")
+            return False
+    return True
+
+
+def attach_file(
+    taiga_auth_token: str,
+    config: dict,
+    project_id: str | int,
+    item_type: str,
+    item_id: str | int,
+    url: str | None = None,
+    file_obj=None,
+):
+    """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
+
+    Supports: issues"""
+
+    # We can add support for other formats later
+
+    if item_type not in ["issue"]:
+        logger.error(f"Item type {item_type} not supported")
+        return False
+
+    if item_type == "issue":
+        upload_url = f"{config['taiga']['url']}/api/v1/issues/attachments"
+
+    # Download the file if required
+    if not file_obj:
+        if not url:
+            logger.error("No URL or file object provided")
+            return False
+        file_obj = slack.download_file(url, config)
+
+    if not file_obj:
+        logger.error("Failed to download file")
+        return False
+
+    if isinstance(file_obj, str):
+        file_obj = open(file_obj, "rb")
+
+    if url:
+        filename = url.split("/")[-1]
+    else:
+        filename = "attached_file"
+
+    # Upload the file
+    upload = requests.post(
+        upload_url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        data={
+            "project": project_id,
+            "object_id": item_id,
+        },
+        files={"attached_file": (filename, file_obj, "application/octet-stream")},
+    )
+
+    if upload.status_code == 201:
+        return True
+    else:
+        logger.error(f"Failed to attach file: {upload.status_code}")
+        logger.error(upload.json())
         return False

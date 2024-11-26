@@ -4,3 +4,4 @@ slack-bolt
 phonenumbers
 flask
 waitress
+jsonschema
