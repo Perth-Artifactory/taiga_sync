@@ -89,7 +89,7 @@ def map_recipients(list_of_recipients: list, tidyhq_cache: dict, config: dict) -
     for recipient in list_of_recipients:
         if recipient[0] == "U":
             recipients["user"].append(recipient)
-        elif recipient[0] == "C":
+        elif recipient[0] in ["C", "G"]:
             recipients["channel"].append(recipient)
         else:
             # Assume it's a Taiga user ID
