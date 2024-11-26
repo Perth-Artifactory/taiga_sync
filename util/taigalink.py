@@ -4,7 +4,7 @@ from pprint import pprint, pformat
 
 import requests
 
-from util import tidyhq
+from util import tidyhq, slack
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -774,14 +774,74 @@ def validate_form_options(project_id: int, option_type: str, options: list, taig
     valid_options = []
 
     if option_type == "severity":
-        options = taigacon.severities.list(project=project_id)
-        valid_options = [option.name.lower() for option in options]
+        raw_options = taigacon.severities.list(project=project_id)
+        valid_options = [option.name.lower() for option in raw_options]
     elif option_type == "type":
-        options = taigacon.issue_types.list(project=project_id)
-        valid_options = [option.name.lower() for option in options]
+        raw_options = taigacon.issue_types.list(project=project_id)
+        valid_options = [option.name.lower() for option in raw_options]
 
     for option in options:
-        if option not in valid_options:
+        if option.lower() not in valid_options:
             logger.error(f"Invalid option: {option}")
             return False
     return True
+
+
+def attach_file(
+    taiga_auth_token: str,
+    config: dict,
+    project_id: str | int,
+    item_type: str,
+    item_id: str | int,
+    url: str | None = None,
+    file_obj=None,
+):
+    """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
+
+    Supports: issues"""
+
+    # We can add support for other formats later
+
+    if item_type not in ["issue"]:
+        logger.error(f"Item type {item_type} not supported")
+        return False
+
+    if item_type == "issue":
+        upload_url = f"{config['taiga']['url']}/api/v1/issues/attachments"
+
+    # Download the file if required
+    if not file_obj:
+        if not url:
+            logger.error("No URL or file object provided")
+            return False
+        file_obj = slack.download_file(url, config)
+
+    if not file_obj:
+        logger.error("Failed to download file")
+        return False
+
+    if isinstance(file_obj, str):
+        file_obj = open(file_obj, "rb")
+
+    if url:
+        filename = url.split("/")[-1]
+    else:
+        filename = "attached_file"
+
+    # Upload the file
+    upload = requests.post(
+        upload_url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        data={
+            "project": project_id,
+            "object_id": item_id,
+        },
+        files={"attached_file": (filename, file_obj, "application/octet-stream")},
+    )
+
+    if upload.status_code == 201:
+        return True
+    else:
+        logger.error(f"Failed to attach file: {upload.status_code}")
+        logger.error(upload.json())
+        return False

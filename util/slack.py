@@ -1,38 +1,13 @@
 import logging
 from pprint import pprint
 
+import requests
+
 from util import tidyhq
 
 # Set up logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
-
-def extract_message_vars(message) -> dict:
-    """
-    Extracts the variables embedded in a message by an external workflow
-    """
-
-    # Get the appropriate block kit
-    blocks = message["blocks"][0]["elements"][0]["elements"]
-    variables = {}
-    variable_name = ""
-    for block in blocks:
-        if block.get("style", {"bold": False})["bold"]:
-            variable_name = block["text"]
-            if variable_name not in variables:
-                variables[variable_name] = ""
-        elif variable_name:
-            if "text" in block:
-                variables[variable_name] += block["text"]
-            elif block.get("type") == "user":
-                variables[variable_name] += block["user_id"]
-
-    # Strip newlines from the beginning and end of each variable
-    for key, value in variables.items():
-        variables[key] = value.strip()
-
-    return variables
 
 
 def name_mapper(slack_id: str, slack_app) -> str:
@@ -127,3 +102,11 @@ def map_recipients(list_of_recipients: list, tidyhq_cache: dict, config: dict) -
                 logger.error(f"No slack ID found for Taiga user {recipient}")
 
     return recipients
+
+
+def download_file(url, config):
+    file_data = requests.get(
+        url=url,
+        headers={"Authorization": f'Bearer {config["slack"]["bot_token"]}'},
+    )
+    return file_data.content

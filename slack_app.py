@@ -389,6 +389,15 @@ def handle_form_open_button(ack, body, client):
         form["questions"], taigacon=taigacon, taiga_project=form.get("taiga_project")
     )
 
+    # Form title can only be 25 characters long
+    if len(form["title"]) > 25:
+        if not form.get("short_title"):
+            form_title = form["title"][:25]
+        else:
+            form_title = form["short_title"]
+    else:
+        form_title = form["title"]
+
     # Open the modal
     try:
         client.views_push(
@@ -396,7 +405,7 @@ def handle_form_open_button(ack, body, client):
             view={
                 "type": "modal",
                 "callback_id": "form_submission",
-                "title": {"type": "plain_text", "text": form["title"]},
+                "title": {"type": "plain_text", "text": form_title},
                 "blocks": block_list,
                 "close": {
                     "type": "plain_text",
@@ -442,27 +451,65 @@ def handle_form_submissions(ack, body, logger):
             )
             logger.info(f"Resolved {form['taiga_type']} to {taiga_type_id}")
 
-    print(
-        f"Creating issue in project {project_id} with type {taiga_type_id} and severity {taiga_severity_id}"
+    # Get the user's name from their Slack ID
+    user_info = app.client.users_info(user=body["user"]["id"])
+    slack_name = user_info["user"]["profile"].get(
+        "real_name_normalized", user_info["user"]["profile"]["display_name_normalized"]
     )
-    print(f"Issue title is: {form['taiga_issue_title']}")
-    print(description)
+
+    issue_title = form["taiga_issue_title"].format(slack_name=slack_name)
 
     issue = taigalink.base_create_issue(
         taiga_auth_token=taiga_auth_token,
         project_id=project_id,
         config=config,
-        subject=form["taiga_issue_title"],
+        subject=issue_title,
         description=description,
         type_id=taiga_type_id,
         severity_id=taiga_severity_id,
         tags=["slack", "form"],
     )
 
-    pprint(issue)
+    if issue:
+        # We only have a certain amount of time to acknowledge the submission. This way the user gets an error if the submission fails
+        # and we get a log of which files are missing the next part fails
+        ack()
+    else:
+        logger.error("Failed to create issue")
+        return
 
+    upload_success = True
     for filelink in files:
-        print(filelink)
+        downloaded_file = slack.download_file(url=filelink, config=config)
+
+        if not downloaded_file:
+            logger.error(f"Failed to download file {filelink}")
+
+        # Upload the file to Taiga
+        upload = taigalink.attach_file(
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            project_id=project_id,
+            item_type="issue",
+            item_id=issue["id"],
+            url=filelink,
+        )
+
+        if not upload:
+            logger.error(f"Failed to upload file {filelink}")
+            upload_success = False
+
+    # DM the user to let them know their form was submitted successfully
+    message = strings.form_submission_success.format(form_name=form["title"])
+    if not upload_success:
+        message += "\n\n" + strings.file_upload_failure
+
+    slack.send_dm(slack_id=body["user"]["id"], message=message, slack_app=app)
+
+
+@app.view("form_submitted")
+def ignore_form_submitted(ack):
+    """Dummy function to ignore form submitted views"""
     ack()
 
 

@@ -195,7 +195,7 @@ def questions_to_blocks(
                         logger.warning(
                             f"Invalid options for {question.get('taiga_map', 'type')} mapping"
                         )
-                        logger.warning(f"Options: {options}")
+                        logger.warning(f"Options: {question.get('options')}")
                         logger.warning("Using all available options instead")
                         need_query = True
                     else:

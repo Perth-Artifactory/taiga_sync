@@ -13,7 +13,9 @@ tagged_out = {
     "action_id": "tagged_out",
 }
 
-###################### Question sets
+######################
+# Question sets
+######################
 
 # Broken 3d printer
 broken_printer_questions = [
@@ -66,6 +68,34 @@ broken_laser_questions = [
         "optional": True,
     },
     {"type": "file", "text": "Upload photos of the issue", "optional": True},
+    tagged_out,
+    contact,
+]
+
+# Broken infra
+broken_infra_questions = [
+    {
+        "type": "static_dropdown",
+        "text": "What type of fault would you like to report?",
+        "options": ["Broken Tool/Equipment", "Broken Infrastructure"],
+        "taiga_map": "type",
+    },
+    {
+        "type": "static_dropdown",
+        "text": "How severe is the issue?",
+        "taiga_map": "severity",
+    },
+    {"type": "long", "text": "Describe the issue"},
+    {
+        "type": "file",
+        "text": "Upload photos that help illustrate the issue",
+        "optional": True,
+    },
+    {
+        "type": "multi_users_select",
+        "text": "Have you discussed this issue with a volunteer in person?",
+        "optional": True,
+    },
     tagged_out,
     contact,
 ]
@@ -236,7 +266,9 @@ key_questions = [
 ]
 
 
-###################### Forms
+######################
+# Forms
+######################
 
 # Broken 3d printer
 broken_printer = {
@@ -245,7 +277,7 @@ broken_printer = {
     "questions": broken_printer_questions,
     "members_only": False,
     "action_name": "Report",
-    "taiga_project": "taiga",
+    "taiga_project": "3d",
     "taiga_issue_title": "New 3D Printer Report",
 }
 
@@ -256,8 +288,20 @@ broken_laser = {
     "questions": broken_laser_questions,
     "members_only": False,
     "action_name": "Report",
-    "taiga_project": "taiga",
+    "taiga_project": "lasers",
     "taiga_issue_title": "New Laser Report",
+}
+
+# Broken infra
+broken_infra = {
+    "title": "Broken Tools, Equipment, or Infrastructure",
+    "short_title": "Broken Tools/Infra",
+    "description": "Report a broken tool, piece of equipment, or infrastructure (e.g. door, light, etc)",
+    "questions": broken_infra_questions,
+    "members_only": False,
+    "action_name": "Report",
+    "taiga_project": "infrastructure",
+    "taiga_issue_title": "New Infra Report",
 }
 
 # Injury/near miss
@@ -267,7 +311,7 @@ injury = {
     "questions": injury_questions,
     "members_only": False,
     "action_name": "Report",
-    "taiga_project": "taiga",
+    "taiga_project": "committee",
     "taiga_issue_title": "New Injury/Near Miss Report",
     "taiga_type": "Injury report",
 }
@@ -280,7 +324,7 @@ locker = {
     "members_only": True,
     "action_name": "Request",
     "taiga_project": "committee",
-    "taiga_issue_title": "New member storage request",
+    "taiga_issue_title": "Member storage request: {slack_name}",
     "taiga_type": "Locker request",
 }
 
@@ -291,8 +335,8 @@ key = {
     "questions": key_questions,
     "members_only": True,
     "action_name": "Apply",
-    "taiga_project": "taiga",
-    "taiga_issue_title": "New keyholder request",
+    "taiga_project": "committee",
+    "taiga_issue_title": "Keyholder application: {slack_name}",
     "taiga_type": "Key application",
 }
 
@@ -303,6 +347,7 @@ forms = {
     "injury": injury,
     "3d": broken_printer,
     "laser": broken_laser,
+    "infra": broken_infra,
     "locker": locker,
     "key": key,
 }
