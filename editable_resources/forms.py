@@ -383,7 +383,7 @@ clean = {
     "title": "Workshop Cleanliness and Tool Damage",
     "short_title": "Clean/Damage Report",
     "description": "Report an instance of poor cleanliness/tool damage in the workshop where the person responsible is unknown",
-    "questions": key_questions,
+    "questions": clean_questions,
     "members_only": False,
     "action_name": "Report",
     "taiga_project": "committee",
