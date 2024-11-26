@@ -104,6 +104,35 @@ broken_infra_questions = [
     contact,
 ]
 
+# Cleanliness report
+clean_questions = [
+    {
+        "text": "Unlike normal damaged tool reports the information you provide below will not be publicly visible.",
+        "divider": "after",
+    },
+    {
+        "text": "Use this form to report instances where something has been left in an unacceptable state. This could be a tool, a piece of equipment, a work area, or the workshop in general.\nWe will investigate the report and follow up with the person responsible directly."
+    },
+    {
+        "type": "long",
+        "text": "What was left in an unacceptable state?",
+        "optional": False,
+    },
+    {
+        "type": "date",
+        "text": "When did you become aware of the issue?",
+        "optional": False,
+    },
+    {
+        "type": "long",
+        "text": "What actions have you taken to address the issue?",
+        "optional": True,
+    },
+    {
+        "text": "Due to the nature of cleanliness reports, we will typically not contact you regarding the outcome."
+    },
+]
+
 # Injury/near miss
 injury_questions = [
     {"text": "Please answer the following questions to the best of your ability."},
@@ -350,11 +379,23 @@ key = {
     "taiga_type": "Key application",
 }
 
+clean = {
+    "title": "Workshop Cleanliness",
+    "description": "Report an instance of poor cleanliness in the workshop so we can address it directly",
+    "questions": key_questions,
+    "members_only": False,
+    "action_name": "Report",
+    "taiga_project": "committee",
+    "taiga_issue_title": "Workshop cleanliness report",
+    "taiga_type": "Workshop cleanliness",
+}
+
 
 # Set IDs
 
 forms = {
     "injury": injury,
+    "clean": clean,
     "3d": broken_printer,
     "laser": broken_laser,
     "infra": broken_infra,
