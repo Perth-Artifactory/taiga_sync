@@ -335,7 +335,7 @@ broken_laser = {
 broken_infra = {
     "title": "Broken Tools, Equipment, or Infrastructure",
     "short_title": "Broken Tools/Infra",
-    "description": "Report a broken tool, piece of equipment, or infrastructure (e.g. door, light, etc)",
+    "description": "Report a broken tool, piece of equipment, infrastructure (e.g. door, light, etc) or general workshop issue",
     "questions": broken_infra_questions,
     "members_only": False,
     "action_name": "Report",
