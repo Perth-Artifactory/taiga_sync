@@ -629,7 +629,7 @@ def handle_reaction_added_events(ack):
 
 @app.event("app_home_opened")
 def handle_app_home_opened_events(body, client, logger):
-    """Render app homes"""
+    """Regenerate the app home when it's opened by a user"""
     user_id = body["event"]["user"]
 
     # Get user details for more helpful console messages

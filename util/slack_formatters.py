@@ -1,5 +1,7 @@
 import json
 import logging
+import platform
+import subprocess
 from copy import deepcopy as copy
 from datetime import datetime
 from pprint import pprint
@@ -234,8 +236,29 @@ def app_home(
                 block_list += blocks.divider
                 block_list += blocks.text
                 block_list = inject_text(block_list=block_list, text=strings.trimmed)
+
+        # Get details about the current app version from git
+        commit_hash = (
+            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            .decode("ascii")
+            .strip()
+        )
+        branch_name = (
+            subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+            .decode("ascii")
+            .strip()
+        )
+
+        # Get the OS environment
+        platform_name = platform.system()
+
         block_list += blocks.context
-        block_list = inject_text(block_list=block_list, text=strings.footer)
+        block_list = inject_text(
+            block_list=block_list,
+            text=strings.footer.format(
+                branch=branch_name, commit=commit_hash, platform=platform_name
+            ),
+        )
 
     return block_list
 
