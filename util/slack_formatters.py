@@ -15,7 +15,7 @@ from util import blocks, taigalink, tidyhq, slack_forms
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("slack_formatters")
 
-# Specify actions used for app home dropdowns
+# Specify actions used for app home dropdowns (final)
 dropdown_questions = [
     "Comments",
     "Attach files",
