@@ -361,7 +361,6 @@ def create_issue(
 
     if response.status_code == 201:
         logger.info(f"Created issue {response.json()['id']} on project {project_id}")
-        # Print the raw request that was made to taiga
         return response.json()
     else:
         logger.error(
