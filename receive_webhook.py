@@ -236,7 +236,6 @@ def incoming():
     sender_name = None
 
     if data["by"]["full_name"] != "Giant Robot":
-        pprint(data)
         sender_image = data["by"].get("photo", None)
         sender_name = f"{data['by']['full_name'].split(' ')[0]} | Taiga"
 
