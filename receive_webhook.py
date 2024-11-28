@@ -236,6 +236,7 @@ def incoming():
     sender_name = None
 
     if data["by"]["full_name"] != "Giant Robot":
+        pprint(data)
         sender_image = data["by"].get("photo", None)
         sender_name = f"{data['by']['full_name'].split(' ')[0]} | Taiga"
 
@@ -244,7 +245,7 @@ def incoming():
         # Get the Slack user's details
         user = slack_app.client.users_info(user=from_slack_id)
         sender_image = user["user"]["profile"]["image_72"]
-        sender_name = f"{user['user']['profile']['display_name_normalized']} | Taiga"
+        sender_name = f"{slack.name_mapper(slack_id=from_slack_id, slack_app=slack_app).split(' ')[0]} | Taiga"
 
     for user in recipients["user"]:
         slack.send_dm(

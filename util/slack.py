@@ -2,12 +2,13 @@ import logging
 from pprint import pprint
 
 import requests
+import slack_sdk
 
 from util import tidyhq
 
 # Set up logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 
 def name_mapper(slack_id: str, slack_app) -> str:
@@ -47,8 +48,8 @@ def send_dm(
     message: str,
     slack_app,
     blocks: list = [],
-    unfurl_links: bool = True,
-    unfurl_media: bool = True,
+    unfurl_links: bool = False,
+    unfurl_media: bool = False,
     username: str | None = None,
     photo: str | None = None,
 ) -> bool:
@@ -60,16 +61,25 @@ def send_dm(
     conversation = slack_app.client.conversations_open(users=[slack_id])
     conversation_id = conversation["channel"]["id"]
 
+    # Photos are currently bugged for DMs
+    photo = None
+
     # Send the message
-    m = slack_app.client.chat_postMessage(
-        channel=conversation_id,
-        text=message,
-        blocks=blocks,
-        unfurl_links=unfurl_links,
-        unfurl_media=unfurl_media,
-        username=username,
-        icon_url=photo,
-    )
+    try:
+        m = slack_app.client.chat_postMessage(
+            channel=conversation_id,
+            text=message,
+            blocks=blocks,
+            unfurl_links=unfurl_links,
+            unfurl_media=unfurl_media,
+            username=username,
+            icon_url=photo,
+        )
+
+    except slack_sdk.errors.SlackApiError as e:  # type: ignore
+        logger.error(f"Failed to send message to {slack_id}")
+        logger.error(e)
+        return False
 
     if not m["ok"]:
         logger.error(f"Failed to send message to {slack_id}")

@@ -625,30 +625,31 @@ def parse_webhook_action_into_str(
     description = "\n"
 
     if action == "change":
-        for diff in data["change"]["diff"]:
-            if diff in ["finish_date"]:
-                continue
-            # We never care about the order of the item (and it's a different name for each item type)
-            if "order" in diff:
-                continue
-            elif diff == "is_closed":
-                if data["change"]["diff"][diff]["to"] == True:
-                    description = "\nClosed"
-                    # If the item is closed we don't care about other diffs
-                    break
-
-            # When the change is from nothing to something we don't need to display the nothing part.
-            from_str = f" from: {data['change']['diff'][diff].get('from','-')} "
-            if data["change"]["diff"][diff].get("from") == None:
-                from_str = ""
-
-            description += (
-                f"{diff}{from_str} to: {data['change']['diff'][diff]['to']}\n"
-            )
         if data["change"]["comment"]:
             # If there's a comment we'll create a fake "comment" action that makes the notification read better
             action = "comment"
             description += f"Comment: {data['change']['comment']}"
+        else:
+            for diff in data["change"]["diff"]:
+                if diff in ["finish_date"]:
+                    continue
+                # We never care about the order of the item (and it's a different name for each item type)
+                if "order" in diff:
+                    continue
+                elif diff == "is_closed":
+                    if data["change"]["diff"][diff]["to"] == True:
+                        description = "\nClosed"
+                        # If the item is closed we don't care about other diffs
+                        break
+
+                # When the change is from nothing to something we don't need to display the nothing part.
+                from_str = f" from: {data['change']['diff'][diff].get('from','-')} "
+                if data["change"]["diff"][diff].get("from") == None:
+                    from_str = ""
+
+                description += (
+                    f"{diff}{from_str} to: {data['change']['diff'][diff]['to']}\n"
+                )
 
     elif action == "delete":
         # Nothing we need to do here
