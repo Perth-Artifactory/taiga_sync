@@ -392,7 +392,11 @@ def form_submission_to_description(
             for singlefile in value["files"]:
                 files.append(singlefile["url_private_download"])
                 filenames.append(singlefile["title"])
-            answer = f"Files uploaded: {', '.join(filenames)} (see attachments)"
+            # Only add the filenames to the answer if there were actually files uploaded
+            if filenames:
+                answer = f"Files uploaded: {', '.join(filenames)} (see attachments)"
+            else:
+                answer = "Files not uploaded"
 
         # User mentions
         # We get the name here for easy reading within Taiga but still include the Slack ID incase we want to replace it with Taiga @s later or something
