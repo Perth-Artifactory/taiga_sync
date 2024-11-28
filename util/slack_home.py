@@ -1,13 +1,15 @@
 import logging
 import platform
+import re
 import subprocess
-from pprint import pprint
 import time
+from copy import deepcopy as copy
+from pprint import pprint
+
+import taiga
 
 from editable_resources import strings
 from util import blocks, slack_formatters, taigalink, tidyhq
-import taiga
-from copy import deepcopy as copy
 
 # Set up logging
 logger = logging.getLogger("slack_home")
@@ -300,9 +302,22 @@ def comment_modal(
     comments = []
     for event in history:
         if event["comment"]:
-            comments.append(
-                {"author": event["user"]["name"], "comment": event["comment"]}
-            )
+
+            # Skip deleted comments
+            if event["delete_comment_user"]:
+                continue
+
+            name = event["user"]["name"]
+            comment = event["comment"]
+
+            # When we post we add a byline
+            if event["comment"].startswith("Posted from Slack"):
+                match = re.match(r"Posted from Slack by (.*?): (.*)", event["comment"])
+                if match:
+                    name = match.group(1)
+                    comment = match.group(2)
+
+            comments.append({"author": name, "comment": comment})
 
     # We want to show the most recent comments last and the history list is in reverse order
     comments.reverse()

@@ -700,6 +700,8 @@ def handle_comment_addition(ack, body, logger):
     """Handle comment additions"""
     ack()
 
+    user_id = body["user"]["id"]
+
     # Get the comment text
     # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
     # Yes I know next/iter exists
@@ -719,6 +721,21 @@ def handle_comment_addition(ack, body, logger):
         item = taigacon.user_stories.get(item_id)
     elif item_type == "issue":
         item = taigacon.issues.get(item_id)
+
+    # Add who the comment is from
+
+    # Map to the appropriate Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=user_id,
+    )
+
+    # Get the user's name from their Taiga ID
+    taiga_user_info = taigacon.users.get(taiga_id)
+
+    # Add byline
+    comment = f"Posted from Slack by {taiga_user_info.full_name}: {comment}"
 
     # Post the comment
     commenting = item.add_comment(comment)
@@ -754,6 +771,7 @@ def handle_comment_addition(ack, body, logger):
 def add_final_comment(ack, body):
     """Add the submitted comment but don't push a new modal"""
     ack()
+    user_id = body["user"]["id"]
 
     # Get the comment text
     # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
@@ -778,6 +796,21 @@ def add_final_comment(ack, body):
         item = taigacon.user_stories.get(item_id)
     elif item_type == "issue":
         item = taigacon.issues.get(item_id)
+
+    # Add who the comment is from
+
+    # Map to the appropriate Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=user_id,
+    )
+
+    # Get the user's name from their Taiga ID
+    taiga_user_info = taigacon.users.get(taiga_id)
+
+    # Add byline
+    comment = f"Posted from Slack by {taiga_user_info.full_name}: {comment}"
 
     # Post the comment
     commenting = item.add_comment(comment)
