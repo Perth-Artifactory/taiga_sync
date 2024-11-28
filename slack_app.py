@@ -14,7 +14,15 @@ from taiga import TaigaAPI
 import importlib
 
 from editable_resources import strings, forms
-from util import blocks, slack, slack_formatters, slack_forms, taigalink, tidyhq
+from util import (
+    blocks,
+    slack,
+    slack_formatters,
+    slack_forms,
+    taigalink,
+    tidyhq,
+    slack_home,
+)
 
 
 def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
@@ -635,32 +643,144 @@ def handle_app_home_opened_events(body, client, logger):
     # Get user details for more helpful console messages
     user_info = client.users_info(user=user_id)
 
-    block_list = slack_formatters.app_home(
+    slack_home.push_home(
         user_id=user_id,
         config=config,
         tidyhq_cache=tidyhq_cache,
         taiga_auth_token=taiga_auth_token,
+        slack_app=app,
     )
-
-    view = {
-        "type": "home",
-        "blocks": block_list,
-    }
-
-    try:
-        # Publish the view to the App Home
-        client.views_publish(user_id=user_id, view=view)
-        logger.info(f"Set app home for {user_info['user']['name']} ({user_id}) ")
-    except Exception as e:
-        pprint(block_list)
-        logger.error(f"Error publishing App Home content: {e}")
 
 
 @app.action(re.compile(r"^homeaction-.*"))
 def handle_app_home_dropdown_actions(ack, body):
     """Listen for app home actions"""
     ack()
-    pprint(body)
+
+    # Retrieve action details if applicable
+    action_info = body["actions"][0]
+    action = action_info["selected_option"]["value"]
+    value_string = action_info["action_id"]
+
+    project_id, item_type, item_id = value_string.split("-")[1:]
+
+    logger.debug(
+        f"Received action {action} for {item_type} {item_id} in project {project_id}"
+    )
+
+    if action == "Comments":
+        block_list = slack_home.comment_modal(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+        )
+
+        # Open the modal
+        try:
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "submitted_comment",
+                    "title": {"type": "plain_text", "text": "Comments"},
+                    "blocks": block_list,
+                    "private_metadata": value_string,
+                    "submit": {"type": "plain_text", "text": "Add final comment"},
+                    "clear_on_close": True,
+                },
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to open modal: {e.response['error']}")
+
+
+# Comment
+@app.action("submit_comment")
+def handle_comment_addition(ack, body, logger):
+    """Handle comment additions"""
+    ack()
+
+    # Get the comment text
+    # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
+    # Yes I know next/iter exists
+    comment = body["view"]["state"]["values"]["comment_field"]
+    comment = comment[list(comment.keys())[0]]["value"]
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Post the comment to Taiga
+    print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
+
+    # Get the item from Taiga
+    if item_type == "task":
+        item = taigacon.tasks.get(item_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+    elif item_type == "issue":
+        item = taigacon.issues.get(item_id)
+
+    # Post the comment
+    commenting = item.add_comment(comment)
+
+    # Regenerate the comment modal
+    block_list = slack_home.comment_modal(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+
+    # Push the modal
+    logging.info("Opening new modal")
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "submitted_comment",
+                "title": {"type": "plain_text", "text": "Comments"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Add final comment"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.view("submitted_comment")
+def add_final_comment(ack, body):
+    """Add the submitted comment but don't push a new modal"""
+    ack()
+
+    # Get the comment text
+    # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
+    # Yes I know next/iter exists
+    comment = body["view"]["state"]["values"]["comment_field"]
+    comment = comment[list(comment.keys())[0]]["value"]
+
+    # This function can be triggered by the user closing the modal without submitting a comment
+    if not comment:
+        return
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Post the comment to Taiga
+    print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
+
+    # Get the item from Taiga
+    if item_type == "task":
+        item = taigacon.tasks.get(item_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+    elif item_type == "issue":
+        item = taigacon.issues.get(item_id)
+
+    # Post the comment
+    commenting = item.add_comment(comment)
 
 
 # The cron mode renders the app home for every user in the workspace
@@ -689,25 +809,13 @@ if "--cron" in sys.argv:
 
     for user in users:
         user_id = user["id"]
-        block_list = slack_formatters.app_home(
+        slack_home.push_home(
             user_id=user_id,
             config=config,
             tidyhq_cache=tidyhq_cache,
             taiga_auth_token=taiga_auth_token,
+            slack_app=app,
         )
-
-        view = {
-            "type": "home",
-            "blocks": block_list,
-        }
-
-        try:
-            # Publish the view to the App Home
-            logger.debug("Setting app home for {user_id}")
-            client.views_publish(user_id=user_id, view=view)
-        except Exception as e:
-            pprint(block_list)
-            logger.error(f"Error publishing App Home content: {e}")
 
         logger.info(
             f"Updated home for {user_id} - {user['profile']['real_name_normalized']} ({x}/{len(users)})"
