@@ -656,6 +656,13 @@ def handle_app_home_opened_events(body, client, logger):
         logger.error(f"Error publishing App Home content: {e}")
 
 
+@app.action(re.compile(r"^homeaction-.*"))
+def handle_app_home_dropdown_actions(ack, body):
+    """Listen for app home actions"""
+    ack()
+    pprint(body)
+
+
 # The cron mode renders the app home for every user in the workspace
 if "--cron" in sys.argv:
     # Update homes for all slack users

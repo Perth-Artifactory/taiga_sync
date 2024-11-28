@@ -571,6 +571,23 @@ def get_stories(
     return stories
 
 
+def get_issues(
+    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+):
+    """Get all issues assigned to a user."""
+
+    url = f"{config['taiga']['url']}/api/v1/issues"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"assigned_to": taiga_id},
+    )
+    issues = response.json()
+    if exclude_done:
+        issues = [issue for issue in issues if not issue["is_closed"]]
+    return issues
+
+
 def sort_tasks_by_user_story(tasks):
     """Sort tasks by user story."""
     user_stories = {}
@@ -581,13 +598,13 @@ def sort_tasks_by_user_story(tasks):
     return user_stories
 
 
-def sort_stories_by_project(stories):
-    """Sort stories by project."""
+def sort_by_project(items):
+    """Sort items by project."""
     projects = {}
-    for story in stories:
-        if story["project"] not in projects:
-            projects[story["project"]] = []
-        projects[story["project"]].append(story)
+    for item in items:
+        if item["project"] not in projects:
+            projects[item["project"]] = []
+        projects[item["project"]].append(item)
     return projects
 
 

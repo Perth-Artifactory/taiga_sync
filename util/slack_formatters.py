@@ -9,7 +9,7 @@ from pprint import pprint
 import jsonschema
 
 from editable_resources import strings
-from util import blocks, taigalink, tidyhq
+from util import blocks, taigalink, tidyhq, slack_forms
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -23,34 +23,138 @@ def format_tasks(task_list):
     story_ref = task_list[0]["user_story_extra_info"]["ref"]
     story_subject = task_list[0]["user_story_extra_info"]["subject"]
     user_story_str = f"<https://tasks.artifactory.org.au/project/{project_slug}/us/{story_ref}|{story_subject}> (<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{project_name}>)"
+
+    # Construct the base dropdown selector for task actions
+    # We can reuse the functions used to create forms
+    dropdown_questions = [
+        "Attach files",
+        "Add comment",
+        "Mark complete",
+        "Assign to me",
+        "Watch",
+        "Unwatch",
+    ]
+
+    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
+    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
+    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
+    base_dropdown_accessory["action_id"] = ""
+
     task_strs = []
+    task_blocks = []
     for task in task_list:
         url = f"https://tasks.artifactory.org.au/project/{task['project_extra_info']['slug']}/task/{task['ref']}"
-        task_strs.append(
+        task_formatted = (
             f"• <{url}|{task['subject']}> ({task['status_extra_info']['name']})"
         )
+
+        task_strs.append(task_formatted)
+
+        # Set up drop down
+        current_dropdown = copy(base_dropdown_accessory)
+        current_dropdown["action_id"] = (
+            f"homeaction-{task['project_extra_info']['id']}-task-{task['id']}"
+        )
+        task_blocks = add_block(block_list=task_blocks, block=blocks.text)
+        task_blocks = inject_text(block_list=task_blocks, text=task_formatted)
+        task_blocks[-1]["accessory"] = current_dropdown
+
     out_str = "\n".join(task_strs)
 
-    return user_story_str, out_str
+    return user_story_str, out_str, task_blocks
 
 
 def format_stories(story_list):
+    """Format a list of stories into a header, a newline formatted string and a list of blocks"""
     project_slug = story_list[0]["project_extra_info"]["slug"]
     header = story_list[0]["project_extra_info"]["name"]
     header_str = (
         f"<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{header}>"
     )
+
+    # Construct the base dropdown selector for story actions
+    # We can reuse the functions used to create forms
+    dropdown_questions = [
+        "Attach files",
+        "Add comment",
+        "Mark complete",
+        "Assign to me",
+        "Watch",
+        "Unwatch",
+    ]
+
+    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
+    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
+    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
+    base_dropdown_accessory["action_id"] = ""
+
     story_strs = []
+    story_blocks = []
     for story in story_list:
         story_url = (
             f"https://tasks.artifactory.org.au/project/{project_slug}/us/{story['ref']}"
         )
         story_name = story["subject"]
         story_status = story["status_extra_info"]["name"]
-        story_strs.append(f"• <{story_url}|{story_name}> ({story_status})")
+        story_formatted = f"• <{story_url}|{story_name}> ({story_status})"
+        story_strs.append(story_formatted)
+
+        # Set up drop down
+        current_dropdown = copy(base_dropdown_accessory)
+        current_dropdown["action_id"] = (
+            f"homeaction-{story['project_extra_info']['id']}-story-{story['id']}"
+        )
+        story_blocks = add_block(block_list=story_blocks, block=blocks.text)
+        story_blocks = inject_text(block_list=story_blocks, text=story_formatted)
+        story_blocks[-1]["accessory"] = current_dropdown
     out_str = "\n".join(story_strs)
 
-    return header_str, out_str
+    return header_str, out_str, story_blocks
+
+
+def format_issues(issue_list):
+    # Get the user story info
+    project_slug = issue_list[0]["project_extra_info"]["slug"]
+    project_name = issue_list[0]["project_extra_info"]["name"]
+
+    # Construct the base dropdown selector for task actions
+    # We can reuse the functions used to create forms
+    dropdown_questions = [
+        "Attach files",
+        "Add comment",
+        "Mark complete",
+        "Assign to me",
+        "Watch",
+        "Unwatch",
+    ]
+
+    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
+    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
+    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
+    base_dropdown_accessory["action_id"] = ""
+
+    issue_strs = []
+    issue_blocks = []
+    for issue in issue_list:
+        url = f"https://tasks.artifactory.org.au/project/{project_slug}/issue/{issue['ref']}"
+        issue_formatted = (
+            f"• <{url}|{issue['subject']}> ({issue['status_extra_info']['name']})"
+        )
+
+        issue_strs.append(issue_formatted)
+
+        # Set up drop down
+        current_dropdown = copy(base_dropdown_accessory)
+        current_dropdown["action_id"] = (
+            f"homeaction-{issue['project_extra_info']['id']}-issue-{issue['id']}"
+        )
+        issue_blocks = add_block(block_list=issue_blocks, block=blocks.text)
+        issue_blocks = inject_text(block_list=issue_blocks, text=issue_formatted)
+        issue_blocks[-1]["accessory"] = current_dropdown
+
+    out_str = "\n".join(issue_strs)
+
+    return project_name, out_str, issue_blocks
 
 
 def due_item(item: dict, item_type: str, for_user: str):
@@ -163,6 +267,10 @@ def app_home(
         block_list = inject_text(block_list=block_list, text=strings.explainer)
         block_list += blocks.divider
 
+        ##########
+        # Stories
+        ##########
+
         block_list += blocks.header
         block_list = inject_text(block_list=block_list, text="Assigned Cards")
 
@@ -181,16 +289,61 @@ def app_home(
 
         else:
             # Sort the user stories by project
-            sorted_stories = taigalink.sort_stories_by_project(user_stories)
+            sorted_stories = taigalink.sort_by_project(user_stories)
 
             for project in sorted_stories:
-                header, body = format_stories(sorted_stories[project])
+                header, body, story_blocks = format_stories(sorted_stories[project])
                 block_list += blocks.text
                 block_list = inject_text(block_list=block_list, text=f"*{header}*")
-                block_list += blocks.text
-                block_list = inject_text(block_list=block_list, text=body)
+                # block_list += blocks.text
+                # block_list = inject_text(block_list=block_list, text=body)
+                block_list += story_blocks
+                block_list = add_block(block_list, blocks.divider)
+
+            # Remove the last divider
+            block_list.pop()
 
         block_list += blocks.divider
+
+        ##########
+        # Issues
+        ##########
+
+        block_list += blocks.header
+        block_list = inject_text(block_list=block_list, text="Assigned Issues")
+
+        # Get all assigned issues for the user
+        user_issues = taigalink.get_issues(
+            taiga_id=taiga_id,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=True,
+        )
+
+        if len(user_issues) == 0:
+            block_list += blocks.text
+            block_list = inject_text(block_list=block_list, text=strings.no_issues)
+            block_list += blocks.divider
+
+        else:
+            # Sort the user issues by project
+            sorted_issues = taigalink.sort_by_project(user_issues)
+
+            for project in sorted_issues:
+                header, body, issue_blocks = format_issues(sorted_issues[project])
+                block_list += blocks.text
+                block_list = inject_text(block_list=block_list, text=f"*{header}*")
+                block_list += issue_blocks
+                block_list = add_block(block_list, blocks.divider)
+
+            # Remove the last divider
+            block_list.pop()
+
+        block_list += blocks.divider
+
+        ##########
+        # Tasks
+        ##########
 
         block_list += blocks.header
         block_list = inject_text(block_list=block_list, text="Assigned Tasks")
@@ -218,7 +371,7 @@ def app_home(
             for project in sorted_tasks:
                 if displayed_tasks >= 50:
                     break
-                header, body = format_tasks(sorted_tasks[project])
+                header, body, task_blocks = format_tasks(sorted_tasks[project])
 
                 # Skip over tasks assigned in template cards
                 if "template" in header.lower():
@@ -227,10 +380,16 @@ def app_home(
                 displayed_tasks += 1
                 block_list += blocks.text
                 block_list = inject_text(block_list=block_list, text=f"*{header}*")
-                block_list += blocks.text
-                block_list = inject_text(block_list=block_list, text=body)
+                # block_list += blocks.text
+                # block_list = inject_text(block_list=block_list, text=body)
+                block_list += task_blocks
+                block_list = add_block(block_list, blocks.divider)
+
             else:
                 trimmed = False
+
+            # Remove the last divider
+            block_list.pop()
 
             if trimmed:
                 block_list += blocks.divider
