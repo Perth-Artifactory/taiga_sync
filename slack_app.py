@@ -106,7 +106,7 @@ setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
 
-# Initialize the app with your bot token and signing secret
+# Set up slack app
 app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
 # Get the ID for our team via the API
