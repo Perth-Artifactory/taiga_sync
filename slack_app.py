@@ -872,6 +872,7 @@ def send_info_modal(ack, body, logger):
                 "blocks": block_list,
                 "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Update"},
+                "close": {"type": "plain_text", "text": "Cancel"},
             },
         )
     except SlackApiError as e:
