@@ -448,6 +448,9 @@ def viewedit_blocks(
     block_list = slack_formatters.add_block(block_list, blocks.file_input)
     block_list[-1]["block_id"] = "upload_section"
     block_list[-1]["element"]["action_id"] = "upload_file"
+
+    # remove the label
+
     block_list[-1]["label"]["text"] = "Upload files"
 
     # Comments
@@ -482,6 +485,9 @@ def viewedit_blocks(
     block_list[-1]["block_id"] = "comment_field"
     block_list[-1]["label"]["text"] = "Add a comment"
     block_list[-1]["element"]["placeholder"]["text"] = "Type your comment here"
+
+    # Make the field optional
+    block_list[-1]["optional"] = True
 
     # Add some junk to the end of the action_id so the input isn't preserved in future modals
     block_list[-1]["element"]["action_id"] = f"add_comment{time.time()}"

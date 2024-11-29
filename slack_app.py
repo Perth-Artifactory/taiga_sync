@@ -766,9 +766,13 @@ def handle_comment_addition(ack, body, logger):
 
 
 @app.view("finished_editing")
-def add_final_comment(ack, body):
-    """Collect any data that was left in the form and action it"""
+def finished_editing(ack, body):
+    """Acknowledge the view submission"""
     ack()
+    return
+
+    # Previously this function was used to handle the submission of a final comment, but it's not needed anymore (?)
+
     user_id = body["user"]["id"]
 
     # Get the comment text
