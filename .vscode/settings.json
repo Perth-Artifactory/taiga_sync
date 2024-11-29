@@ -19,7 +19,8 @@
         "Uncategorised",
         "Untriaged",
         "userstories",
-        "userstory"
+        "userstory",
+        "viewedit"
     ],
     "json.schemas": [
         {

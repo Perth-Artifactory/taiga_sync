@@ -14,7 +14,15 @@ from taiga import TaigaAPI
 import importlib
 
 from editable_resources import strings, forms
-from util import blocks, slack, slack_formatters, slack_forms, taigalink, tidyhq
+from util import (
+    blocks,
+    slack,
+    slack_formatters,
+    slack_forms,
+    taigalink,
+    tidyhq,
+    slack_home,
+)
 
 
 def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
@@ -635,25 +643,342 @@ def handle_app_home_opened_events(body, client, logger):
     # Get user details for more helpful console messages
     user_info = client.users_info(user=user_id)
 
-    block_list = slack_formatters.app_home(
+    slack_home.push_home(
         user_id=user_id,
         config=config,
         tidyhq_cache=tidyhq_cache,
         taiga_auth_token=taiga_auth_token,
+        slack_app=app,
     )
 
-    view = {
-        "type": "home",
-        "blocks": block_list,
-    }
 
+@app.action(re.compile(r"^viewedit-.*"))
+def handle_app_home_dropdown_actions(ack, body):
+    """Listen for app home actions"""
+    ack()
+
+    # Retrieve action details if applicable
+    value_string = body["actions"][0]["action_id"]
+
+    project_id, item_type, item_id = value_string.split("-")[1:]
+
+    logger.debug(
+        f"Received view/edit for {item_type} {item_id} in project {project_id}"
+    )
+
+    # Bring up the view/edit modal
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+
+    # Open the modal
     try:
-        # Publish the view to the App Home
-        client.views_publish(user_id=user_id, view=view)
-        logger.info(f"Set app home for {user_info['user']['name']} ({user_id}) ")
-    except Exception as e:
-        pprint(block_list)
-        logger.error(f"Error publishing App Home content: {e}")
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": value_string,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+
+
+# Comment
+@app.action("submit_comment")
+def handle_comment_addition(ack, body, logger):
+    """Handle comment additions"""
+    ack()
+
+    user_id = body["user"]["id"]
+
+    # Get the comment text
+    # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
+    # Yes I know next/iter exists
+    comment = body["view"]["state"]["values"]["comment_field"]
+    comment = comment[list(comment.keys())[0]]["value"]
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Post the comment to Taiga
+    print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
+
+    # Get the item from Taiga
+    if item_type == "task":
+        item = taigacon.tasks.get(item_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+    elif item_type == "issue":
+        item = taigacon.issues.get(item_id)
+
+    # Add who the comment is from
+
+    # Map to the appropriate Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=user_id,
+    )
+
+    # Get the user's name from their Taiga ID
+    taiga_user_info = taigacon.users.get(taiga_id)
+
+    # Add byline
+    comment = f"Posted from Slack by {taiga_user_info.full_name}: {comment}"
+
+    # Post the comment
+    commenting = item.add_comment(comment)
+
+    # Regenerate the view/edit modal
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+
+    # Push the modal
+    logging.info("Opening new modal")
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.action("home-attach_files")
+def attach_files_modal(ack, body):
+    """Open a modal to submit files for later attachment"""
+    ack()
+
+    block_list = []
+    # Create upload field
+    block_list = slack_formatters.add_block(block_list, blocks.file_input)
+    block_list[-1]["block_id"] = "upload_section"
+    block_list[-1]["element"]["action_id"] = "upload_file"
+    block_list[-1]["label"]["text"] = "Upload files"
+
+    # Push a new modal
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "submit_files",
+                "title": {"type": "plain_text", "text": "Upload files"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Attach"},
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.view("submit_files")
+def attach_files(ack, body):
+    """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
+    ack()
+    files = body["view"]["state"]["values"]["upload_section"]["upload_file"]["files"]
+
+    if not files:
+        return
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Upload the files to Taiga
+    for file in files:
+        file_url = file["url_private"]
+        upload = taigalink.attach_file(
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            url=file_url,
+        )
+
+        if not upload:
+            logger.error(f"Failed to upload file {file_url}")
+
+    # Unlike trigger IDs (3s expiry) we seem to be able to update the view as required
+
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+
+    # Push the modal
+    logging.info("Refreshing root view modal")
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.action("edit_info")
+def send_info_modal(ack, body, logger):
+    ack()
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    block_list = slack_home.edit_info_blocks(
+        taigacon=taigacon, project_id=project_id, item_type=item_type, item_id=item_id
+    )
+
+    # Push the modal
+    logging.info("Opening new modal")
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "edited_info",
+                "title": {"type": "plain_text", "text": f"Edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Update"},
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view("edited_info")
+def edit_info(ack, body, logger):
+    ack()
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Get the item from Taiga
+    if item_type == "task":
+        item = taigacon.tasks.get(item_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+    elif item_type == "issue":
+        item = taigacon.issues.get(item_id)
+
+    for field in body["view"]["state"]["values"]:
+        data = body["view"]["state"]["values"][field][field]
+
+        # Patching everything at the same time didn't seem to work
+
+        if field == "subject":
+            if data["value"] != item.subject and data["value"]:
+                if data["value"].strip() != "":
+                    logger.info(
+                        f"Updating subject from {item.subject} to {data['value']}"
+                    )
+                    item.patch(
+                        fields=["subject"], subject=data["value"], version=item.version
+                    )
+
+        elif field == "description":
+            if not data["value"]:
+                data["value"] = ""
+            if data["value"] != item.description:
+                logger.info(
+                    f"Updating description from {item.description} to {data['value']}"
+                )
+                item.patch(
+                    fields=["description"],
+                    description=data["value"],
+                    version=item.version,
+                )
+        elif field == "due_date":
+            if data["selected_date"] != item.due_date:
+                logger.info(
+                    f"Updating due date from {item.due_date} to {data['selected_date']}"
+                )
+                item.patch(
+                    fields=["due_date"],
+                    due_date=data["selected_date"],
+                    version=item.version,
+                )
+        elif field == "assigned_to":
+            assigned = data["selected_option"]["value"]
+            if int(assigned) != item.assigned_to:
+                logger.info(f"Updating assigned from {item.assigned_to} to {assigned}")
+                item.patch(
+                    fields=["assigned_to"],
+                    assigned_to=int(assigned),
+                    version=item.version,
+                )
+        elif field == "watchers":
+            current_watchers = item.watchers
+            watchers = [int(watcher["value"]) for watcher in data["selected_options"]]
+            remove_watchers = [
+                int(watcher)
+                for watcher in item.watchers
+                if watcher not in watchers
+                and watcher != item.owner
+                and watcher != item.assigned_to
+                and watcher != 6
+            ]
+            add_watchers = [
+                int(watcher) for watcher in watchers if watcher not in item.watchers
+            ]
+            if remove_watchers:
+                logger.info(f"Removing watchers {remove_watchers}")
+                current_watchers = [
+                    watcher
+                    for watcher in current_watchers
+                    if watcher not in remove_watchers
+                ]
+            if add_watchers:
+                logger.info(f"Adding watchers {add_watchers}")
+                current_watchers = current_watchers + add_watchers
+            logging.info(
+                f"Updating watchers from {item.watchers} to {current_watchers}"
+            )
+            item.patch(fields=["watchers"], watchers=watchers, version=item.version)
+        elif field == "status":
+            status = data["selected_option"]["value"]
+            if int(status) != item.status:
+                logger.info(f"Updating status from {item.status} to {status}")
+                item.patch(fields=["status"], status=int(status), version=item.version)
+
+
+@app.view("finished_editing")
+def finished_editing(ack, body):
+    """Acknowledge the view submission"""
+    ack()
 
 
 # The cron mode renders the app home for every user in the workspace
@@ -682,25 +1007,13 @@ if "--cron" in sys.argv:
 
     for user in users:
         user_id = user["id"]
-        block_list = slack_formatters.app_home(
+        slack_home.push_home(
             user_id=user_id,
             config=config,
             tidyhq_cache=tidyhq_cache,
             taiga_auth_token=taiga_auth_token,
+            slack_app=app,
         )
-
-        view = {
-            "type": "home",
-            "blocks": block_list,
-        }
-
-        try:
-            # Publish the view to the App Home
-            logger.debug("Setting app home for {user_id}")
-            client.views_publish(user_id=user_id, view=view)
-        except Exception as e:
-            pprint(block_list)
-            logger.error(f"Error publishing App Home content: {e}")
 
         logger.info(
             f"Updated home for {user_id} - {user['profile']['real_name_normalized']} ({x}/{len(users)})"

@@ -571,6 +571,23 @@ def get_stories(
     return stories
 
 
+def get_issues(
+    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+):
+    """Get all issues assigned to a user."""
+
+    url = f"{config['taiga']['url']}/api/v1/issues"
+    response = requests.get(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"assigned_to": taiga_id},
+    )
+    issues = response.json()
+    if exclude_done:
+        issues = [issue for issue in issues if not issue["is_closed"]]
+    return issues
+
+
 def sort_tasks_by_user_story(tasks):
     """Sort tasks by user story."""
     user_stories = {}
@@ -581,13 +598,13 @@ def sort_tasks_by_user_story(tasks):
     return user_stories
 
 
-def sort_stories_by_project(stories):
-    """Sort stories by project."""
+def sort_by_project(items):
+    """Sort items by project."""
     projects = {}
-    for story in stories:
-        if story["project"] not in projects:
-            projects[story["project"]] = []
-        projects[story["project"]].append(story)
+    for item in items:
+        if item["project"] not in projects:
+            projects[item["project"]] = []
+        projects[item["project"]].append(item)
     return projects
 
 
@@ -795,19 +812,22 @@ def attach_file(
     item_id: str | int,
     url: str | None = None,
     file_obj=None,
+    filename: str | None = None,
 ):
     """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
 
     Supports: issues"""
 
-    # We can add support for other formats later
+    # Map types to url segments
+    url_segments = {"issue": "issues", "task": "tasks", "story": "userstories"}
 
-    if item_type not in ["issue"]:
+    if item_type not in url_segments:
         logger.error(f"Item type {item_type} not supported")
         return False
 
-    if item_type == "issue":
-        upload_url = f"{config['taiga']['url']}/api/v1/issues/attachments"
+    upload_url = (
+        f"{config['taiga']['url']}/api/v1/{url_segments[item_type]}/attachments"
+    )
 
     # Download the file if required
     if not file_obj:
@@ -823,7 +843,9 @@ def attach_file(
     if isinstance(file_obj, str):
         file_obj = open(file_obj, "rb")
 
-    if url:
+    if filename:
+        pass
+    elif url:
         filename = url.split("/")[-1]
     else:
         filename = "attached_file"
@@ -843,5 +865,7 @@ def attach_file(
         return True
     else:
         logger.error(f"Failed to attach file: {upload.status_code}")
-        logger.error(upload.json())
+        logger.error(upload_url)
+        logger.error(filename)
+        logger.error(upload.text)
         return False

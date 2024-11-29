@@ -87,13 +87,15 @@ def render_form_list(form_list: dict, member=False) -> list[dict]:
 
 
 def questions_to_blocks(
-    questions: list[dict], taigacon, taiga_project: str | None = None
+    questions: list[dict],
+    taigacon,
+    taiga_project: str | None = None,
+    taiga_project_id: int | str | None = None,
 ) -> list[dict]:
     """Convert a list of questions to a list of blocks"""
     block_list = []
 
-    taiga_project_id = None
-    if taiga_project:
+    if taiga_project and not taiga_project_id:
         taiga_project_id = taigalink.item_mapper(
             item=taiga_project,
             field_type="project",
@@ -104,6 +106,9 @@ def questions_to_blocks(
         )
         if not taiga_project_id:
             raise ValueError(f"Could not find project with name {taiga_project}")
+
+    if taiga_project_id:
+        taiga_project_id = int(taiga_project_id)
 
     for question in questions:
 
@@ -178,9 +183,12 @@ def questions_to_blocks(
         elif question["type"] == "static_dropdown":
             block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
             block_list[-1]["label"]["text"] = question.get("text", "Choose an option")
-            block_list[-1]["element"]["action_id"] = question.get(
-                "action_id", hash_question(question["text"])
-            )
+            if question.get("action_id"):
+                block_list[-1]["element"]["action_id"] = question["action_id"]
+            else:
+                block_list[-1]["element"]["action_id"] = question.get(
+                    "action_id", hash_question(question["text"])
+                )
 
             # Taiga mapping
             if question.get("taiga_map") in ["type", "severity"] and taiga_project_id:
