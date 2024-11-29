@@ -979,55 +979,6 @@ def edit_info(ack, body, logger):
 def finished_editing(ack, body):
     """Acknowledge the view submission"""
     ack()
-    print("Finished!")
-    pprint(body)
-    return
-
-    # Previously this function was used to handle the submission of a final comment, but it's not needed anymore (?)
-
-    user_id = body["user"]["id"]
-
-    # Get the comment text
-    # We've added some junk data to the block ID to make it unique (so it doesn't get prefilled)
-    # Yes I know next/iter exists
-    comment = body["view"]["state"]["values"]["comment_field"]
-    comment = comment[list(comment.keys())[0]]["value"]
-
-    # This function can be triggered by the user closing the modal without submitting a comment
-    if not comment:
-        return
-
-    # Get the item details from the private metadata
-    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
-
-    # Post the comment to Taiga
-    print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
-
-    # Get the item from Taiga
-    if item_type == "task":
-        item = taigacon.tasks.get(item_id)
-    elif item_type == "story":
-        item = taigacon.user_stories.get(item_id)
-    elif item_type == "issue":
-        item = taigacon.issues.get(item_id)
-
-    # Add who the comment is from
-
-    # Map to the appropriate Taiga user
-    taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq_cache,
-        config=config,
-        slack_id=user_id,
-    )
-
-    # Get the user's name from their Taiga ID
-    taiga_user_info = taigacon.users.get(taiga_id)
-
-    # Add byline
-    comment = f"Posted from Slack by {taiga_user_info.full_name}: {comment}"
-
-    # Post the comment
-    commenting = item.add_comment(comment)
 
 
 # The cron mode renders the app home for every user in the workspace
