@@ -850,7 +850,7 @@ def attach_files(ack, body):
 
 
 @app.action("edit_info")
-def handle_some_action(ack, body, logger):
+def send_info_modal(ack, body, logger):
     ack()
 
     # Get the item details from the private metadata
@@ -877,6 +877,102 @@ def handle_some_action(ack, body, logger):
     except SlackApiError as e:
         logger.error(f"Failed to push modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view("edited_info")
+def edit_info(ack, body, logger):
+    ack()
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Get the item from Taiga
+    if item_type == "task":
+        item = taigacon.tasks.get(item_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+    elif item_type == "issue":
+        item = taigacon.issues.get(item_id)
+
+    for field in body["view"]["state"]["values"]:
+        data = body["view"]["state"]["values"][field][field]
+
+        # Patching everything at the same time didn't seem to work
+
+        if field == "subject":
+            if data["value"] != item.subject and data["value"]:
+                if data["value"].strip() != "":
+                    logger.info(
+                        f"Updating subject from {item.subject} to {data['value']}"
+                    )
+                    item.patch(
+                        fields=["subject"], subject=data["value"], version=item.version
+                    )
+
+        elif field == "description":
+            if not data["value"]:
+                data["value"] = ""
+            if data["value"] != item.description:
+                logger.info(
+                    f"Updating description from {item.description} to {data['value']}"
+                )
+                item.patch(
+                    fields=["description"],
+                    description=data["value"],
+                    version=item.version,
+                )
+        elif field == "due_date":
+            if data["selected_date"] != item.due_date:
+                logger.info(
+                    f"Updating due date from {item.due_date} to {data['selected_date']}"
+                )
+                item.patch(
+                    fields=["due_date"],
+                    due_date=data["selected_date"],
+                    version=item.version,
+                )
+        elif field == "assigned_to":
+            assigned = data["selected_option"]["value"]
+            if int(assigned) != item.assigned_to:
+                logger.info(f"Updating assigned from {item.assigned_to} to {assigned}")
+                item.patch(
+                    fields=["assigned_to"],
+                    assigned_to=int(assigned),
+                    version=item.version,
+                )
+        elif field == "watchers":
+            current_watchers = item.watchers
+            watchers = [int(watcher["value"]) for watcher in data["selected_options"]]
+            remove_watchers = [
+                int(watcher)
+                for watcher in item.watchers
+                if watcher not in watchers
+                and watcher != item.owner
+                and watcher != item.assigned_to
+                and watcher != 6
+            ]
+            add_watchers = [
+                int(watcher) for watcher in watchers if watcher not in item.watchers
+            ]
+            if remove_watchers:
+                logger.info(f"Removing watchers {remove_watchers}")
+                current_watchers = [
+                    watcher
+                    for watcher in current_watchers
+                    if watcher not in remove_watchers
+                ]
+            if add_watchers:
+                logger.info(f"Adding watchers {add_watchers}")
+                current_watchers = current_watchers + add_watchers
+            logging.info(
+                f"Updating watchers from {item.watchers} to {current_watchers}"
+            )
+            item.patch(fields=["watchers"], watchers=watchers, version=item.version)
+        elif field == "status":
+            status = data["selected_option"]["value"]
+            if int(status) != item.status:
+                logger.info(f"Updating status from {item.status} to {status}")
+                item.patch(fields=["status"], status=int(status), version=item.version)
 
 
 @app.view("finished_editing")

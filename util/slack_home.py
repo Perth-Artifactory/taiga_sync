@@ -518,10 +518,21 @@ def edit_info_blocks(
 
     # Get everyone added to the project
     board_users = {}
-    for user in taigacon.users.list(project=project_id):
-        if user.full_name_display == "Giant Robot":
+    project = None
+    for proj in taigacon.projects.list():
+        if proj.id == int(project_id):
+            project = proj
+            break
+    else:
+        logging.error(f"Project {project_id} not found")
+        return []
+
+    for user in proj.members:
+        # Get the name of the user
+        user_info = taigacon.users.get(user)
+        if user_info.full_name_display == "Giant Robot":
             continue
-        board_users[user.id] = user.full_name_display
+        board_users[user] = user_info.full_name_display
 
     # Turn them into options for later
     user_options = []
@@ -556,6 +567,7 @@ def edit_info_blocks(
     block_list[-1]["label"]["text"] = "Title"
     block_list[-1]["element"]["initial_value"] = subject
     block_list[-1]["element"]["action_id"] = "subject"
+    block_list[-1]["block_id"] = "subject"
     block_list[-1]["element"].pop("placeholder")
 
     # Description
@@ -563,6 +575,8 @@ def edit_info_blocks(
     block_list[-1]["label"]["text"] = "Description"
     block_list[-1]["element"]["multiline"] = True
     block_list[-1]["element"]["action_id"] = "description"
+    block_list[-1]["block_id"] = "description"
+    block_list[-1]["optional"] = True
     if description:
         block_list[-1]["element"]["initial_value"] = description
         block_list[-1]["element"].pop("placeholder")
@@ -574,6 +588,8 @@ def edit_info_blocks(
     # Due date
     block_list = slack_formatters.add_block(block_list, blocks.base_input)
     block_list[-1]["label"]["text"] = "Due date"
+    block_list[-1]["block_id"] = "due_date"
+    block_list[-1]["optional"] = True
     cal = copy(blocks.cal_select)
     cal["action_id"] = "due_date"
     cal.pop("placeholder")
@@ -586,6 +602,8 @@ def edit_info_blocks(
     block_list[-1]["label"]["text"] = "Assigned to"
     block_list[-1]["element"]["options"] = user_options
     block_list[-1]["element"]["action_id"] = "assigned_to"
+    block_list[-1]["block_id"] = "assigned_to"
+    block_list[-1]["optional"] = True
     block_list[-1]["element"]["placeholder"]["text"] = "Assign the item"
     if current_assigned:
         block_list[-1]["element"]["initial_option"] = {
@@ -598,6 +616,8 @@ def edit_info_blocks(
     block_list[-1]["label"]["text"] = "Watchers"
     block_list[-1]["element"]["options"] = user_options
     block_list[-1]["element"]["action_id"] = "watchers"
+    block_list[-1]["block_id"] = "watchers"
+    block_list[-1]["optional"] = True
     block_list[-1]["element"]["placeholder"]["text"] = "Users watching the item"
     if len(current_watchers) > 0:
         block_list[-1]["element"]["initial_options"] = []
@@ -621,6 +641,7 @@ def edit_info_blocks(
             }
         )
     block_list[-1]["element"]["action_id"] = "status"
+    block_list[-1]["block_id"] = "status"
     block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
     block_list[-1]["element"]["initial_option"] = {
         "text": {"type": "plain_text", "text": current_status[item.status]},
