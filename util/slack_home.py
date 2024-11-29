@@ -5,6 +5,7 @@ import subprocess
 import time
 from copy import deepcopy as copy
 from pprint import pprint
+from datetime import datetime
 
 import taiga
 
@@ -279,20 +280,20 @@ def generate_app_home(
 #####
 
 
-def comment_modal(
+def viewedit_blocks(
     taigacon: taiga.client.TaigaAPI, project_id: int | str, item_id, item_type
 ):
-    """Generate the blocks for a modal for commenting on an item."""
+    """Generate the blocks for a modal for viewing and editing an item"""
 
     if item_type == "issue":
         item = taigacon.issues.get(resource_id=item_id)
-        history = taigacon.history.issue.get(resource_id=item_id)
+        history: list = taigacon.history.issue.get(resource_id=item_id)
     elif item_type == "task":
         item = taigacon.tasks.get(resource_id=item_id)
-        history = taigacon.history.task.get(resource_id=item_id)
+        history: list = taigacon.history.task.get(resource_id=item_id)
     elif item_type == "story":
         item = taigacon.user_stories.get(resource_id=item_id)
-        history = taigacon.history.user_story.get(resource_id=item_id)
+        history: list = taigacon.history.user_story.get(resource_id=item_id)
 
     # Check if the item has an actual description
     if not item.description:
@@ -325,11 +326,10 @@ def comment_modal(
     # Construct the blocks
     block_list = []
 
-    # Add the item title and description
-
+    # Add the item title
     block_list = slack_formatters.add_block(block_list, blocks.header)
     block_list = slack_formatters.inject_text(
-        block_list=block_list, text=f"{item.subject}"
+        block_list=block_list, text=f"{item_type.capitalize()}: {item.subject}"
     )
 
     block_list = slack_formatters.add_block(block_list, blocks.text)
@@ -337,17 +337,131 @@ def comment_modal(
         block_list=block_list, text=f"{item.description}"
     )
 
+    # Info fields
+    block_list[-1]["fields"] = []
+
+    block_list[-1]["fields"].append(
+        {
+            "type": "mrkdwn",
+            "text": f"*Status:* {item.status_extra_info['name']}",
+        }
+    )
+
+    block_list[-1]["fields"].append(
+        {
+            "type": "mrkdwn",
+            "text": f"*Creator:* {item.owner_extra_info['full_name_display']}",
+        }
+    )
+
+    if item.assigned_to:
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Assigned to:* {item.assigned_to_extra_info['full_name_display']}",
+            }
+        )
+
+    if item.watchers:
+        watcher_strs = []
+        for watcher in item.watchers:
+            watcher_info = taigacon.users.get(watcher)
+            watcher_strs.append(watcher_info.full_name_display)
+        if "Giant Robot" in watcher_strs:
+            watcher_strs.remove("Giant Robot")
+
+        if watcher_strs:
+            block_list[-1]["fields"].append(
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Watchers:* {', '.join(watcher_strs)}",
+                }
+            )
+
+    if item.due_date:
+        due_datetime = datetime.strptime(item.due_date, "%Y-%m-%d")
+        days_until = (due_datetime - datetime.now()).days
+
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Due:* {item.due_date} ({days_until} days)",
+            }
+        )
+
+    # Attach info field edit button
+    button = copy(blocks.button)
+    button["text"]["text"] = "Edit"
+    button["action_id"] = f"edit_info"
+    block_list[-1]["accessory"] = button
+
+    # Files
+    block_list = slack_formatters.add_block(block_list, blocks.divider)
+    block_list = slack_formatters.add_block(block_list, blocks.header)
+    block_list = slack_formatters.inject_text(block_list=block_list, text="Files")
+
+    if len(item.list_attachments()) == 0:
+        block_list = slack_formatters.add_block(block_list, blocks.text)
+        block_list = slack_formatters.inject_text(
+            block_list=block_list, text="<No files attached>"
+        )
+
+    for attachment in item.list_attachments():
+        if attachment.is_deprecated:
+            continue
+
+        filetype = attachment.attached_file.split(".")[-1]
+
+        # Display images with image blocks directly
+        if filetype in ["png", "jpg", "jpeg", "gif"]:
+            block_list = slack_formatters.add_block(block_list, blocks.image)
+            block_list[-1]["image_url"] = attachment.url
+            if attachment.description:
+                block_list[-1]["title"] = {
+                    "type": "plain_text",
+                    "text": attachment.description,
+                }
+                block_list[-1]["alt_text"] = attachment.description
+            else:
+                block_list[-1]["title"] = {
+                    "type": "plain_text",
+                    "text": attachment.name,
+                }
+                block_list[-1]["alt_text"] = attachment.name
+
+        # Display other files as links using the description as the text if possible
+        else:
+            if attachment.description:
+                block_list = slack_formatters.add_block(block_list, blocks.text)
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list,
+                    text=f"• <{attachment.url}|{attachment.description}>",
+                )
+            else:
+                block_list = slack_formatters.add_block(block_list, blocks.text)
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list,
+                    text=f"• <{attachment.url}|{attachment.name}>",
+                )
+
+    # Create upload field
+    block_list = slack_formatters.add_block(block_list, blocks.file_input)
+    block_list[-1]["block_id"] = "upload_section"
+    block_list[-1]["element"]["action_id"] = "upload_file"
+    block_list[-1]["label"]["text"] = "Upload files"
+
+    # Comments
+    block_list = slack_formatters.add_block(block_list, blocks.divider)
+    block_list = slack_formatters.add_block(block_list, blocks.header)
+    block_list = slack_formatters.inject_text(block_list=block_list, text="Comments")
     current_commenter = ""
     for comment in comments:
         if comment["author"] != current_commenter:
-            block_list = slack_formatters.add_block(block_list, blocks.header)
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
-                block_list=block_list, text=f"{comment['author']}"
+                block_list=block_list, text=f"*{comment['author']}*"
             )
             current_commenter = comment["author"]
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=f"{comment['author']}"
-        )
         block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=f"{comment['comment']}"
@@ -357,7 +471,7 @@ def comment_modal(
     if not comments:
         block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
-            block_list=block_list, text="No comments yet."
+            block_list=block_list, text="<No comments yet>"
         )
         block_list = slack_formatters.add_block(block_list, blocks.divider)
 

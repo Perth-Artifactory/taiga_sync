@@ -652,46 +652,44 @@ def handle_app_home_opened_events(body, client, logger):
     )
 
 
-@app.action(re.compile(r"^homeaction-.*"))
+@app.action(re.compile(r"^viewedit-.*"))
 def handle_app_home_dropdown_actions(ack, body):
     """Listen for app home actions"""
     ack()
 
     # Retrieve action details if applicable
-    action_info = body["actions"][0]
-    action = action_info["selected_option"]["value"]
-    value_string = action_info["action_id"]
+    value_string = body["actions"][0]["action_id"]
 
     project_id, item_type, item_id = value_string.split("-")[1:]
 
     logger.debug(
-        f"Received action {action} for {item_type} {item_id} in project {project_id}"
+        f"Received view/edit for {item_type} {item_id} in project {project_id}"
     )
 
-    if action == "Comments":
-        block_list = slack_home.comment_modal(
-            taigacon=taigacon,
-            project_id=project_id,
-            item_type=item_type,
-            item_id=item_id,
-        )
+    # Bring up the view/edit modal
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
 
-        # Open the modal
-        try:
-            client.views_open(
-                trigger_id=body["trigger_id"],
-                view={
-                    "type": "modal",
-                    "callback_id": "submitted_comment",
-                    "title": {"type": "plain_text", "text": "Comments"},
-                    "blocks": block_list,
-                    "private_metadata": value_string,
-                    "submit": {"type": "plain_text", "text": "Add final comment"},
-                    "clear_on_close": True,
-                },
-            )
-        except SlackApiError as e:
-            logger.error(f"Failed to open modal: {e.response['error']}")
+    # Open the modal
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": value_string,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
 
 
 # Comment
@@ -741,7 +739,7 @@ def handle_comment_addition(ack, body, logger):
     commenting = item.add_comment(comment)
 
     # Regenerate the comment modal
-    block_list = slack_home.comment_modal(
+    block_list = slack_home.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -755,11 +753,11 @@ def handle_comment_addition(ack, body, logger):
             view_id=body["view"]["root_view_id"],
             view={
                 "type": "modal",
-                "callback_id": "submitted_comment",
-                "title": {"type": "plain_text", "text": "Comments"},
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
                 "blocks": block_list,
                 "private_metadata": body["view"]["private_metadata"],
-                "submit": {"type": "plain_text", "text": "Add final comment"},
+                "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
             },
         )
@@ -767,9 +765,9 @@ def handle_comment_addition(ack, body, logger):
         logger.error(f"Failed to push modal: {e.response['error']}")
 
 
-@app.view("submitted_comment")
+@app.view("finished_editing")
 def add_final_comment(ack, body):
-    """Add the submitted comment but don't push a new modal"""
+    """Collect any data that was left in the form and action it"""
     ack()
     user_id = body["user"]["id"]
 

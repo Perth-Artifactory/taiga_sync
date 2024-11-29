@@ -106,3 +106,9 @@ checkboxes = {
         "text": "",
     },
 }
+
+image = {
+    "type": "image",
+    "image_url": "",
+    "alt_text": "An image from Taiga",
+}

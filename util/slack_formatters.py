@@ -36,12 +36,6 @@ def format_tasks(task_list):
     story_subject = task_list[0]["user_story_extra_info"]["subject"]
     user_story_str = f"<https://tasks.artifactory.org.au/project/{project_slug}/us/{story_ref}|{story_subject}> (<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{project_name}>)"
 
-    # Construct the base dropdown selector for task actions
-    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
-    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
-    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
-    base_dropdown_accessory["action_id"] = ""
-
     task_strs = []
     task_blocks = []
     for task in task_list:
@@ -52,14 +46,16 @@ def format_tasks(task_list):
 
         task_strs.append(task_formatted)
 
-        # Set up drop down
-        current_dropdown = copy(base_dropdown_accessory)
-        current_dropdown["action_id"] = (
-            f"homeaction-{task['project_extra_info']['id']}-task-{task['id']}"
-        )
         task_blocks = add_block(block_list=task_blocks, block=blocks.text)
         task_blocks = inject_text(block_list=task_blocks, text=task_formatted)
-        task_blocks[-1]["accessory"] = current_dropdown
+
+        # Set up button
+        button = copy(blocks.button)
+        button["text"]["text"] = "View/Edit"
+        button["action_id"] = (
+            f"viewedit-{task['project_extra_info']['id']}-task-{task['id']}"
+        )
+        task_blocks[-1]["accessory"] = button
 
     out_str = "\n".join(task_strs)
 
@@ -74,12 +70,6 @@ def format_stories(story_list):
         f"<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{header}>"
     )
 
-    # Construct the base dropdown selector for story actions
-    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
-    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
-    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
-    base_dropdown_accessory["action_id"] = ""
-
     story_strs = []
     story_blocks = []
     for story in story_list:
@@ -91,14 +81,17 @@ def format_stories(story_list):
         story_formatted = f"• <{story_url}|{story_name}> ({story_status})"
         story_strs.append(story_formatted)
 
-        # Set up drop down
-        current_dropdown = copy(base_dropdown_accessory)
-        current_dropdown["action_id"] = (
-            f"homeaction-{story['project_extra_info']['id']}-story-{story['id']}"
-        )
         story_blocks = add_block(block_list=story_blocks, block=blocks.text)
         story_blocks = inject_text(block_list=story_blocks, text=story_formatted)
-        story_blocks[-1]["accessory"] = current_dropdown
+
+        # Set up button
+        button = copy(blocks.button)
+        button["text"]["text"] = "View/Edit"
+        button["action_id"] = (
+            f"viewedit-{story['project_extra_info']['id']}-story-{story['id']}"
+        )
+        story_blocks[-1]["accessory"] = button
+
     out_str = "\n".join(story_strs)
 
     return header_str, out_str, story_blocks
@@ -108,12 +101,6 @@ def format_issues(issue_list):
     # Get the user story info
     project_slug = issue_list[0]["project_extra_info"]["slug"]
     project_name = issue_list[0]["project_extra_info"]["name"]
-
-    # Construct the base dropdown selector for task actions
-    base_dropdown_accessory = copy(blocks.static_dropdown["element"])
-    base_dropdown_accessory["options"] = slack_forms.text_to_options(dropdown_questions)
-    base_dropdown_accessory["placeholder"]["text"] = "Pick an action"
-    base_dropdown_accessory["action_id"] = ""
 
     issue_strs = []
     issue_blocks = []
@@ -125,14 +112,16 @@ def format_issues(issue_list):
 
         issue_strs.append(issue_formatted)
 
-        # Set up drop down
-        current_dropdown = copy(base_dropdown_accessory)
-        current_dropdown["action_id"] = (
-            f"homeaction-{issue['project_extra_info']['id']}-issue-{issue['id']}"
-        )
         issue_blocks = add_block(block_list=issue_blocks, block=blocks.text)
         issue_blocks = inject_text(block_list=issue_blocks, text=issue_formatted)
-        issue_blocks[-1]["accessory"] = current_dropdown
+
+        # Set up button
+        button = copy(blocks.button)
+        button["text"]["text"] = "View/Edit"
+        button["action_id"] = (
+            f"viewedit-{issue['project_extra_info']['id']}-issue-{issue['id']}"
+        )
+        issue_blocks[-1]["accessory"] = button
 
     out_str = "\n".join(issue_strs)
 
