@@ -66,6 +66,17 @@ static_dropdown = {
     "label": {"type": "plain_text", "text": "", "emoji": True},
 }
 
+multi_static_dropdown = {
+    "type": "input",
+    "element": {
+        "type": "multi_static_select",
+        "placeholder": {"type": "plain_text", "text": "", "emoji": True},
+        "options": [],
+        "action_id": "",
+    },
+    "label": {"type": "plain_text", "text": "", "emoji": True},
+}
+
 multi_users_select = {
     "type": "input",
     "element": {
@@ -90,6 +101,11 @@ date_select = {
     "label": {"type": "plain_text", "text": "", "emoji": True},
 }
 
+cal_select = {
+    "type": "datepicker",
+    "placeholder": {"type": "plain_text", "text": ""},
+}
+
 file_input = {
     "type": "input",
     "label": {"type": "plain_text", "text": ""},
@@ -111,4 +127,10 @@ image = {
     "type": "image",
     "image_url": "",
     "alt_text": "An image from Taiga",
+}
+
+base_input = {
+    "type": "input",
+    "element": {},
+    "label": {"type": "plain_text", "text": "", "emoji": True},
 }

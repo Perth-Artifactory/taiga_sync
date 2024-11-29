@@ -498,3 +498,133 @@ def viewedit_blocks(
     block_list[-1]["elements"][0]["action_id"] = "submit_comment"
 
     return block_list
+
+
+def edit_info_blocks(
+    taigacon: taiga.client.TaigaAPI, project_id: int | str, item_id, item_type
+):
+    """Return the blocks required for editing information about an item"""
+
+    # Get the item from Taiga
+    if item_type == "issue":
+        item = taigacon.issues.get(item_id)
+        raw_statuses = taigacon.issue_statuses.list(project=project_id)
+    elif item_type == "task":
+        item = taigacon.tasks.get(item_id)
+        raw_statuses = taigacon.task_statuses.list(project=project_id)
+    elif item_type == "story":
+        item = taigacon.user_stories.get(item_id)
+        raw_statuses = taigacon.user_story_statuses.list(project=project_id)
+
+    # Get everyone added to the project
+    board_users = {}
+    for user in taigacon.users.list(project=project_id):
+        if user.full_name_display == "Giant Robot":
+            continue
+        board_users[user.id] = user.full_name_display
+
+    # Turn them into options for later
+    user_options = []
+    for user in board_users:
+        user_options.append(
+            {
+                "text": {"type": "plain_text", "text": board_users[user]},
+                "value": str(user),
+            }
+        )
+
+    # All item types have status, watchers, assigned_to, due_date, subject, description, tags
+    # Issues also have type, severity, priority
+
+    current_status = {item.status: item.status_extra_info["name"]}
+    statuses = {status.id: status.name for status in raw_statuses}
+
+    current_watchers = item.watchers
+    if 6 in current_watchers:
+        current_watchers.remove(6)
+
+    current_assigned = item.assigned_to
+    due_date = item.due_date
+    subject = item.subject
+    description = item.description
+
+    # Set up blocks
+    block_list = []
+
+    # Subject
+    block_list = slack_formatters.add_block(block_list, blocks.text_question)
+    block_list[-1]["label"]["text"] = "Title"
+    block_list[-1]["element"]["initial_value"] = subject
+    block_list[-1]["element"]["action_id"] = "subject"
+    block_list[-1]["element"].pop("placeholder")
+
+    # Description
+    block_list = slack_formatters.add_block(block_list, blocks.text_question)
+    block_list[-1]["label"]["text"] = "Description"
+    block_list[-1]["element"]["multiline"] = True
+    block_list[-1]["element"]["action_id"] = "description"
+    if description:
+        block_list[-1]["element"]["initial_value"] = description
+        block_list[-1]["element"].pop("placeholder")
+    else:
+        block_list[-1]["element"]["placeholder"][
+            "text"
+        ] = "No description has been provided so far!"
+
+    # Due date
+    block_list = slack_formatters.add_block(block_list, blocks.base_input)
+    block_list[-1]["label"]["text"] = "Due date"
+    cal = copy(blocks.cal_select)
+    cal["action_id"] = "due_date"
+    cal.pop("placeholder")
+    if due_date:
+        cal["initial_date"] = due_date
+    block_list[-1]["element"] = cal
+
+    # Assigned to
+    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+    block_list[-1]["label"]["text"] = "Assigned to"
+    block_list[-1]["element"]["options"] = user_options
+    block_list[-1]["element"]["action_id"] = "assigned_to"
+    block_list[-1]["element"]["placeholder"]["text"] = "Assign the item"
+    if current_assigned:
+        block_list[-1]["element"]["initial_option"] = {
+            "text": {"type": "plain_text", "text": board_users[current_assigned]},
+            "value": str(current_assigned),
+        }
+
+    # Watchers
+    block_list = slack_formatters.add_block(block_list, blocks.multi_static_dropdown)
+    block_list[-1]["label"]["text"] = "Watchers"
+    block_list[-1]["element"]["options"] = user_options
+    block_list[-1]["element"]["action_id"] = "watchers"
+    block_list[-1]["element"]["placeholder"]["text"] = "Users watching the item"
+    if len(current_watchers) > 0:
+        block_list[-1]["element"]["initial_options"] = []
+        for watcher in current_watchers:
+            block_list[-1]["element"]["initial_options"].append(
+                {
+                    "text": {"type": "plain_text", "text": board_users[watcher]},
+                    "value": str(watcher),
+                }
+            )
+
+    # Status
+    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+    block_list[-1]["label"]["text"] = "Status"
+    block_list[-1]["element"]["options"] = []
+    for status in statuses:
+        block_list[-1]["element"]["options"].append(
+            {
+                "text": {"type": "plain_text", "text": statuses[status]},
+                "value": str(status),
+            }
+        )
+    block_list[-1]["element"]["action_id"] = "status"
+    block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
+    block_list[-1]["element"]["initial_option"] = {
+        "text": {"type": "plain_text", "text": current_status[item.status]},
+        "value": str(item.status),
+    }
+
+    return block_list

@@ -767,6 +767,7 @@ def handle_comment_addition(ack, body, logger):
 
 @app.action("home-attach_files")
 def attach_files_modal(ack, body):
+    """Open a modal to submit files for later attachment"""
     ack()
 
     block_list = []
@@ -795,8 +796,12 @@ def attach_files_modal(ack, body):
 
 @app.view("submit_files")
 def attach_files(ack, body):
+    """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
     ack()
     files = body["view"]["state"]["values"]["upload_section"]["upload_file"]["files"]
+
+    if not files:
+        return
 
     # Get the item details from the private metadata
     project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
@@ -816,8 +821,7 @@ def attach_files(ack, body):
         if not upload:
             logger.error(f"Failed to upload file {file_url}")
 
-    # Try to regenerate the view/edit modal
-    # Depending on filesize this may not work
+    # Unlike trigger IDs (3s expiry) we seem to be able to update the view as required
 
     block_list = slack_home.viewedit_blocks(
         taigacon=taigacon,
@@ -827,7 +831,7 @@ def attach_files(ack, body):
     )
 
     # Push the modal
-    logging.info("Resetting root view modal")
+    logging.info("Refreshing root view modal")
     try:
         client.views_update(
             view_id=body["view"]["root_view_id"],
@@ -843,6 +847,36 @@ def attach_files(ack, body):
         )
     except SlackApiError as e:
         logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.action("edit_info")
+def handle_some_action(ack, body, logger):
+    ack()
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    block_list = slack_home.edit_info_blocks(
+        taigacon=taigacon, project_id=project_id, item_type=item_type, item_id=item_id
+    )
+
+    # Push the modal
+    logging.info("Opening new modal")
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "edited_info",
+                "title": {"type": "plain_text", "text": f"Edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Update"},
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 @app.view("finished_editing")
