@@ -812,19 +812,22 @@ def attach_file(
     item_id: str | int,
     url: str | None = None,
     file_obj=None,
+    filename: str | None = None,
 ):
     """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
 
     Supports: issues"""
 
-    # We can add support for other formats later
+    # Map types to url segments
+    url_segments = {"issue": "issues", "task": "tasks", "story": "userstories"}
 
-    if item_type not in ["issue"]:
+    if item_type not in url_segments:
         logger.error(f"Item type {item_type} not supported")
         return False
 
-    if item_type == "issue":
-        upload_url = f"{config['taiga']['url']}/api/v1/issues/attachments"
+    upload_url = (
+        f"{config['taiga']['url']}/api/v1/{url_segments[item_type]}/attachments"
+    )
 
     # Download the file if required
     if not file_obj:
@@ -840,7 +843,9 @@ def attach_file(
     if isinstance(file_obj, str):
         file_obj = open(file_obj, "rb")
 
-    if url:
+    if filename:
+        pass
+    elif url:
         filename = url.split("/")[-1]
     else:
         filename = "attached_file"
@@ -860,5 +865,7 @@ def attach_file(
         return True
     else:
         logger.error(f"Failed to attach file: {upload.status_code}")
-        logger.error(upload.json())
+        logger.error(upload_url)
+        logger.error(filename)
+        logger.error(upload.text)
         return False

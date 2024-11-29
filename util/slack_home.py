@@ -444,14 +444,12 @@ def viewedit_blocks(
                     text=f"• <{attachment.url}|{attachment.name}>",
                 )
 
-    # Create upload field
-    block_list = slack_formatters.add_block(block_list, blocks.file_input)
-    block_list[-1]["block_id"] = "upload_section"
-    block_list[-1]["element"]["action_id"] = "upload_file"
-
-    # remove the label
-
-    block_list[-1]["label"]["text"] = "Upload files"
+    # Create attach button
+    block_list = slack_formatters.add_block(block_list, blocks.actions)
+    block_list[-1]["elements"].append(copy(blocks.button))
+    block_list[-1]["elements"][0]["text"]["text"] = "Attach files"
+    block_list[-1]["elements"][0]["action_id"] = "home-attach_files"
+    block_list[-1]["block_id"] = "attach_files"
 
     # Comments
     block_list = slack_formatters.add_block(block_list, blocks.divider)

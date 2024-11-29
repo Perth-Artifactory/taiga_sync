@@ -738,7 +738,7 @@ def handle_comment_addition(ack, body, logger):
     # Post the comment
     commenting = item.add_comment(comment)
 
-    # Regenerate the comment modal
+    # Regenerate the view/edit modal
     block_list = slack_home.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
@@ -765,10 +765,92 @@ def handle_comment_addition(ack, body, logger):
         logger.error(f"Failed to push modal: {e.response['error']}")
 
 
+@app.action("home-attach_files")
+def attach_files_modal(ack, body):
+    ack()
+
+    block_list = []
+    # Create upload field
+    block_list = slack_formatters.add_block(block_list, blocks.file_input)
+    block_list[-1]["block_id"] = "upload_section"
+    block_list[-1]["element"]["action_id"] = "upload_file"
+    block_list[-1]["label"]["text"] = "Upload files"
+
+    # Push a new modal
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "submit_files",
+                "title": {"type": "plain_text", "text": "Upload files"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Attach"},
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
+@app.view("submit_files")
+def attach_files(ack, body):
+    ack()
+    files = body["view"]["state"]["values"]["upload_section"]["upload_file"]["files"]
+
+    # Get the item details from the private metadata
+    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+
+    # Upload the files to Taiga
+    for file in files:
+        file_url = file["url_private"]
+        upload = taigalink.attach_file(
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            url=file_url,
+        )
+
+        if not upload:
+            logger.error(f"Failed to upload file {file_url}")
+
+    # Try to regenerate the view/edit modal
+    # Depending on filesize this may not work
+
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+    )
+
+    # Push the modal
+    logging.info("Resetting root view modal")
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+
+
 @app.view("finished_editing")
 def finished_editing(ack, body):
     """Acknowledge the view submission"""
     ack()
+    print("Finished!")
+    pprint(body)
     return
 
     # Previously this function was used to handle the submission of a final comment, but it's not needed anymore (?)
