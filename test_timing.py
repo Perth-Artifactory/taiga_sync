@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import os
@@ -11,7 +12,8 @@ import requests
 from slack_bolt import App
 from taiga import TaigaAPI
 
-from util import slack, slack_formatters, slack_home, taigalink, tidyhq
+from editable_resources import forms
+from util import slack, slack_formatters, slack_forms, slack_home, taigalink, tidyhq
 
 
 def div():
@@ -226,4 +228,51 @@ block_list = slack_home.edit_info_blocks(
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+# Render the form modal for a non member
+logger.info("Rendering form modal for a non member")
+start_time = time.time()
+block_list = slack_forms.render_form_list(form_list=forms.forms, member=False)
+end_time = time.time()
+assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+div()
+
+# Render the form modal for a member
+logger.info("Rendering form modal for a member")
+start_time = time.time()
+block_list = slack_forms.render_form_list(form_list=forms.forms, member=True)
+end_time = time.time()
+assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+div()
+
+# Retrieve the type of membership held by a member
+logger.info("Retrieving membership type for a member")
+start_time = time.time()
+membership_type = tidyhq.get_membership_type(
+    contact_id=1952718, tidyhq_cache=tidyhq_cache
+)
+end_time = time.time()
+assert membership_type != None, f"membership_type: {membership_type}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+# Retrieve the type of membership held by a non member
+logger.info("Retrieving membership type for a non member")
+start_time = time.time()
+membership_type = tidyhq.get_membership_type(
+    contact_id=17801, tidyhq_cache=tidyhq_cache
+)
+end_time = time.time()
+assert membership_type in [None, "Expired"], f"membership_type: {membership_type}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+# Test reloading of forms
+logger.info("Reloading forms")
+start_time = time.time()
+importlib.reload(forms)
+end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
