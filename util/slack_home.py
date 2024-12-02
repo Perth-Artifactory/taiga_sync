@@ -578,6 +578,25 @@ def edit_info_blocks(
     block_list[-1]["block_id"] = "subject"
     block_list[-1]["element"].pop("placeholder")
 
+    # Status
+    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+    block_list[-1]["label"]["text"] = "Status"
+    block_list[-1]["element"]["options"] = []
+    for status in statuses:
+        block_list[-1]["element"]["options"].append(
+            {
+                "text": {"type": "plain_text", "text": statuses[status]},
+                "value": str(status),
+            }
+        )
+    block_list[-1]["element"]["action_id"] = "status"
+    block_list[-1]["block_id"] = "status"
+    block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
+    block_list[-1]["element"]["initial_option"] = {
+        "text": {"type": "plain_text", "text": current_status[item.status]},
+        "value": str(item.status),
+    }
+
     # Description
     block_list = slack_formatters.add_block(block_list, blocks.text_question)
     block_list[-1]["label"]["text"] = "Description"
@@ -636,24 +655,5 @@ def edit_info_blocks(
                     "value": str(watcher),
                 }
             )
-
-    # Status
-    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
-    block_list[-1]["label"]["text"] = "Status"
-    block_list[-1]["element"]["options"] = []
-    for status in statuses:
-        block_list[-1]["element"]["options"].append(
-            {
-                "text": {"type": "plain_text", "text": statuses[status]},
-                "value": str(status),
-            }
-        )
-    block_list[-1]["element"]["action_id"] = "status"
-    block_list[-1]["block_id"] = "status"
-    block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
-    block_list[-1]["element"]["initial_option"] = {
-        "text": {"type": "plain_text", "text": current_status[item.status]},
-        "value": str(item.status),
-    }
 
     return block_list
