@@ -16,8 +16,16 @@ from editable_resources import forms
 from util import slack, slack_formatters, slack_forms, slack_home, taigalink, tidyhq
 
 
-def div():
-    print("\n" + "-" * 80 + "\n")
+def div(title: str | None = None):
+    """Print a divider with an optional title"""
+
+    # Center the title
+    if title:
+        title = f" {title} "
+        title = title.center(80, "=")
+        print(title)
+    else:
+        print("=" * 80)
 
 
 # Set up logging
@@ -68,6 +76,7 @@ else:
 
 taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
 
+div("TidyHQ Caches")
 # Set up TidyHQ cache
 if config.get("tidyproxy"):
     logger.info("Setting up TidyHQ cache from tidyproxy")
@@ -82,7 +91,6 @@ if config.get("tidyproxy"):
     logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 else:
     logger.info("Tidyproxy test skipped as not found in config")
-div()
 
 # Test loading the cache from file
 logger.info("Setting up TidyHQ cache from file")
@@ -90,7 +98,6 @@ start_time = time.time()
 tidyhq.fresh_cache(config=config)
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 if "--long" in sys.argv:
     # Test loading the cache from TidyHQ
@@ -103,14 +110,12 @@ if "--long" in sys.argv:
     tidyhq_cache = tidyhq.fresh_cache(config=fake_config)
     end_time = time.time()
     logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-    div()
 else:
-    logger.info("Pass --long to test loading the cache from TidyHQ")
-    div()
+    logger.info("Skipped loading cache direct from TidyHQ, use --long to enable")
 
+div("Account mapping")
 # Test each of the mapping functions in tidyhq
 logger.info("Testing mapping functions")
-
 start_time = time.time()
 taiga_to_tidyhq = tidyhq.map_taiga_to_tidyhq(
     tidyhq_cache=tidyhq_cache, config=config, taiga_id=5
@@ -136,8 +141,8 @@ assert slack_to_taiga == 5, f"slack_to_taiga: {slack_to_taiga}"
 assert taiga_to_slack == "UC6T4U150", f"taiga_to_slack: {taiga_to_slack}"
 
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
+div("App homes")
 # Generate app home block list for a non existent user
 logger.info("Generating app home block list for a non existent user")
 start_time = time.time()
@@ -151,7 +156,6 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 # Generate app home for low frequency Taiga user
 logger.info("Generating app home for low frequency Taiga user")
@@ -166,7 +170,6 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 # Generate app home for high frequency Taiga user
 logger.info("Generating app home for high frequency Taiga user")
@@ -181,8 +184,8 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
+div("View/edit modal")
 # Generate the viewedit modal for a simple task
 logger.info("Generating viewedit modal for a simple user story")
 start_time = time.time()
@@ -193,7 +196,6 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 # Generate the viewedit modal for a complex task
 logger.info("Generating viewedit modal for an item with lots of tasks")
@@ -205,8 +207,8 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
+div("Edit modal")
 # Generate the edit modal for a simple user story
 logger.info("Generating edit modal for a simple user story")
 start_time = time.time()
@@ -230,6 +232,14 @@ assert slack_formatters.validate(blocks=block_list), f"Generated block list inva
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
+div("Forms")
+# Test reloading of forms
+logger.info("Reloading forms")
+start_time = time.time()
+importlib.reload(forms)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
 # Render the form modal for a non member
 logger.info("Rendering form modal for a non member")
 start_time = time.time()
@@ -248,8 +258,8 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
+div("Membership info")
 # Retrieve the type of membership held by a member
 logger.info("Retrieving membership type for a member")
 start_time = time.time()
@@ -268,11 +278,4 @@ membership_type = tidyhq.get_membership_type(
 )
 end_time = time.time()
 assert membership_type in [None, "Expired"], f"membership_type: {membership_type}"
-logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-
-# Test reloading of forms
-logger.info("Reloading forms")
-start_time = time.time()
-importlib.reload(forms)
-end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
