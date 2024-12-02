@@ -347,7 +347,6 @@ def handle_form_command(ack, respond, command, client, body):
     importlib.reload(forms)
 
     global tidyhq_cache
-    tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
 
     artifactory_member = False
 
@@ -365,6 +364,22 @@ def handle_form_command(ack, respond, command, client, body):
         )
         if membership_type in ["Concession", "Full", "Sponsor"]:
             artifactory_member = True
+
+    # If they're not an AF member refresh the cache and try again
+    if not artifactory_member:
+        tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
+        tidyhq_id = tidyhq.map_slack_to_tidyhq(
+            tidyhq_cache=tidyhq_cache,
+            config=config,
+            slack_id=user["id"],
+        )
+        if tidyhq_id:
+            # Get the type of membership held
+            membership_type = tidyhq.get_membership_type(
+                contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
+            )
+            if membership_type in ["Concession", "Full", "Sponsor"]:
+                artifactory_member = True
 
     # Render the blocks for the form selection modal
     block_list = slack_forms.render_form_list(
