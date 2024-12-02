@@ -226,6 +226,52 @@ def setup_cache(config: dict) -> dict[str, Any]:
     return cache
 
 
+def setup_cache_from_tidyproxy(config: dict) -> dict[str, Any]:
+    """Retrieve data from tidyproxy"""
+    if "tidyproxy" not in config:
+        logger.error("No tidyproxy config found")
+        sys.exit(1)
+
+    if "url" not in config["tidyproxy"]:
+        logger.error("No tidyproxy URL found")
+        sys.exit(1)
+
+    url = config["tidyproxy"]["url"]
+
+    if url.endswith("/"):
+        url = url[:-1]
+
+    # Check if we have a username specified, if not we'll assume that authentication is handled externally
+    if "username" in config["tidyproxy"]:
+        auth = (config["tidyproxy"]["username"], config["tidyproxy"]["password"])
+        # Get the full cache
+        try:
+            r = requests.get(url=f"{url}/cache.json", auth=auth)
+            cache: dict = r.json()
+        except requests.exceptions.RequestException as e:
+            logger.error("Could not reach tidyproxy")
+            sys.exit(1)
+    else:
+        # Get the full cache
+        try:
+            r = requests.get(url=f"{url}/cache.json")
+            cache: dict = r.json()
+        except requests.exceptions.RequestException as e:
+            logger.error("Could not reach tidyproxy")
+            sys.exit(1)
+    if r.status_code != 200:
+        logger.error(f"Failed to get cache from tidyproxy: {r.status_code}")
+        sys.exit(1)
+
+    cache = r.json()
+
+    # Write the cache to file
+    with open("cache.json", "w") as f:
+        json.dump(cache, f)
+
+    return cache
+
+
 def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
     """Return a fresh TidyHQ cache.
 
@@ -239,6 +285,14 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         with open("config.json") as f:
             logger.debug("Loading config from file")
             config = json.load(f)
+
+    # Check if the current version of the file has tidyproxy support
+    if "tidyproxy" in config:
+        logger.info("Using tidyproxy for TidyHQ retrieval")
+        retrieval_function = setup_cache_from_tidyproxy
+    else:
+        logger.info("Using TidyHQ API for TidyHQ retrieval")
+        retrieval_function = setup_cache
 
     if cache:
         # Check if the cache we've been provided with is fresh
@@ -257,11 +311,11 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
             cache = json.load(f)
     except FileNotFoundError:
         logger.debug("No cache file found")
-        cache = setup_cache(config=config)
+        cache = retrieval_function(config=config)
         return cache
     except json.decoder.JSONDecodeError:
         logger.error("Cache file is invalid")
-        cache = setup_cache(config=config)
+        cache = retrieval_function(config=config)
         return cache
 
     # If the cache file is also stale, refresh it
@@ -270,7 +324,7 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
         or force
     ):
         logger.debug("Cache file is stale")
-        cache = setup_cache(config=config)
+        cache = retrieval_function(config=config)
         return cache
     else:
         logger.debug("Cache file is fresh")
