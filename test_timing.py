@@ -279,3 +279,114 @@ membership_type = tidyhq.get_membership_type(
 end_time = time.time()
 assert membership_type in [None, "Expired"], f"membership_type: {membership_type}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+div("Taiga retrieval (python-taiga vs direct)")
+# Find a project
+logger.info("Finding a project")
+# python-taiga
+start_time = time.time()
+projects = taigacon.projects.list()
+for p in projects:
+    if p.id == 5:
+        project = p
+        break
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/projects/5",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+)
+project_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Get the statuses of that project
+logger.info("Getting statuses for a project")
+# python-taiga
+start_time = time.time()
+statuses = taigacon.user_story_statuses.list(project=project.id)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/userstory-statuses",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    params={"project": 5},
+)
+statuses_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Getting the user stories for a small project
+logger.info("Getting user stories for a normal project")
+# python-taiga
+start_time = time.time()
+user_stories = taigacon.user_stories.list(project=3)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/userstories",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    params={"project": 3},
+)
+stories_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Getting the user stories for a medium sized project
+logger.info("Getting user stories for a normal project")
+# python-taiga
+start_time = time.time()
+user_stories = taigacon.user_stories.list(project=2)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/userstories",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    params={"project": 2},
+)
+stories_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Getting the user stories for a large project
+logger.info("Getting user stories for a large project")
+# python-taiga
+start_time = time.time()
+user_stories = taigacon.user_stories.list(project=1)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/userstories",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    params={"project": 1},
+)
+stories_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Get the comments for a user story
+logger.info("Getting comments for a user story")
+# python-taiga
+start_time = time.time()
+comments: list = taigacon.history.user_story.get(resource_id=204)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/history/userstory/204",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+)
+comments_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
