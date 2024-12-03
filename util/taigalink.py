@@ -876,7 +876,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     cache = {}
     # Users
     boards = {}
-
+    users = {}
     # Get all projects
     response = requests.get(
         url=f"{config['taiga']['url']}/api/v1/projects",
@@ -905,6 +905,12 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             member_info = response.json()
             boards[project["id"]]["members"][member] = {
                 "name": member_info["full_name_display"]
+            }
+
+            # Add the user to the global users list
+            users[member] = {
+                "name": member_info["full_name_display"],
+                "username": member_info["username"],
             }
 
     # Statuses
@@ -955,5 +961,6 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             )
 
     cache["boards"] = boards
+    cache["users"] = users
 
     return cache
