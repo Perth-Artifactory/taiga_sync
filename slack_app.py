@@ -423,7 +423,10 @@ def handle_form_open_button(ack, body, client):
 
     # Convert the form questions to blocks
     block_list = slack_forms.questions_to_blocks(
-        form["questions"], taigacon=taigacon, taiga_project=form.get("taiga_project")
+        form["questions"],
+        taigacon=taigacon,
+        taiga_project=form.get("taiga_project"),
+        taiga_cache=taiga_cache,
     )
 
     # Form title can only be 25 characters long

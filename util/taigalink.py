@@ -787,15 +787,18 @@ def watch(
         return False
 
 
-def validate_form_options(project_id: int, option_type: str, options: list, taigacon):
+def validate_form_options(
+    project_id: int, option_type: str, options: list, taigacon, taiga_cache: dict
+):
     valid_options = []
 
     if option_type == "severity":
-        raw_options = taigacon.severities.list(project=project_id)
-        valid_options = [option.name.lower() for option in raw_options]
+        key = "severities"
     elif option_type == "type":
-        raw_options = taigacon.issue_types.list(project=project_id)
-        valid_options = [option.name.lower() for option in raw_options]
+        key = "types"
+    raw_options = taiga_cache["boards"][project_id][key].values()
+
+    raw_options = [item["name"].lower() for item in raw_options]
 
     for option in options:
         if option.lower() not in valid_options:

@@ -89,6 +89,7 @@ def render_form_list(form_list: dict, member=False) -> list[dict]:
 def questions_to_blocks(
     questions: list[dict],
     taigacon,
+    taiga_cache: dict,
     taiga_project: str | None = None,
     taiga_project_id: int | str | None = None,
 ) -> list[dict]:
@@ -200,6 +201,7 @@ def questions_to_blocks(
                         option_type=question.get("taiga_map", "type"),
                         options=question.get("options", ["invalid"]),
                         taigacon=taigacon,
+                        taiga_cache=taiga_cache,
                     ):
                         logger.warning(
                             f"Invalid options for {question.get('taiga_map', 'type')} mapping"
@@ -214,12 +216,14 @@ def questions_to_blocks(
 
                 if need_query:
                     if question.get("taiga_map") == "type":
-                        raw_options = taigacon.issue_types.list(
-                            project=taiga_project_id
-                        )
+                        key = "types"
                     elif question.get("taiga_map") == "severity":
-                        raw_options = taigacon.severities.list(project=taiga_project_id)
-                    question["options"] = [option.name for option in raw_options]
+                        key = "severities"
+                    raw_options = taiga_cache["boards"][key]
+                    # trim raw options to just names
+                    question["options"] = [
+                        option["name"] for option in raw_options.values()
+                    ]
 
             # Add fallback options
             if "options" not in question and question.get("taiga_map") not in [
