@@ -544,7 +544,10 @@ def get_tasks(
     url = f"{config['taiga']['url']}/api/v1/tasks"
     response = requests.get(
         url,
-        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+            "x-disable-pagination": "True",
+        },
         params={"assigned_to": taiga_id},
     )
     tasks = response.json()
@@ -562,7 +565,10 @@ def get_stories(
     url = f"{config['taiga']['url']}/api/v1/userstories"
     response = requests.get(
         url,
-        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+            "x-disable-pagination": "True",
+        },
         params={"assigned_to": taiga_id},
     )
     stories = response.json()
@@ -579,7 +585,10 @@ def get_issues(
     url = f"{config['taiga']['url']}/api/v1/issues"
     response = requests.get(
         url,
-        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+            "x-disable-pagination": "True",
+        },
         params={"assigned_to": taiga_id},
     )
     issues = response.json()
