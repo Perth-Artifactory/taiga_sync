@@ -284,6 +284,20 @@ assert slack_formatters.validate(blocks=block_list), f"Generated block list inva
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
+# Render a specific form modal
+logger.info("Rendering a specific form modal")
+start_time = time.time()
+block_list = slack_forms.questions_to_blocks(
+    questions=forms.forms["infra"]["questions"],
+    taigacon=taigacon,
+    taiga_cache=taiga_cache,
+    taiga_project="Infrastructure",
+)
+end_time = time.time()
+assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
 div("Membership info")
 # Retrieve the type of membership held by a member
 logger.info("Retrieving membership type for a member")
@@ -321,11 +335,17 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/projects/5",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
 )
 project_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert (
+    project.id == project_r["id"]
+), f"python-taiga: {project.id} direct: {project_r['id']}"
 
 # Get the statuses of that project
 logger.info("Getting statuses for a project")
@@ -338,12 +358,18 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/userstory-statuses",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
     params={"project": 5},
 )
 statuses_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert len(statuses) == len(
+    statuses_r
+), f"python-taiga: {len(statuses)} direct: {len(statuses_r)}"
 
 # Getting the user stories for a small project
 logger.info("Getting user stories for a small project")
@@ -356,12 +382,18 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/userstories",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
     params={"project": 3},
 )
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert len(user_stories) == len(
+    stories_r
+), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
 
 # Getting the user stories for a medium sized project
 logger.info("Getting user stories for a normal project")
@@ -374,12 +406,18 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/userstories",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
     params={"project": 2},
 )
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert len(user_stories) == len(
+    stories_r
+), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
 
 # Getting the user stories for a large project
 logger.info("Getting user stories for a large project")
@@ -392,12 +430,18 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/userstories",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
     params={"project": 1},
 )
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert len(user_stories) == len(
+    stories_r
+), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
 
 # Get the comments for a user story
 logger.info("Getting comments for a user story")
@@ -410,11 +454,17 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/history/userstory/204",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
 )
 comments_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+assert len(comments) == len(
+    comments_r
+), f"python-taiga: {len(comments)} direct: {len(comments_r)}"
 
 # Get the info for a user story
 logger.info("Getting info for a user story")
@@ -427,25 +477,11 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)"
 start_time = time.time()
 response = requests.get(
     f"{config['taiga']['url']}/api/v1/userstories/204",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
 )
 story_r = response.json()
-end_time = time.time()
-logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-
-# Get comments for a user story
-logger.info("Getting comments for a user story")
-# python-taiga
-start_time = time.time()
-comments = taigacon.history.user_story.get(resource_id=204)
-end_time = time.time()
-logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
-# Direct
-start_time = time.time()
-response = requests.get(
-    f"{config['taiga']['url']}/api/v1/history/userstory/204",
-    headers={"Authorization": f"Bearer {taiga_auth_token}"},
-)
-comments_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
