@@ -130,8 +130,6 @@ def generate_app_home(
                 block_list = slack_formatters.inject_text(
                     block_list=block_list, text=f"*{header}*"
                 )
-                # block_list += blocks.text
-                # block_list = inject_text(block_list=block_list, text=body)
                 block_list += story_blocks
                 block_list = slack_formatters.add_block(block_list, blocks.divider)
 
