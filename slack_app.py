@@ -663,6 +663,9 @@ def handle_app_home_opened_events(body, client, logger):
     # Get user details for more helpful console messages
     user_info = client.users_info(user=user_id)
 
+    global tidyhq_cache
+    tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
+
     slack_home.push_home(
         user_id=user_id,
         config=config,

@@ -48,8 +48,9 @@ def generate_app_home(
 ) -> list:
     """Generate the blocks for the app home view for a specified user and return it as a list of blocks."""
     # Check if the user has a Taiga account
+
     taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq.fresh_cache(config=config, cache=tidyhq_cache),
+        tidyhq_cache=tidyhq_cache,
         config=config,
         slack_id=user_id,
     )
@@ -79,8 +80,11 @@ def generate_app_home(
         )
 
     else:
-        logger.info(f"User {user_id} has a Taiga account. - {taiga_id}")
         # We recognise the user
+        logger.info(f"User {user_id} has a Taiga account. - {taiga_id}")
+
+        # High frequency users will end up going over the 100 block limit
+        at_block_limit = False
 
         # Construct blocks
         block_list = []
@@ -123,6 +127,9 @@ def generate_app_home(
             sorted_stories = taigalink.sort_by_project(user_stories)
 
             for project in sorted_stories:
+                if len(block_list) > 95:
+                    at_block_limit = True
+                    break
                 header, body, story_blocks = slack_formatters.format_stories(
                     sorted_stories[project]
                 )
@@ -167,6 +174,9 @@ def generate_app_home(
             sorted_issues = taigalink.sort_by_project(user_issues)
 
             for project in sorted_issues:
+                if len(block_list) > 95:
+                    at_block_limit = True
+                    break
                 header, body, issue_blocks = slack_formatters.format_issues(
                     sorted_issues[project]
                 )
@@ -211,10 +221,9 @@ def generate_app_home(
             sorted_tasks = taigalink.sort_tasks_by_user_story(tasks)
 
             # Things will start to break down if there are too many tasks
-            displayed_tasks = 0
-            trimmed = True
             for project in sorted_tasks:
-                if displayed_tasks >= 50:
+                if len(block_list) > 95:
+                    at_block_limit = True
                     break
                 header, body, task_blocks = slack_formatters.format_tasks(
                     sorted_tasks[project]
@@ -224,7 +233,6 @@ def generate_app_home(
                 if "template" in header.lower():
                     continue
 
-                displayed_tasks += 1
                 block_list += blocks.text
                 block_list = slack_formatters.inject_text(
                     block_list=block_list, text=f"*{header}*"
@@ -234,18 +242,15 @@ def generate_app_home(
                 block_list += task_blocks
                 block_list = slack_formatters.add_block(block_list, blocks.divider)
 
-            else:
-                trimmed = False
-
             # Remove the last divider
             block_list.pop()
 
-            if trimmed:
-                block_list += blocks.divider
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=strings.trimmed
-                )
+        if at_block_limit:
+            block_list += blocks.divider
+            block_list += blocks.text
+            block_list = slack_formatters.inject_text(
+                block_list=block_list, text=strings.trimmed
+            )
 
         # Get details about the current app version from git
         commit_hash = (

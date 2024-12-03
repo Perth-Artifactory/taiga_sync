@@ -196,6 +196,10 @@ def add_block(block_list: list, block: dict | list) -> list[dict]:
         block_list += block
     elif type(block) == dict:
         block_list.append(block)
+
+    if len(block_list) > 100:
+        raise ValueError("Block list too long")
+
     return block_list
 
 
