@@ -321,7 +321,7 @@ end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
 
 # Getting the user stories for a small project
-logger.info("Getting user stories for a normal project")
+logger.info("Getting user stories for a small project")
 # python-taiga
 start_time = time.time()
 user_stories = taigacon.user_stories.list(project=3)

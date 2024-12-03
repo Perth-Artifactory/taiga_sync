@@ -727,7 +727,7 @@ def handle_comment_addition(ack, body, logger):
     # Post the comment to Taiga
     print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
 
-    # Get the item from Taiga
+    # Get the item direct from Taiga, this isn't cached since it changes so often
     if item_type == "task":
         item = taigacon.tasks.get(item_id)
     elif item_type == "story":
@@ -902,7 +902,7 @@ def edit_info(ack, body, logger):
     # Get the item details from the private metadata
     project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
 
-    # Get the item from Taiga
+    # Get the item from Taiga, this isn't cached since it changes so often
     if item_type == "task":
         item = taigacon.tasks.get(item_id)
     elif item_type == "story":
