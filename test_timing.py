@@ -224,19 +224,26 @@ div("Edit modal")
 logger.info("Generating edit modal for a simple user story")
 start_time = time.time()
 block_list = slack_home.edit_info_blocks(
-    taigacon=taigacon, project_id=3, item_id=156, item_type="story"
+    taigacon=taigacon,
+    project_id=3,
+    item_id=156,
+    item_type="story",
+    taiga_cache=taiga_cache,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 # Generate the edit modal for a complex user story
 logger.info("Generating edit modal for a complex user story")
 start_time = time.time()
 block_list = slack_home.edit_info_blocks(
-    taigacon=taigacon, project_id=5, item_id=204, item_type="story"
+    taigacon=taigacon,
+    project_id=5,
+    item_id=204,
+    item_type="story",
+    taiga_cache=taiga_cache,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
@@ -259,7 +266,6 @@ end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
-div()
 
 # Render the form modal for a member
 logger.info("Rendering form modal for a member")

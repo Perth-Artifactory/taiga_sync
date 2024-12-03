@@ -883,9 +883,9 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
         url=f"{config['taiga']['url']}/api/v1/projects",
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
     )
-    projects = response.json()
+    raw_projects = response.json()
 
-    for project in projects:
+    for project in raw_projects:
         # Create the board
         boards[project["id"]] = {
             "name": project["name"],
@@ -969,12 +969,12 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
 
     projects["by_name_with_extra"] = projects["by_name"]
     # Duplicate similar board names for QoL
-    projects["by_name_with_extra"]["infra"] = projects["by_name_with_extra"][
-        "infrastructure"
+    projects["by_name_with_extra"]["Infra"] = projects["by_name_with_extra"][
+        "Infrastructure"
     ]
-    projects["by_name_with_extra"]["laser"] = projects["by_name_with_extra"]["lasers"]
-    projects["by_name_with_extra"]["printer"] = projects["by_name_with_extra"]["3d"]
-    projects["by_name_with_extra"]["printers"] = projects["by_name_with_extra"]["3d"]
+    projects["by_name_with_extra"]["Laser"] = projects["by_name_with_extra"]["Lasers"]
+    projects["by_name_with_extra"]["Printer"] = projects["by_name_with_extra"]["3D"]
+    projects["by_name_with_extra"]["Printers"] = projects["by_name_with_extra"]["3D"]
 
     cache["projects"] = projects
 

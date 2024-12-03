@@ -509,38 +509,30 @@ def viewedit_blocks(
 
 
 def edit_info_blocks(
-    taigacon: taiga.client.TaigaAPI, project_id: int | str, item_id, item_type
+    taigacon: taiga.client.TaigaAPI,
+    project_id: int | str,
+    item_id,
+    item_type,
+    taiga_cache: dict,
 ):
     """Return the blocks required for editing information about an item"""
 
     # Get the item from Taiga
     if item_type == "issue":
         item = taigacon.issues.get(item_id)
-        raw_statuses = taigacon.issue_statuses.list(project=project_id)
     elif item_type == "task":
         item = taigacon.tasks.get(item_id)
-        raw_statuses = taigacon.task_statuses.list(project=project_id)
     elif item_type == "story":
         item = taigacon.user_stories.get(item_id)
-        raw_statuses = taigacon.user_story_statuses.list(project=project_id)
+    raw_statuses: dict = taiga_cache["boards"][int(project_id)]["statuses"][item_type]
 
-    # Get everyone added to the project
-    board_users = {}
-    project = None
-    for proj in taigacon.projects.list():
-        if proj.id == int(project_id):
-            project = proj
-            break
-    else:
-        logging.error(f"Project {project_id} not found")
-        return []
-
-    for user in proj.members:
-        # Get the name of the user
-        user_info = taigacon.users.get(user)
-        if user_info.full_name_display == "Giant Robot":
-            continue
-        board_users[user] = user_info.full_name_display
+    # Trim down the board members to just id:name
+    raw_board_members = taiga_cache["boards"][int(project_id)]["members"]
+    board_users = {
+        user_id: user_info["name"]
+        for user_id, user_info in raw_board_members.items()
+        if user_info["name"] != "Giant Robot"
+    }
 
     # Turn them into options for later
     user_options = []
@@ -556,7 +548,12 @@ def edit_info_blocks(
     # Issues also have type, severity, priority
 
     current_status = {item.status: item.status_extra_info["name"]}
-    statuses = {status.id: status.name for status in raw_statuses}
+
+    # Trim down the status info to just the status name
+    statuses = {
+        status_id: status_info["name"]
+        for status_id, status_info in raw_statuses.items()
+    }
 
     current_watchers = item.watchers
     if 6 in current_watchers:

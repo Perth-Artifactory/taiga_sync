@@ -747,10 +747,10 @@ def handle_comment_addition(ack, body, logger):
     )
 
     # Get the user's name from their Taiga ID
-    taiga_user_info = taigacon.users.get(taiga_id)
+    taiga_user_info = taiga_cache["users"][taiga_id]
 
     # Add byline
-    comment = f"Posted from Slack by {taiga_user_info.full_name}: {comment}"
+    comment = f"Posted from Slack by {taiga_user_info['name']}: {comment}"
 
     # Post the comment
     commenting = item.add_comment(comment)
@@ -874,7 +874,11 @@ def send_info_modal(ack, body, logger):
     project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
 
     block_list = slack_home.edit_info_blocks(
-        taigacon=taigacon, project_id=project_id, item_type=item_type, item_id=item_id
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+        taiga_cache=taiga_cache,
     )
 
     # Push the modal
