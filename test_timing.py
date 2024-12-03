@@ -201,7 +201,11 @@ div("View/edit modal")
 logger.info("Generating viewedit modal for a simple user story")
 start_time = time.time()
 block_list = slack_home.viewedit_blocks(
-    taigacon=taigacon, project_id=3, item_id=156, item_type="story"
+    taigacon=taigacon,
+    project_id=3,
+    item_id=156,
+    item_type="story",
+    taiga_cache=taiga_cache,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
@@ -212,7 +216,11 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 logger.info("Generating viewedit modal for an item with lots of tasks")
 start_time = time.time()
 block_list = slack_home.viewedit_blocks(
-    taigacon=taigacon, project_id=1, item_id=36, item_type="story"
+    taigacon=taigacon,
+    project_id=1,
+    item_id=36,
+    item_type="story",
+    taiga_cache=taiga_cache,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"

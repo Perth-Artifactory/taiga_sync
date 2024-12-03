@@ -281,7 +281,11 @@ def generate_app_home(
 
 
 def viewedit_blocks(
-    taigacon: taiga.client.TaigaAPI, project_id: int | str, item_id, item_type
+    taigacon: taiga.client.TaigaAPI,
+    project_id: int | str,
+    item_id,
+    item_type,
+    taiga_cache: dict,
 ):
     """Generate the blocks for a modal for viewing and editing an item"""
 
@@ -373,8 +377,7 @@ def viewedit_blocks(
     if item.watchers:
         watcher_strs = []
         for watcher in item.watchers:
-            watcher_info = taigacon.users.get(watcher)
-            watcher_strs.append(watcher_info.full_name_display)
+            watcher_strs.append(taiga_cache["users"][watcher]["name"])
         if "Giant Robot" in watcher_strs:
             watcher_strs.remove("Giant Robot")
 
