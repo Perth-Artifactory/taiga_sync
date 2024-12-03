@@ -877,6 +877,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     # Users
     boards = {}
     users = {}
+    projects = {"by_name": {}, "by_name_with_extra": {}}
     # Get all projects
     response = requests.get(
         url=f"{config['taiga']['url']}/api/v1/projects",
@@ -894,6 +895,9 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "severities": {},
             "types": {},
         }
+
+        # Add the project to the project cache
+        projects["by_name"][project["name"]] = project["id"]
 
         # Project membership
         for member in project["members"]:
@@ -962,5 +966,16 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
 
     cache["boards"] = boards
     cache["users"] = users
+
+    projects["by_name_with_extra"] = projects["by_name"]
+    # Duplicate similar board names for QoL
+    projects["by_name_with_extra"]["infra"] = projects["by_name_with_extra"][
+        "infrastructure"
+    ]
+    projects["by_name_with_extra"]["laser"] = projects["by_name_with_extra"]["lasers"]
+    projects["by_name_with_extra"]["printer"] = projects["by_name_with_extra"]["3d"]
+    projects["by_name_with_extra"]["printers"] = projects["by_name_with_extra"]["3d"]
+
+    cache["projects"] = projects
 
     return cache

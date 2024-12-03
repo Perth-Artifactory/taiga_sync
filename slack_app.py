@@ -102,17 +102,6 @@ taiga_cache = taigalink.setup_cache(
     config=config, taiga_auth_token=taiga_auth_token, taigacon=taigacon
 )
 
-# Map project names to IDs
-projects = taigacon.projects.list()
-project_ids = {project.name.lower(): project.id for project in projects}
-actual_ids = {project.name.lower(): project.id for project in projects}
-
-# Duplicate similar board names for QoL
-project_ids["infra"] = project_ids["infrastructure"]
-project_ids["laser"] = project_ids["lasers"]
-project_ids["printer"] = project_ids["3d"]
-project_ids["printers"] = project_ids["3d"]
-
 # Set up TidyHQ cache
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 setup_logger.info(
@@ -167,7 +156,7 @@ def handle_app_mention(event, ack, client, respond):
         return
 
     board, description = extract_issue_particulars(message=text)
-    if board not in project_ids or not description:
+    if board not in taiga_cache["projects"]["by_name_with_extra"] or not description:
         client.chat_postEphemeral(
             channel=event["channel"],
             user=event["user"],
@@ -215,7 +204,7 @@ def handle_app_mention(event, ack, client, respond):
                 description=f"From {root_user_display_name} on Slack: {root_text}",
                 subject=description,
                 by_slack=user_info,
-                project_ids=project_ids,
+                project_ids=taiga_cache["projects"]["by_name_with_extra"],
                 config=config,
                 taiga_auth_token=taiga_auth_token,
                 slack_team_id=slack_team_id,
@@ -246,7 +235,7 @@ def handle_app_mention(event, ack, client, respond):
             description="",
             subject=description,
             by_slack=user_info,
-            project_ids=project_ids,
+            project_ids=taiga_cache["projects"]["by_name_with_extra"],
             config=config,
             taiga_auth_token=taiga_auth_token,
             slack_team_id=slack_team_id,
@@ -275,7 +264,11 @@ def handle_message(event, say, client, ack):
     )
 
     board, description = extract_issue_particulars(message=text)
-    if board not in project_ids or not description:
+    if (
+        board not in taiga_cache["projects"]["by_name_with_extra"]
+        or not description
+        or not board
+    ):
         client.chat_postEphemeral(
             channel=event["channel"],
             user=event["user"],
@@ -293,7 +286,7 @@ def handle_message(event, say, client, ack):
         description="",
         subject=description,
         by_slack=user_info,
-        project_ids=project_ids,
+        project_ids=taiga_cache["projects"]["by_name_with_extra"],
         config=config,
         taiga_auth_token=taiga_auth_token,
         slack_team_id=slack_team_id,
@@ -317,7 +310,11 @@ def handle_issue_command(ack, respond, command, client):
 
     board, description = extract_issue_particulars(message=command["text"])
 
-    if board not in project_ids or not description:
+    if (
+        board not in taiga_cache["projects"]["by_name_with_extra"]
+        or not description
+        or not board
+    ):
         respond(
             "Sorry, I couldn't understand your message. Please try again.\n"
             "It should be in the format of `/issue <board name> <description>`\n"
@@ -330,7 +327,7 @@ def handle_issue_command(ack, respond, command, client):
         description="",
         subject=description,
         by_slack=user_info,
-        project_ids=project_ids,
+        project_ids=taiga_cache["projects"]["by_name_with_extra"],
         config=config,
         taiga_auth_token=taiga_auth_token,
         slack_team_id=slack_team_id,
