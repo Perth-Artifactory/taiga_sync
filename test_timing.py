@@ -485,3 +485,35 @@ response = requests.get(
 story_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+div("Local processing vs API params")
+logger.info("Get all tasks assigned to user in a project")
+# Remote processing
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/tasks",
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
+    params={"assigned_to": 5},
+)
+remote_tasks = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (remote)")
+# Local processing
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/tasks",
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
+)
+all_tasks = response.json()
+local_tasks = [t for t in all_tasks if t["assigned_to"] == 5]
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (local)")
+assert len(remote_tasks) == len(
+    local_tasks
+), f"remote_tasks: {len(remote_tasks)} local_tasks: {len(local_tasks)}"
