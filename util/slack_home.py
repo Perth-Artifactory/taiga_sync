@@ -44,10 +44,20 @@ def push_home(
 
 
 def generate_app_home(
-    user_id: str, config: dict, tidyhq_cache: dict, taiga_auth_token: str
+    user_id: str,
+    config: dict,
+    tidyhq_cache: dict,
+    taiga_auth_token: str,
+    provided_user_stories: list = [],
+    provided_issues: list = [],
+    provided_tasks: list = [],
+    compress=False,
 ) -> list:
     """Generate the blocks for the app home view for a specified user and return it as a list of blocks."""
     # Check if the user has a Taiga account
+
+    if compress:
+        logger.info(f"Compressing blocks for user {user_id}")
 
     taiga_id = tidyhq.map_slack_to_taiga(
         tidyhq_cache=tidyhq_cache,
@@ -85,6 +95,8 @@ def generate_app_home(
 
         # High frequency users will end up going over the 100 block limit
         at_block_limit = False
+        compressed_blocks = False
+        items_added = 0
 
         # Construct blocks
         block_list = []
@@ -107,13 +119,16 @@ def generate_app_home(
             block_list=block_list, text="Assigned Cards"
         )
 
-        # Get all assigned user stories for the user
-        user_stories = taigalink.get_stories(
-            taiga_id=taiga_id,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            exclude_done=True,
-        )
+        if provided_user_stories:
+            user_stories = provided_user_stories
+        else:
+            # Get all assigned user stories for the user
+            user_stories = taigalink.get_stories(
+                taiga_id=taiga_id,
+                config=config,
+                taiga_auth_token=taiga_auth_token,
+                exclude_done=True,
+            )
 
         if len(user_stories) == 0:
             block_list += blocks.text
@@ -128,15 +143,30 @@ def generate_app_home(
 
             for project in sorted_stories:
                 if len(block_list) > 95:
-                    at_block_limit = True
-                    break
+                    block_list = slack_formatters.compress_blocks(block_list=block_list)
+                    compressed_blocks = True
+                    if len(block_list) > 95:
+                        # Check if we're already in a compressed recursion
+                        if not compress:
+                            return generate_app_home(
+                                user_id=user_id,
+                                config=config,
+                                tidyhq_cache=tidyhq_cache,
+                                taiga_auth_token=taiga_auth_token,
+                                provided_user_stories=user_stories,
+                                compress=True,
+                            )
+                        at_block_limit = True
+                        break
+                items_added += 1
                 header, body, story_blocks = slack_formatters.format_stories(
-                    sorted_stories[project]
+                    story_list=sorted_stories[project], compressed=compress
                 )
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=f"*{header}*"
-                )
+                if not compress:
+                    block_list += blocks.text
+                    block_list = slack_formatters.inject_text(
+                        block_list=block_list, text=f"*{header}*"
+                    )
                 block_list += story_blocks
                 block_list = slack_formatters.add_block(block_list, blocks.divider)
 
@@ -154,13 +184,16 @@ def generate_app_home(
             block_list=block_list, text="Assigned Issues"
         )
 
-        # Get all assigned issues for the user
-        user_issues = taigalink.get_issues(
-            taiga_id=taiga_id,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            exclude_done=True,
-        )
+        if provided_issues:
+            user_issues = provided_issues
+        else:
+            # Get all assigned issues for the user
+            user_issues = taigalink.get_issues(
+                taiga_id=taiga_id,
+                config=config,
+                taiga_auth_token=taiga_auth_token,
+                exclude_done=True,
+            )
 
         if len(user_issues) == 0:
             block_list += blocks.text
@@ -175,15 +208,31 @@ def generate_app_home(
 
             for project in sorted_issues:
                 if len(block_list) > 95:
-                    at_block_limit = True
-                    break
+                    block_list = slack_formatters.compress_blocks(block_list=block_list)
+                    compressed_blocks = True
+                    if len(block_list) > 95:
+                        # Check if we're already in a compressed recursion
+                        if not compress:
+                            return generate_app_home(
+                                user_id=user_id,
+                                config=config,
+                                tidyhq_cache=tidyhq_cache,
+                                taiga_auth_token=taiga_auth_token,
+                                provided_user_stories=user_stories,
+                                provided_issues=user_issues,
+                                compress=True,
+                            )
+                        at_block_limit = True
+                        break
+                items_added += 1
                 header, body, issue_blocks = slack_formatters.format_issues(
-                    sorted_issues[project]
+                    issue_list=sorted_issues[project], compressed=compress
                 )
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=f"*{header}*"
-                )
+                if not compress:
+                    block_list += blocks.text
+                    block_list = slack_formatters.inject_text(
+                        block_list=block_list, text=f"*{header}*"
+                    )
                 block_list += issue_blocks
                 block_list = slack_formatters.add_block(block_list, blocks.divider)
 
@@ -201,13 +250,16 @@ def generate_app_home(
             block_list=block_list, text="Assigned Tasks"
         )
 
-        # Get all tasks for the user
-        tasks = taigalink.get_tasks(
-            taiga_id=taiga_id,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            exclude_done=True,
-        )
+        if provided_tasks:
+            tasks = provided_tasks
+        else:
+            # Get all tasks for the user
+            tasks = taigalink.get_tasks(
+                taiga_id=taiga_id,
+                config=config,
+                taiga_auth_token=taiga_auth_token,
+                exclude_done=True,
+            )
 
         if len(tasks) == 0:
             block_list += blocks.text
@@ -223,22 +275,37 @@ def generate_app_home(
             # Things will start to break down if there are too many tasks
             for project in sorted_tasks:
                 if len(block_list) > 95:
-                    at_block_limit = True
-                    break
+                    block_list = slack_formatters.compress_blocks(block_list=block_list)
+                    compressed_blocks = True
+                    if len(block_list) > 95:
+                        # Check if we're already in a compressed recursion
+                        if not compress:
+                            return generate_app_home(
+                                user_id=user_id,
+                                config=config,
+                                tidyhq_cache=tidyhq_cache,
+                                taiga_auth_token=taiga_auth_token,
+                                provided_user_stories=user_stories,
+                                provided_issues=user_issues,
+                                provided_tasks=tasks,
+                                compress=True,
+                            )
+                        at_block_limit = True
+                        break
+                items_added += 1
                 header, body, task_blocks = slack_formatters.format_tasks(
-                    sorted_tasks[project]
+                    task_list=sorted_tasks[project], compressed=compress
                 )
 
                 # Skip over tasks assigned in template cards
                 if "template" in header.lower():
                     continue
 
-                block_list += blocks.text
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list, text=f"*{header}*"
-                )
-                # block_list += blocks.text
-                # block_list = inject_text(block_list=block_list, text=body)
+                if not compress:
+                    block_list += blocks.text
+                    block_list = slack_formatters.inject_text(
+                        block_list=block_list, text=f"*{header}*"
+                    )
                 block_list += task_blocks
                 block_list = slack_formatters.add_block(block_list, blocks.divider)
 
@@ -249,8 +316,10 @@ def generate_app_home(
             block_list += blocks.divider
             block_list += blocks.text
             block_list = slack_formatters.inject_text(
-                block_list=block_list, text=strings.trimmed
+                block_list=block_list, text=strings.trimmed.format(items=items_added)
             )
+            if compressed_blocks:
+                block_list[-1]["text"]["text"] += " " + strings.compressed
 
         # Get details about the current app version from git
         commit_hash = (

@@ -28,7 +28,7 @@ dropdown_questions = [
 dropdown_questions = ["Comments"]
 
 
-def format_tasks(task_list):
+def format_tasks(task_list, compressed=False):
     # Get the user story info
     project_slug = task_list[0]["project_extra_info"]["slug"]
     project_name = task_list[0]["project_extra_info"]["name"]
@@ -43,6 +43,11 @@ def format_tasks(task_list):
         task_formatted = (
             f"• <{url}|{task['subject']}> ({task['status_extra_info']['name']})"
         )
+
+        # If we're compressing add the header to each task
+        if compressed:
+            task_formatted = task_formatted[1:]
+            task_formatted = f"• {user_story_str} - {task_formatted}"
 
         task_strs.append(task_formatted)
 
@@ -62,7 +67,7 @@ def format_tasks(task_list):
     return user_story_str, out_str, task_blocks
 
 
-def format_stories(story_list):
+def format_stories(story_list, compressed=False):
     """Format a list of stories into a header, a newline formatted string and a list of blocks"""
     project_slug = story_list[0]["project_extra_info"]["slug"]
     header = story_list[0]["project_extra_info"]["name"]
@@ -81,6 +86,11 @@ def format_stories(story_list):
         story_formatted = f"• <{story_url}|{story_name}> ({story_status})"
         story_strs.append(story_formatted)
 
+        # If we're compressing add the header to each task
+        if compressed:
+            story_formatted = story_formatted[1:]
+            story_formatted = f"• {header_str} - {story_formatted}"
+
         story_blocks = add_block(block_list=story_blocks, block=blocks.text)
         story_blocks = inject_text(block_list=story_blocks, text=story_formatted)
 
@@ -97,7 +107,7 @@ def format_stories(story_list):
     return header_str, out_str, story_blocks
 
 
-def format_issues(issue_list):
+def format_issues(issue_list, compressed=False):
     # Get the user story info
     project_slug = issue_list[0]["project_extra_info"]["slug"]
     project_name = issue_list[0]["project_extra_info"]["name"]
@@ -111,6 +121,10 @@ def format_issues(issue_list):
         )
 
         issue_strs.append(issue_formatted)
+
+        if compressed:
+            issue_formatted = issue_formatted[1:]
+            issue_formatted = f"• {project_name} - {issue_formatted}"
 
         issue_blocks = add_block(block_list=issue_blocks, block=blocks.text)
         issue_blocks = inject_text(block_list=issue_blocks, text=issue_formatted)
@@ -217,3 +231,15 @@ def validate(blocks):
         schemalogger.error(e)
         return False
     return True
+
+
+def compress_blocks(block_list) -> list:
+    compressed_blocks = []
+
+    # Remove dividers
+    for block in block_list:
+        if block["type"] != "divider":
+            compressed_blocks.append(block)
+    logging.info(f"Blocks reduced from {len(block_list)} to {len(compressed_blocks)}")
+
+    return compressed_blocks
