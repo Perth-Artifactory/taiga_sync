@@ -689,6 +689,7 @@ def handle_app_home_dropdown_actions(ack, body):
         project_id=project_id,
         item_type=item_type,
         item_id=item_id,
+        taiga_cache=taiga_cache,
     )
 
     # Open the modal
@@ -761,6 +762,7 @@ def handle_comment_addition(ack, body, logger):
         project_id=project_id,
         item_type=item_type,
         item_id=item_id,
+        taiga_cache=taiga_cache,
     )
 
     # Push the modal
@@ -845,6 +847,7 @@ def attach_files(ack, body):
         project_id=project_id,
         item_type=item_type,
         item_id=item_id,
+        taiga_cache=taiga_cache,
     )
 
     # Push the modal
