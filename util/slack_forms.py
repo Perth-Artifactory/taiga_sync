@@ -219,7 +219,7 @@ def questions_to_blocks(
                         key = "types"
                     elif question.get("taiga_map") == "severity":
                         key = "severities"
-                    raw_options = taiga_cache["boards"][key]
+                    raw_options = taiga_cache["boards"][taiga_project_id][key]
                     # trim raw options to just names
                     question["options"] = [
                         option["name"] for option in raw_options.values()
