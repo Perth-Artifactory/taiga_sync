@@ -97,6 +97,11 @@ else:
 
 taigacon = TaigaAPI(host=config["taiga"]["url"], token=taiga_auth_token)
 
+# Set up Taiga cache
+taiga_cache = taigalink.setup_cache(
+    config=config, taiga_auth_token=taiga_auth_token, taigacon=taigacon
+)
+
 # Map project names to IDs
 projects = taigacon.projects.list()
 project_ids = {project.name.lower(): project.id for project in projects}

@@ -869,3 +869,91 @@ def attach_file(
         logger.error(filename)
         logger.error(upload.text)
         return False
+
+
+def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
+    """Query Taiga for a variety of information that doesn't change often and cache it for later use."""
+    cache = {}
+    # Users
+    boards = {}
+
+    # Get all projects
+    response = requests.get(
+        url=f"{config['taiga']['url']}/api/v1/projects",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+    projects = response.json()
+
+    for project in projects:
+        # Create the board
+        boards[project["id"]] = {
+            "name": project["name"],
+            "members": {},
+            "slug": project["slug"],
+            "statuses": {"story": {}, "task": {}, "issue": {}},
+            "severities": {},
+            "types": {},
+        }
+
+        # Project membership
+        for member in project["members"]:
+            # Get info about the member
+            response = requests.get(
+                url=f"{config['taiga']['url']}/api/v1/users/{member}",
+                headers={"Authorization": f"Bearer {taiga_auth_token}"},
+            )
+            member_info = response.json()
+            boards[project["id"]]["members"][member] = {
+                "name": member_info["full_name_display"]
+            }
+
+    # Statuses
+
+    # Get statuses for all projects
+    # We're using python-taiga here because the REST api doesn't return all statuses
+    # by default and this function won't be called outside of startup
+    statuses = {
+        "story": taigacon.user_story_statuses.list(),
+        "task": taigacon.task_statuses.list(),
+        "issue": taigacon.issue_statuses.list(),
+    }
+
+    for status_type in statuses:
+
+        for status in statuses[status_type]:
+            boards[status.project]["statuses"][status_type][
+                status.id
+            ] = status.to_dict()
+
+        # Sort the statuses by order
+        for project in boards:
+            boards[project]["statuses"][status_type] = dict(
+                sorted(
+                    boards[project]["statuses"][status_type].items(),
+                    key=lambda item: item[1]["order"],
+                )
+            )
+
+    # Get all severities
+    severities = taigacon.severities.list()
+    for severity in severities:
+        boards[severity.project]["severities"][severity.id] = severity.to_dict()
+
+    # Get all types
+    types = taigacon.issue_types.list()
+    for type in types:
+        boards[type.project]["types"][type.id] = type.to_dict()
+
+    # Sort types and severities by order
+    for project in boards:
+        for key in ["severities", "types"]:
+            boards[project][key] = dict(
+                sorted(
+                    boards[project][key].items(),
+                    key=lambda item: item[1]["order"],
+                )
+            )
+
+    cache["boards"] = boards
+
+    return cache

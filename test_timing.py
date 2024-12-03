@@ -113,6 +113,17 @@ if "--long" in sys.argv:
 else:
     logger.info("Skipped loading cache direct from TidyHQ, use --long to enable")
 
+div("Taiga cache")
+# Set up Taiga cache
+logger.info("Setting up Taiga cache")
+start_time = time.time()
+taiga_cache = taigalink.setup_cache(
+    config=config, taiga_auth_token=taiga_auth_token, taigacon=taigacon
+)
+end_time = time.time()
+assert isinstance(taiga_cache, dict), f"taiga_cache: {taiga_cache}"
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
 div("Account mapping")
 # Test each of the mapping functions in tidyhq
 logger.info("Testing mapping functions")
