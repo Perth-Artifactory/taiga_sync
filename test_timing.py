@@ -432,3 +432,20 @@ response = requests.get(
 story_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
+
+# Get comments for a user story
+logger.info("Getting comments for a user story")
+# python-taiga
+start_time = time.time()
+comments = taigacon.history.user_story.get(resource_id=204)
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (python-taiga)")
+# Direct
+start_time = time.time()
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/history/userstory/204",
+    headers={"Authorization": f"Bearer {taiga_auth_token}"},
+)
+comments_r = response.json()
+end_time = time.time()
+logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
