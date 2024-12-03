@@ -884,7 +884,10 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     # Get all projects
     response = requests.get(
         url=f"{config['taiga']['url']}/api/v1/projects",
-        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+            "x-disable-pagination": "True",
+        },
     )
     raw_projects = response.json()
 
@@ -907,7 +910,10 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             # Get info about the member
             response = requests.get(
                 url=f"{config['taiga']['url']}/api/v1/users/{member}",
-                headers={"Authorization": f"Bearer {taiga_auth_token}"},
+                headers={
+                    "Authorization": f"Bearer {taiga_auth_token}",
+                    "x-disable-pagination": "True",
+                },
             )
             member_info = response.json()
             boards[project["id"]]["members"][member] = {
@@ -923,8 +929,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     # Statuses
 
     # Get statuses for all projects
-    # We're using python-taiga here because the REST api doesn't return all statuses
-    # by default and this function won't be called outside of startup
+    # This function won't be called outside of startup so we can use python-taiga
     statuses = {
         "story": taigacon.user_story_statuses.list(),
         "task": taigacon.task_statuses.list(),
