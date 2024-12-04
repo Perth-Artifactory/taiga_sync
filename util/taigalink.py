@@ -807,11 +807,12 @@ def validate_form_options(
         key = "types"
     raw_options = taiga_cache["boards"][project_id][key].values()
 
-    raw_options = [item["name"].lower() for item in raw_options]
+    valid_options = [item["name"].lower() for item in raw_options]
 
     for option in options:
         if option.lower() not in valid_options:
             logger.error(f"Invalid option: {option}")
+            logger.error(f"Valid options: {valid_options}")
             return False
     return True
 
