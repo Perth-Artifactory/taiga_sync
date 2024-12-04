@@ -102,6 +102,11 @@ def questions_to_blocks(
         )
 
         if not taiga_project_id:
+            taiga_project_id = taiga_cache["projects"]["by_name_with_extra"].get(
+            taiga_project.capitalize()
+        )
+
+        if not taiga_project_id:
             raise ValueError(f"Could not find project with name {taiga_project}")
 
     if taiga_project_id:
