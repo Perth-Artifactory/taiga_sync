@@ -470,7 +470,9 @@ def handle_form_submissions(ack, body, logger):
         submission=body, slack_app=app
     )
     project_id, taiga_type_id, taiga_severity_id = (
-        slack_forms.form_submission_to_metadata(submission=body, taigacon=taigacon)
+        slack_forms.form_submission_to_metadata(
+            submission=body, taigacon=taigacon, taiga_cache=taiga_cache
+        )
     )
 
     # Reload forms from file

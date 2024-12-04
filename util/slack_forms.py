@@ -480,7 +480,7 @@ def form_submission_to_description(
 
 
 def form_submission_to_metadata(
-    submission: dict, taigacon
+    submission: dict, taigacon, taiga_cache: dict
 ) -> tuple[int, int | None, int | None]:
     """Extracts the Taiga project ID and mapped type/severity if applicable.
 
@@ -527,13 +527,10 @@ def form_submission_to_metadata(
     try:
         project_id = int(form["taiga_project"])
     except:
-        # Query taiga for projects
-        projects = taigacon.projects.list()
-        for project in projects:
-            if project.name.lower() == form["taiga_project"].lower():
-                project_id = project.id
-                break
-        else:
+        project_id = taiga_cache["projects"]["by_name_with_extra"].get(
+            form["taiga_project"]
+        )
+        if not project_id:
             raise ValueError(
                 f"Could not find project with name {form['taiga_project']}"
             )
