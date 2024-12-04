@@ -165,9 +165,6 @@ for contact in tidyhq_cache["contacts"]:
     if not taiga_field:
         continue
 
-    if contact["id"] == 1952718:
-        continue
-
     # IDs are stored as strings in TidyHQ
     taiga_id = int(taiga_field["value"])
 
