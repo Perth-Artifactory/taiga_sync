@@ -206,7 +206,7 @@ if not working:
 
 for assignee in working:
     block_list = []
-    block_list += blocks.text
+    block_list = slack_formatters.add_block(block_list, blocks.text)
     block_list = slack_formatters.inject_text(block_list, message)
     reminder_blocks = slack_formatters.construct_reminder_section(weekly[assignee])
     if not reminder_blocks:

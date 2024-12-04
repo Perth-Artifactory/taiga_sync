@@ -173,16 +173,16 @@ def due_item(item: dict, item_type: str, for_user: str):
 def construct_reminder_section(reminders: dict) -> list:
     block_list = []
     if reminders["story"] != []:
-        block_list += blocks.header
+        block_list = add_block(block_list, blocks.header)
         block_list = inject_text(block_list, "Cards")
-        block_list += blocks.text
+        block_list = add_block(block_list, blocks.text)
         block_list = inject_text(block_list, "\n".join(reminders["story"]))
     if reminders["issue"] != []:
         if block_list != []:
-            block_list += blocks.divider
-        block_list += blocks.header
+            block_list = add_block(block_list, blocks.divider)
+        block_list = add_block(block_list, blocks.header)
         block_list = inject_text(block_list, "Issues")
-        block_list += blocks.text
+        block_list = add_block(block_list, blocks.text)
         block_list = inject_text(block_list, "\n".join(reminders["issue"]))
 
     return block_list

@@ -128,7 +128,7 @@ def questions_to_blocks(
         # Check if we're just adding an explainer (divider is okay too)
         params = [param for param in question.keys() if param != "divider"]
         if "text" in question and len(params) == 1:
-            block_list += blocks.text
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
                 block_list=block_list,
                 text=question.get("text", "This is some default text!"),

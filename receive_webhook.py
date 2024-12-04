@@ -195,7 +195,7 @@ def incoming():
     )
 
     block_list = []
-    block_list += blocks.text
+    block_list = slack_formatters.add_block(block_list, blocks.text)
     block_list = slack_formatters.inject_text(block_list, message)
 
     # Check if there's a url to attach
@@ -222,7 +222,7 @@ def incoming():
         watch_button["value"] = json.dumps(item_data)
 
         # Create an action block and add the buttons
-        block_list += copy(blocks.actions)
+        block_list = slack_formatters.add_block(block_list, blocks.actions)
         block_list[-1]["elements"].append(visit_button)
         block_list[-1]["elements"].append(watch_button)
 

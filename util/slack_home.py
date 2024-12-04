@@ -65,26 +65,27 @@ def generate_app_home(
         slack_id=user_id,
     )
 
+    block_list = []
+    block_list = slack_formatters.add_block(block_list, blocks.header)
+    block_list = slack_formatters.inject_text(
+        block_list=block_list, text=strings.header
+    )
+
     if not taiga_id:
         logger.info(f"User {user_id} does not have a Taiga account.")
         # We don't recognise the user
 
         # Construct blocks
-        block_list = []
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.header
-        )
-        block_list += blocks.text  # type: ignore
+        block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=strings.unrecognised
         )
-        block_list += blocks.divider
-        block_list += blocks.text
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
+        block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=strings.do_instead
         )
-        block_list += blocks.context
+        block_list = slack_formatters.add_block(block_list, blocks.context)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=strings.footer
         )
@@ -99,22 +100,17 @@ def generate_app_home(
         items_added = 0
 
         # Construct blocks
-        block_list = []
-        block_list += blocks.header
-        block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.header
-        )
-        block_list += blocks.text
+        block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=strings.explainer
         )
-        block_list += blocks.divider
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
 
         ##########
         # Stories
         ##########
 
-        block_list += blocks.header
+        block_list = slack_formatters.add_block(block_list, blocks.header)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text="Assigned Cards"
         )
@@ -131,11 +127,11 @@ def generate_app_home(
             )
 
         if len(user_stories) == 0:
-            block_list += blocks.text
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
                 block_list=block_list, text=strings.no_stories
             )
-            block_list += blocks.divider
+            block_list = slack_formatters.add_block(block_list, blocks.divider)
 
         else:
             # Sort the user stories by project
@@ -163,7 +159,7 @@ def generate_app_home(
                     story_list=sorted_stories[project], compressed=compress
                 )
                 if not compress:
-                    block_list += blocks.text
+                    block_list = slack_formatters.add_block(block_list, blocks.text)
                     block_list = slack_formatters.inject_text(
                         block_list=block_list, text=f"*{header}*"
                     )
@@ -173,13 +169,13 @@ def generate_app_home(
             # Remove the last divider
             block_list.pop()
 
-        block_list += blocks.divider
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
 
         ##########
         # Issues
         ##########
 
-        block_list += blocks.header
+        block_list = slack_formatters.add_block(block_list, blocks.header)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text="Assigned Issues"
         )
@@ -196,11 +192,11 @@ def generate_app_home(
             )
 
         if len(user_issues) == 0:
-            block_list += blocks.text
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
                 block_list=block_list, text=strings.no_issues
             )
-            block_list += blocks.divider
+            block_list = slack_formatters.add_block(block_list, blocks.divider)
 
         else:
             # Sort the user issues by project
@@ -229,7 +225,7 @@ def generate_app_home(
                     issue_list=sorted_issues[project], compressed=compress
                 )
                 if not compress:
-                    block_list += blocks.text
+                    block_list = slack_formatters.add_block(block_list, blocks.text)
                     block_list = slack_formatters.inject_text(
                         block_list=block_list, text=f"*{header}*"
                     )
@@ -239,13 +235,13 @@ def generate_app_home(
             # Remove the last divider
             block_list.pop()
 
-        block_list += blocks.divider
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
 
         ##########
         # Tasks
         ##########
 
-        block_list += blocks.header
+        block_list = slack_formatters.add_block(block_list, blocks.header)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text="Assigned Tasks"
         )
@@ -262,7 +258,7 @@ def generate_app_home(
             )
 
         if len(tasks) == 0:
-            block_list += blocks.text
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
                 block_list=block_list, text=strings.no_tasks
             )
@@ -302,7 +298,7 @@ def generate_app_home(
                     continue
 
                 if not compress:
-                    block_list += blocks.text
+                    block_list = slack_formatters.add_block(block_list, blocks.text)
                     block_list = slack_formatters.inject_text(
                         block_list=block_list, text=f"*{header}*"
                     )
@@ -313,8 +309,8 @@ def generate_app_home(
             block_list.pop()
 
         if at_block_limit:
-            block_list += blocks.divider
-            block_list += blocks.text
+            block_list = slack_formatters.add_block(block_list, blocks.divider)
+            block_list = slack_formatters.add_block(block_list, blocks.text)
             block_list = slack_formatters.inject_text(
                 block_list=block_list, text=strings.trimmed.format(items=items_added)
             )
@@ -336,7 +332,7 @@ def generate_app_home(
         # Get the OS environment
         platform_name = platform.system()
 
-        block_list += blocks.context
+        block_list = slack_formatters.add_block(block_list, blocks.context)
         block_list = slack_formatters.inject_text(
             block_list=block_list,
             text=strings.footer.format(
