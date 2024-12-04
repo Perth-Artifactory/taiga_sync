@@ -533,16 +533,16 @@ def form_submission_to_metadata(
 
     if project_id:
         if taiga_type_str:
-            taiga_types = taigacon.issue_types.list(project=project_id)
-            for taiga_type in taiga_types:
-                if taiga_type.name.lower() == taiga_type_str.lower():
-                    taiga_type_id = taiga_type.id
+            taiga_types: dict = taiga_cache["boards"][project_id]["types"]
+            for current_type_id, taiga_type in taiga_types.items():
+                if taiga_type["name"].lower() == taiga_type_str.lower():
+                    taiga_type_id = current_type_id
                     break
         if taiga_severity_str:
-            taiga_severities = taigacon.severities.list()
-            for taiga_severity in taiga_severities:
-                if taiga_severity.name.lower() == taiga_severity_str.lower():
-                    taiga_severity_id = taiga_severity.id
+            taiga_severities = taiga_cache["boards"][project_id]["severities"]
+            for current_severity_id, taiga_severity in taiga_severities:
+                if taiga_severity["name"].lower() == taiga_severity_str.lower():
+                    taiga_severity_id = current_severity_id
                     break
 
     return project_id, taiga_type_id, taiga_severity_id
