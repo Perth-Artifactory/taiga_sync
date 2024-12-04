@@ -5,3 +5,4 @@ template_actions.json
 attendee.lock
 run.sh
 *.blocks.json
+.coverage
