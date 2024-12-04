@@ -97,14 +97,10 @@ def questions_to_blocks(
     block_list = []
 
     if taiga_project and not taiga_project_id:
-        taiga_project_id = taigalink.item_mapper(
-            item=taiga_project,
-            field_type="project",
-            project_id=None,
-            taiga_auth_token="",
-            config={},
-            taigacon=taigacon,
+        taiga_project_id = taiga_cache["projects"]["by_name_with_extra"].get(
+            taiga_project
         )
+
         if not taiga_project_id:
             raise ValueError(f"Could not find project with name {taiga_project}")
 
