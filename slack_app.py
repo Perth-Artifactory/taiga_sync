@@ -679,18 +679,18 @@ def handle_app_home_opened_events(body, client, logger):
 
 
 @app.action(re.compile(r"^viewedit-.*"))
-def handle_app_home_dropdown_actions(ack, body):
+def handle_app_home_viewedit_actions(ack, body):
     """Listen for app home actions"""
-    ack()
 
     # Retrieve action details if applicable
     value_string = body["actions"][0]["action_id"]
 
     project_id, item_type, item_id = value_string.split("-")[1:]
 
-    logger.debug(
+    logger.info(
         f"Received view/edit for {item_type} {item_id} in project {project_id}"
     )
+    ack()
 
     # Bring up the view/edit modal
     block_list = slack_home.viewedit_blocks(
@@ -700,6 +700,8 @@ def handle_app_home_dropdown_actions(ack, body):
         item_id=item_id,
         taiga_cache=taiga_cache,
     )
+
+    logger.debug(f"Generated {len(block_list)} blocks")
 
     # Open the modal
     try:
@@ -715,9 +717,12 @@ def handle_app_home_dropdown_actions(ack, body):
                 "clear_on_close": True,
             },
         )
+        logger.info(
+            f"View/edit modal for {item_type} {item_id} in project {project_id} sent to {body['user']['id']}"
+        )
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
-
+    
 
 # Comment
 @app.action("submit_comment")
