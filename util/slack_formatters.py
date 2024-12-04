@@ -240,6 +240,6 @@ def compress_blocks(block_list) -> list:
     for block in block_list:
         if block["type"] != "divider":
             compressed_blocks.append(block)
-    logging.info(f"Blocks reduced from {len(block_list)} to {len(compressed_blocks)}")
+    logging.debug(f"Blocks reduced from {len(block_list)} to {len(compressed_blocks)}")
 
     return compressed_blocks
