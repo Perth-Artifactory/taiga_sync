@@ -339,9 +339,10 @@ def handle_issue_command(ack, respond, command, client):
 
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
+@app.action("submit_form")
 def handle_form_command(ack, respond, command, client, body):
     """Load the form selection modal"""
-    logger.info(f"Received form selection shortcut")
+    logger.info(f"Received form selection shortcut or button")
     ack()
     user = body["user"]
 

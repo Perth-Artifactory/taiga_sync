@@ -71,6 +71,12 @@ def generate_app_home(
         block_list=block_list, text=strings.header
     )
 
+    # Add a "submit form" button
+    block_list = slack_formatters.add_block(block_list, blocks.actions)
+    block_list[-1]["elements"].append(copy(blocks.button))
+    block_list[-1]["elements"][0]["text"]["text"] = "Submit a form"
+    block_list[-1]["elements"][0]["action_id"] = "submit_form"
+
     if not taiga_id:
         logger.info(f"User {user_id} does not have a Taiga account.")
         # We don't recognise the user
