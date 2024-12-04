@@ -482,20 +482,20 @@ def handle_form_submissions(ack, body, logger):
 
     if "taiga_type" in form and project_id:
         if taiga_type_id:
-            # If the form doesn't have a type set via a question then we don't need to log that we're override it
+            # If the form doesn't have a type set via a question then we don't need to log that we're overriding it
             logger.debug("Overriding type with form-specific type")
         try:
             taiga_type_id = int(form["taiga_type"])
         except ValueError:
             # IDs are ints, if it's not then we need map from a name
-            taiga_type_id = taigalink.item_mapper(
-                item=form["taiga_type"],
-                field_type="type",
-                project_id=project_id,
-                taiga_auth_token=taiga_auth_token,
-                taigacon=taigacon,
-                config=config,
-            )
+            types = taiga_cache["boards"][project_id]["types"]
+            for current_type_id, current_type in types.items():
+                if current_type["name"].lower() == form["taiga_type"].lower():
+                    taiga_type_id = current_type_id
+                    break
+            else:
+                # If we get here then we didn't find the type
+                logger.error(f"Failed to resolve type {form['taiga_type']} to an ID")
             logger.info(f"Resolved {form['taiga_type']} to {taiga_type_id}")
 
     # Get the user's name from their Slack ID
