@@ -9,7 +9,7 @@ import time
 
 from taiga import TaigaAPI
 
-from util import slack, taigalink, tidyhq
+from util import slack, taigalink, tidyhq, blocks, slack_formatters
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +21,30 @@ slack_logger = logging.getLogger("slack")
 slack_logger.setLevel(logging.INFO)
 setup_logger = logging.getLogger("setup")
 logger = logging.getLogger("issue_sync")
+
+
+def notify(message: str, blocks: list, slack_app):
+    slack_app.client.chat_postMessage(
+        channel=config["taiga-channel"]["4"],
+        text=message,
+        blocks=blocks,
+        unfurl_links=False,
+        unfurl_media=False,
+    )
+
+
+def construct_link_blocks(tidyhq_id, tidyhq_name, taiga_username, method):
+    block_list = []
+    block_list = slack_formatters.add_block(block_list=block_list, block=blocks.text)
+    block_list = slack_formatters.inject_text(
+        block_list=block_list,
+        text=f"Linking TidyHQ contact <{tidyhq_user_url.format(contact_id=tidyhq_id)}|{tidyhq_name}> to Taiga user <{taiga_user_url.format(username=taiga_username)}|@{taiga_username}>",
+    )
+    block_list = slack_formatters.add_block(block_list=block_list, block=blocks.context)
+    block_list = slack_formatters.inject_text(
+        block_list=block_list, text=f"This match was performed by: {method}"
+    )
+    return block_list
 
 
 # Load config
@@ -74,6 +98,23 @@ setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
 
+# Set up slack
+app = App(token=config["slack"]["bot_token"], logger=slack_logger)
+
+# Calculate URLs for users
+taiga_user_url = f"{config['taiga']['url']}/profile/{{username}}"
+# Get the TidyHQ domain prefix
+r = requests.get(
+    url="https://api.tidyhq.com/v1/organization",
+    headers={"Authorization": f"Bearer {config['tidyhq']['token']}"},
+)
+if r.status_code == 200:
+    tidyhq_domain = r.json()["domain_prefix"]
+else:
+    setup_logger.error(f"Failed to get TidyHQ domain: {r.status_code}")
+    sys.exit(1)
+tidyhq_user_url = f"https://{tidyhq_domain}.tidyhq.com/contacts/{{contact_id}}"
+
 # Get all Taiga users via the Taiga api
 url = f"{config['taiga']['url']}/api/v1/users"
 
@@ -106,7 +147,10 @@ for user in taiga_users_raw:
 
     # Check if the user has an email address
     if user_info.get("email"):
-        taiga_users[user_info["email"]] = {"taiga": user["id"]}
+        taiga_users[user_info["email"]] = {
+            "taiga": user["id"],
+            "username": user["username"],
+        }
 
 first_count = len(taiga_users)
 
@@ -119,6 +163,9 @@ for contact in tidyhq_cache["contacts"]:
         field_map_name="taiga",
     )
     if not taiga_field:
+        continue
+
+    if contact["id"] == 1952718:
         continue
 
     # IDs are stored as strings in TidyHQ
@@ -151,6 +198,17 @@ for contact in tidyhq_cache["contacts"]:
             logger.info(f"Set Taiga ID on contact {contact['id']}")
             # Remove the user from the list
             taiga_users.pop(email)
+            notify_blocks = construct_link_blocks(
+                tidyhq_id=contact["id"],
+                tidyhq_name=contact["display_name"],
+                taiga_username=taiga_users[email]["username"],
+                method="Email address matching",
+            )
+            notify(
+                message=f"Linking TidyHQ contact {contact['display_name']} to Taiga user {taiga_users[email]['taiga']}",
+                blocks=notify_blocks,
+                slack_app=app,
+            )
         else:
             logger.error(f"Failed to set Taiga ID on contact {contact['id']}")
 
@@ -170,6 +228,15 @@ for user in taiga_users:
     if not tidyhq_id:
         continue
 
+    # Get the contact info using the ID
+    for current_contact in tidyhq_cache["contacts"]:
+        if current_contact["id"] == int(tidyhq_id):
+            contact = current_contact
+            break
+    else:
+        logger.error(f"Contact {tidyhq_id} not found")
+        continue
+
     tidyhq_id = tidyhq_id.strip()
     setting = tidyhq.set_custom_field(
         config=config,
@@ -180,6 +247,17 @@ for user in taiga_users:
     if setting:
         logger.info(f"Set Taiga ID on contact {tidyhq_id}")
         removing.append(user)
+        notify_blocks = construct_link_blocks(
+            tidyhq_id=tidyhq_id,
+            tidyhq_name=contact["display_name"],
+            taiga_username=taiga_users[user]["username"],
+            method="Manual linking",
+        )
+        notify(
+            message=f"Linking TidyHQ contact {contact['display_name']} to Taiga user {taiga_users[user]['username']}",
+            blocks=notify_blocks,
+            slack_app=app,
+        )
     else:
         logger.error(f"Failed to set Taiga ID on contact {tidyhq_id}")
 
