@@ -26,6 +26,31 @@ from util import (
 )
 
 
+def log_time(
+    start_time: float, end_time: float, logger: logging.Logger, cause: str | None = None
+) -> None:
+    """Log the time taken for a command to return to Slack. Optionally log a likely cause for the delay if provided and the time taken is over 1000ms
+
+    Sub 1000ms: Debug
+    1000-2000ms: Info
+    2000ms+: Warning
+
+    """
+    time_taken = end_time - start_time
+    # Convert time taken to ms
+    time_taken *= 1000
+    if time_taken < 1000:
+        logger.debug(f"Command took {time_taken:.2f}ms to return to slack")
+    elif time_taken > 2000:
+        logger.warning(f"Command took {time_taken:.2f}ms to return to slack")
+        if cause:
+            logger.warning(f"Likely due to: {cause}")
+    elif time_taken > 1000:
+        logger.info(f"Command took {time_taken:.2f}ms to return to slack")
+        if cause:
+            logger.info(f"Likely due to: {cause}")
+
+
 def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
     # Discard everything before the bot is mentioned, including the mention itself
     try:
@@ -58,9 +83,10 @@ urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
 # Set slack bolt logging level to INFO to reduce noise when individual modules are set to debug
 slack_logger = logging.getLogger("slack")
-slack_logger.setLevel(logging.INFO)
+slack_logger.setLevel(logging.WARN)
 setup_logger = logging.getLogger("setup")
 logger = logging.getLogger("slack_app")
+response_logger = logging.getLogger("response")
 
 # Load config
 try:
@@ -147,6 +173,7 @@ for channel in channels:
 # Event listener for messages that mention the bot
 @app.event("app_mention")
 def handle_app_mention(event, ack, client, respond):
+    start_time = time.time()
     """Respond to a mention of the bot with a message"""
     user = event["user"]
     text = event["text"]
@@ -187,9 +214,8 @@ def handle_app_mention(event, ack, client, respond):
         if root_message:
             root_text = root_message["text"]
             # Get the display name of the user who created the thread
-            root_user_info = client.users_info(user=root_message["user"])
-            root_user_display_name = root_user_info["user"]["profile"].get(
-                "real_name", root_user_info["user"]["profile"]["display_name"]
+            root_user_display_name = slack.name_mapper(
+                slack_id=root_message["user"], slack_app=app
             )
 
             board, description = extract_issue_particulars(message=text)
@@ -253,12 +279,14 @@ def handle_app_mention(event, ack, client, respond):
                 text="The issue has been created on Taiga, thanks!",
                 thread_ts=event["ts"],
             )
+        log_time(start_time, time.time(), response_logger, cause="Issue creation")
 
 
 # Event listener for direct messages to the bot
 @app.event("message")
 def handle_message(event, say, client, ack):
     """Respond to direct messages sent to the bot"""
+    start_time = time.time()
     if event.get("channel_type") != "im":
         ack()
         return
@@ -300,12 +328,14 @@ def handle_message(event, say, client, ack):
     )
     if issue:
         say("The issue has been created on Taiga, thanks!")
+    log_time(start_time, time.time(), response_logger, cause="Issue creation")
 
 
 # Command listener for /issue
 @app.command("/issue")
 def handle_issue_command(ack, respond, command, client):
     """Raise issues on Taiga via /issue"""
+    start_time = time.time()
     logger.info(f"Received /issue command")
     ack()
     user = command["user_id"]
@@ -343,12 +373,15 @@ def handle_issue_command(ack, respond, command, client):
     if issue:
         respond("The issue has been created on Taiga, thanks!")
 
+    log_time(start_time, time.time(), response_logger, cause="Issue creation")
+
 
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
 @app.action("submit_form")
 def handle_form_command(ack, respond, command, client, body):
     """Load the form selection modal"""
+    start_time = time.time()
     logger.info(f"Received form selection shortcut or button")
     ack()
     user = body["user"]
@@ -376,7 +409,9 @@ def handle_form_command(ack, respond, command, client, body):
             artifactory_member = True
 
     # If they're not an AF member refresh the cache and try again
+    refreshed_cache = False
     if not artifactory_member:
+        refreshed_cache = True
         tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
         tidyhq_id = tidyhq.map_slack_to_tidyhq(
             tidyhq_cache=tidyhq_cache,
@@ -395,6 +430,36 @@ def handle_form_command(ack, respond, command, client, body):
     block_list = slack_forms.render_form_list(
         form_list=forms.forms, member=artifactory_member
     )
+
+    if refreshed_cache:
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="TidyHQ cache refresh after not matching user, form selection modal generation",
+        )
+    else:
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="Form selection modal generation",
+        )
+
+    if refreshed_cache:
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="TidyHQ cache refresh after not matching user, form selection modal generation",
+        )
+    else:
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="Form selection modal generation",
+        )
 
     # Open the modal
     try:
@@ -422,6 +487,7 @@ def ignore_link_button_presses(ack):
 @app.action(re.compile(r"^form-open-.*"))
 def handle_form_open_button(ack, body, client):
     """Open the selected form in a modal"""
+    start_time = time.time()
     ack()
     form_name = body["actions"][0]["value"]
 
@@ -447,6 +513,8 @@ def handle_form_open_button(ack, body, client):
             form_title = form["short_title"]
     else:
         form_title = form["title"]
+
+    log_time(start_time, time.time(), response_logger)
 
     # Open the modal
     try:
@@ -475,6 +543,8 @@ def handle_form_open_button(ack, body, client):
 
 @app.view("form_submission")
 def handle_form_submissions(ack, body, logger):
+    """Process form submissions"""
+    start_time = time.time()
     description, files = slack_forms.form_submission_to_description(
         submission=body, slack_app=app
     )
@@ -562,6 +632,16 @@ def handle_form_submissions(ack, body, logger):
 
     slack.send_dm(slack_id=body["user"]["id"], message=message, slack_app=app)
 
+    if len(files) > 0:
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="File upload, issue creation",
+        )
+    else:
+        log_time(start_time, time.time(), response_logger, cause="Issue creation")
+
 
 @app.view("form_submitted")
 def ignore_form_submitted(ack):
@@ -578,6 +658,7 @@ def watch_button(ack, body, respond):
     * item_id: The ID of the item
     * type: The type of item (e.g. userstory, issue)
     * permalink: The permalink to the URL in Taiga, if available"""
+    start_time = time.time()
     ack()
     watch_target = json.loads(body["actions"][0]["value"])
 
@@ -660,6 +741,13 @@ def watch_button(ack, body, respond):
         channel=body["channel"]["id"], user=body["user"]["id"], text=message
     )
 
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause="Item retrieval, watcher addition",
+    )
+
 
 @app.event("reaction_added")
 def handle_reaction_added_events(ack):
@@ -670,6 +758,7 @@ def handle_reaction_added_events(ack):
 @app.event("app_home_opened")
 def handle_app_home_opened_events(body, client, logger):
     """Regenerate the app home when it's opened by a user"""
+    start_time = time.time()
     user_id = body["event"]["user"]
 
     # Get user details for more helpful console messages
@@ -686,10 +775,18 @@ def handle_app_home_opened_events(body, client, logger):
         slack_app=app,
     )
 
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause="TidyHQ cache refresh, app home generation",
+    )
+
 
 @app.action(re.compile(r"^viewedit-.*"))
 def handle_viewedit_actions(ack, body):
     """Listen for view in app and view/edit actions"""
+    start_time = time.time()
 
     # Retrieve action details if applicable
     value_string = body["actions"][0]["action_id"]
@@ -732,6 +829,15 @@ def handle_viewedit_actions(ack, body):
         taiga_auth_token=taiga_auth_token,
         edit=edit,
     )
+
+    if taiga_id:
+        log_time(
+            start_time, time.time(), response_logger, cause="View/edit modal generation"
+        )
+    else:
+        log_time(
+            start_time, time.time(), response_logger, cause="View modal generation"
+        )
 
     if modal_method == "open":
         # Open the modal
@@ -808,6 +914,7 @@ def handle_viewedit_actions(ack, body):
 @app.action("submit_comment")
 def handle_comment_addition(ack, body, logger):
     """Handle comment additions"""
+    start_time = time.time()
     ack()
 
     user_id = body["user"]["id"]
@@ -870,6 +977,13 @@ def handle_comment_addition(ack, body, logger):
         taiga_auth_token=taiga_auth_token,
     )
 
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause="Comment addition, view/edit modal regeneration",
+    )
+
     # Push the modal
     logging.info("Opening new modal")
     try:
@@ -922,6 +1036,7 @@ def attach_files_modal(ack, body):
 @app.action(re.compile(r"^view_tasks-.*"))
 def view_tasks(ack, body, logger):
     """Push a modal to view tasks attached to a specific user story"""
+    start_time = time.time()
     ack()
 
     value_string = body["actions"][0]["action_id"]
@@ -950,6 +1065,8 @@ def view_tasks(ack, body, logger):
         task_list=tasks, config=config, taiga_auth_token=taiga_auth_token, edit=edit
     )
 
+    log_time(start_time, time.time(), response_logger, cause="Task retrieval")
+
     # Push a new modal
     try:
         client.views_push(
@@ -973,6 +1090,7 @@ def view_tasks(ack, body, logger):
 @app.view("submit_files")
 def attach_files(ack, body):
     """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
+    start_time = time.time()
     ack()
     files = body["view"]["state"]["values"]["upload_section"]["upload_file"]["files"]
 
@@ -1009,6 +1127,13 @@ def attach_files(ack, body):
         taiga_auth_token=taiga_auth_token,
     )
 
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause=f"File upload ({len(files)} files), view/edit modal regeneration",
+    )
+
     # Push the modal
     logging.info("Refreshing root view modal")
     try:
@@ -1030,6 +1155,8 @@ def attach_files(ack, body):
 
 @app.action("edit_info")
 def send_info_modal(ack, body, logger):
+    """Open a modal to edit the details of an item"""
+    start_time = time.time()
     ack()
 
     # Get the item details from the private metadata
@@ -1042,6 +1169,8 @@ def send_info_modal(ack, body, logger):
         item_id=item_id,
         taiga_cache=taiga_cache,
     )
+
+    log_time(start_time, time.time(), response_logger, cause="Edit modal generation")
 
     # Push the modal
     logging.info("Opening new modal")
@@ -1065,6 +1194,8 @@ def send_info_modal(ack, body, logger):
 
 @app.view("edited_info")
 def edit_info(ack, body, logger):
+    """Update the details of an item"""
+    start_time = time.time()
     ack()
 
     # Get the item details from the private metadata
@@ -1179,6 +1310,13 @@ def edit_info(ack, body, logger):
                     fields=["priority"], priority=int(priority), version=item.version
                 )
 
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause=f"Item update ({len(body['view']['state']['values'])} fields)",
+    )
+
 
 @app.view("finished_editing")
 def finished_editing(ack, body):
@@ -1189,6 +1327,7 @@ def finished_editing(ack, body):
 @app.action(re.compile(r"^complete-.*"))
 def complete_task(ack, body, client):
     """Mark a task a complete"""
+    start_time = time.time()
     ack()
 
     # Get the item details from the action ID
@@ -1219,9 +1358,6 @@ def complete_task(ack, body, client):
         return
 
     if item_type == "task":
-        # Give Taiga time to update
-        # time.sleep(0.5)
-
         # Get the tasks for the modal
         tasks = taigalink.get_tasks(
             config=config,
@@ -1233,6 +1369,13 @@ def complete_task(ack, body, client):
         # Regenerate the task view modal
         block_list = slack_formatters.format_tasks_modal_blocks(
             task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
+        )
+
+        log_time(
+            start_time,
+            time.time(),
+            response_logger,
+            cause="Task completion, task view modal regeneration",
         )
 
         # Update the current modal
