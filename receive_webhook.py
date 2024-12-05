@@ -11,6 +11,7 @@ from copy import deepcopy as copy
 from pprint import pprint
 
 import requests
+import platform
 from flask import Flask, request
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -19,8 +20,9 @@ from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
 from waitress import serve
 from werkzeug.middleware.proxy_fix import ProxyFix
-
+import subprocess
 from util import blocks, slack, slack_formatters, taigalink, tidyhq
+from editable_resources import strings
 
 
 def verify_signature(key, data, signature):
@@ -92,6 +94,24 @@ setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
 
+# Get information about the version of the script that's running
+commit_hash = (
+    subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+    .decode("ascii")
+    .strip()
+)
+branch_name = (
+    subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    .decode("ascii")
+    .strip()
+)
+
+# Get the OS environment
+platform_name = platform.system()
+version = strings.version.format(
+    branch=branch_name, commit=commit_hash, platform=platform_name
+)
+
 # Initialize the app with your bot token and signing secret
 slack_app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
@@ -136,7 +156,7 @@ def incoming():
         # It's assumed that issues created by people directly in Taiga are already being handled appropriately
         if data["type"] == "issue" and data["by"]["full_name"] != "Giant Robot":
             logger.debug("Issue created by non-Giant Robot user, no action required")
-            return "No action required", 200
+            return f"No action required - {version}", 200
         elif data["type"] == "issue":
             # Giant Robot only raises issues based on Slack interactions.
             # We can find the user who initiated the action by looking at the description
@@ -184,7 +204,7 @@ def incoming():
     logger.info(f"New: {new_thing}, Important: {important}, Watched: {watched}")
 
     if not new_thing and not important and not watched:
-        return "No action required", 200
+        return f"No action required - {version}", 200
 
     # Construction the message
     message = taigalink.parse_webhook_action_into_str(
@@ -313,7 +333,7 @@ def incoming():
             logger.error(e.response["error"])
             pprint(block_list)
 
-    return "Actioned!", 200
+    return f"Actioned - {version}", 200
 
 
 @flask_app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
