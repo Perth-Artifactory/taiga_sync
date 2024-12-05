@@ -80,7 +80,12 @@ div("TidyHQ Caches")
 # Set up TidyHQ cache
 if config.get("tidyproxy"):
     logger.info("Setting up TidyHQ cache from tidyproxy")
-    os.remove("cache.json")
+    try:
+        os.remove("cache.json")
+    except FileNotFoundError:
+        pass
+    except PermissionError:
+        logger.error("Failed to remove cache.json")
     start_time = time.time()
     tidyhq_cache = tidyhq.fresh_cache(config=config)
     end_time = time.time()
@@ -104,7 +109,10 @@ if "--long" in sys.argv:
     fake_config = copy(config)
     if "tidyproxy" in fake_config:
         del fake_config["tidyproxy"]
-    os.remove("cache.json")
+    try:
+        os.remove("cache.json")
+    except FileNotFoundError:
+        pass
     logger.info("Setting up TidyHQ cache from TidyHQ")
     start_time = time.time()
     tidyhq_cache = tidyhq.fresh_cache(config=fake_config)
@@ -123,6 +131,12 @@ taiga_cache = taigalink.setup_cache(
 end_time = time.time()
 assert isinstance(taiga_cache, dict), f"taiga_cache: {taiga_cache}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+################## Placeholder for test functions ##################
+
+
+################## Placeholder for test functions ##################
+
 
 div("Account mapping")
 # Test each of the mapping functions in tidyhq
