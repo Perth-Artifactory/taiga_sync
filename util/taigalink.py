@@ -784,7 +784,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
         }
 
         # Add the project to the project cache
-        projects["by_name"][project["name"]] = project["id"]
+        projects["by_name"][project["name"].lower()] = project["id"]
 
         # Project membership
         for member in project["members"]:
@@ -858,12 +858,12 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
 
     projects["by_name_with_extra"] = projects["by_name"]
     # Duplicate similar board names for QoL
-    projects["by_name_with_extra"]["Infra"] = projects["by_name_with_extra"][
+    projects["by_name_with_extra"]["infra"] = projects["by_name_with_extra"][
         "Infrastructure"
     ]
-    projects["by_name_with_extra"]["Laser"] = projects["by_name_with_extra"]["Lasers"]
-    projects["by_name_with_extra"]["Printer"] = projects["by_name_with_extra"]["3D"]
-    projects["by_name_with_extra"]["Printers"] = projects["by_name_with_extra"]["3D"]
+    projects["by_name_with_extra"]["laser"] = projects["by_name_with_extra"]["Lasers"]
+    projects["by_name_with_extra"]["printer"] = projects["by_name_with_extra"]["3D"]
+    projects["by_name_with_extra"]["printers"] = projects["by_name_with_extra"]["3D"]
 
     cache["projects"] = projects
 

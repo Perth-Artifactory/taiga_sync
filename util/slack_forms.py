@@ -98,12 +98,7 @@ def questions_to_blocks(
 
     if taiga_project and not taiga_project_id:
         taiga_project_id = taiga_cache["projects"]["by_name_with_extra"].get(
-            taiga_project
-        )
-
-        if not taiga_project_id:
-            taiga_project_id = taiga_cache["projects"]["by_name_with_extra"].get(
-            taiga_project.capitalize()
+            taiga_project.lower()
         )
 
         if not taiga_project_id:
