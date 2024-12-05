@@ -538,7 +538,12 @@ def parse_webhook_action_into_str(
         if data["change"]["comment"]:
             # If there's a comment we'll create a fake "comment" action that makes the notification read better
             action = "comment"
-            description += f"Comment: {data['change']['comment']}"
+            comment = data["change"]["comment"]
+            if "Posted from Slack" in comment:
+                # Trim bylines we add elsewhere
+                if ":" in comment:
+                    comment = comment.split(":")[1].strip()
+            description += f"Comment: {comment}"
         else:
             for diff in data["change"]["diff"]:
                 if diff in ["finish_date"]:

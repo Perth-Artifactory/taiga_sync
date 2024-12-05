@@ -688,8 +688,8 @@ def handle_app_home_opened_events(body, client, logger):
 
 
 @app.action(re.compile(r"^viewedit-.*"))
-def handle_app_home_viewedit_actions(ack, body):
-    """Listen for app home actions"""
+def handle_viewedit_actions(ack, body):
+    """Listen for view in app and view/edit actions"""
 
     # Retrieve action details if applicable
     value_string = body["actions"][0]["action_id"]
@@ -705,7 +705,23 @@ def handle_app_home_viewedit_actions(ack, body):
     logger.info(f"Received view/edit for {item_type} {item_id} in project {project_id}")
     ack()
 
-    # Bring up the view/edit modal
+    # Attempt to map the Slack user to a Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
+        view_title = f"View {item_type}"
+        edit = False
+
+    else:
+        view_title = f"View/edit {item_type}"
+        edit = True
+
+    # Generate the blocks for the view/edit modal
     block_list = slack_home.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
@@ -714,9 +730,8 @@ def handle_app_home_viewedit_actions(ack, body):
         taiga_cache=taiga_cache,
         config=config,
         taiga_auth_token=taiga_auth_token,
+        edit=edit,
     )
-
-    logger.debug(f"Generated {len(block_list)} blocks")
 
     if modal_method == "open":
         # Open the modal
@@ -726,7 +741,7 @@ def handle_app_home_viewedit_actions(ack, body):
                 view={
                     "type": "modal",
                     "callback_id": "finished_editing",
-                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
                     "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
@@ -734,7 +749,7 @@ def handle_app_home_viewedit_actions(ack, body):
                 },
             )
             logger.info(
-                f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']}"
+                f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']} ({taiga_id})"
             )
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
@@ -749,7 +764,7 @@ def handle_app_home_viewedit_actions(ack, body):
                 view={
                     "type": "modal",
                     "callback_id": "finished_editing",
-                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
                     "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
@@ -773,7 +788,7 @@ def handle_app_home_viewedit_actions(ack, body):
                 view={
                     "type": "modal",
                     "callback_id": "finished_editing",
-                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
                     "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
@@ -831,11 +846,15 @@ def handle_comment_addition(ack, body, logger):
         slack_id=user_id,
     )
 
-    # Get the user's name from their Taiga ID
-    taiga_user_info = taiga_cache["users"][taiga_id]
+    if taiga_id:
+        # Get the user's name from their Taiga ID
+        taiga_user_info = taiga_cache["users"][taiga_id]
+        poster_name = taiga_user_info["name"]
+    else:
+        poster_name = slack.name_mapper(slack_id=user_id, slack_app=app)
 
     # Add byline
-    comment = f"Posted from Slack by {taiga_user_info['name']}: {comment}"
+    comment = f"Posted from Slack by {poster_name}: {comment}"
 
     # Post the comment
     commenting = item.add_comment(comment)
@@ -916,8 +935,19 @@ def view_tasks(ack, body, logger):
         story_id=story_id,
     )
 
+    # Attempt to identify the user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    edit = False
+    if taiga_id:
+        edit = True
+
     block_list = slack_formatters.format_tasks_modal_blocks(
-        task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
+        task_list=tasks, config=config, taiga_auth_token=taiga_auth_token, edit=edit
     )
 
     # Push a new modal

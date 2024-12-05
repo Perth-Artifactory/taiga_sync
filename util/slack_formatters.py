@@ -143,7 +143,7 @@ def format_issues(issue_list, compressed=False):
 
 
 def format_tasks_modal_blocks(
-    task_list: list, config: dict, taiga_auth_token: str
+    task_list: list, config: dict, taiga_auth_token: str, edit=True
 ) -> list[dict]:
     """Format a list of tasks into the blocks required for a modal view"""
     block_list = []
@@ -187,26 +187,26 @@ def format_tasks_modal_blocks(
         if fields:
             block_list[-1]["fields"] = fields
 
-        # Set up buttons
+        if edit:
+            # Set up buttons
+            button_list = []
+            # If the task is not closed, add a mark complete button
+            if not task["is_closed"]:
+                button = copy(blocks.button)
+                button["text"]["text"] = "Mark Complete"
+                button["action_id"] = (
+                    f"complete-{task['project_extra_info']['id']}-task-{task['id']}"
+                )
+                button_list.append(button)
 
-        button_list = []
-        # If the task is not closed, add a mark complete button
-        if not task["is_closed"]:
-            button = copy(blocks.button)
-            button["text"]["text"] = "Mark Complete"
-            button["action_id"] = (
-                f"complete-{task['project_extra_info']['id']}-task-{task['id']}"
-            )
-            button_list.append(button)
-
-        # If we only have one button we can attach it to the text block
-        if len(button_list) == 1:
-            block_list[-1]["accessory"] = button_list[0]
-        elif len(button_list) > 1:
-            block_list = add_block(block_list, blocks.actions)
-            block_list[-1]["elements"] = button_list
-            block_list[-1].pop("block_id")
-            block_list = add_block(block_list, blocks.divider)
+            # If we only have one button we can attach it to the text block
+            if len(button_list) == 1:
+                block_list[-1]["accessory"] = button_list[0]
+            elif len(button_list) > 1:
+                block_list = add_block(block_list, blocks.actions)
+                block_list[-1]["elements"] = button_list
+                block_list[-1].pop("block_id")
+                block_list = add_block(block_list, blocks.divider)
 
     return block_list
 

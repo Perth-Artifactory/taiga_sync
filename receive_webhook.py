@@ -204,7 +204,7 @@ def incoming():
     if url:
         # Construct the "View in Taiga" button
         visit_button = copy(blocks.button)
-        visit_button["text"]["text"] = "View in Taiga"
+        visit_button["text"]["text"] = "View on web"
         visit_button["url"] = url
         visit_button["action_id"] = f"tlink{uuid.uuid4().hex}"
 
@@ -221,8 +221,16 @@ def incoming():
         }
         watch_button["value"] = json.dumps(item_data)
 
+        # Construct the "View in app" button
+        app_button = copy(blocks.button)
+        app_button["text"]["text"] = "View in app"
+        app_button["action_id"] = (
+            f"viewedit-{project_id}-{data['type']}-{data['data']['id']}"
+        )
+
         # Create an action block and add the buttons
         block_list = slack_formatters.add_block(block_list, blocks.actions)
+        block_list[-1]["elements"].append(app_button)
         block_list[-1]["elements"].append(visit_button)
         block_list[-1]["elements"].append(watch_button)
 
@@ -238,6 +246,24 @@ def incoming():
     if data["by"]["full_name"] != "Giant Robot":
         sender_image = data["by"].get("photo", None)
         sender_name = f"{data['by']['full_name'].split(' ')[0]} | Taiga"
+
+    else:
+        # Check if we're announcing a comment
+        pprint(data)
+        if (
+            data["action"] == "change"
+            and data.get("change", {"comment": None})["comment"]
+        ):
+            if (
+                "Posted from Slack" in data["change"]["comment"]
+                and ":" in data["change"]["comment"]
+            ):
+                # Pull the sender name from the comment
+                pattern = re.compile(r"Posted from Slack by (.+):")
+                match = pattern.search(data["change"]["comment"])
+                if match:
+                    sender_name = match.group(1).split(" ")[0]
+                    sender_name += " | Taiga"
 
     # If we know the slack ID of the user who initiated the action, send the message as them
     if from_slack_id:

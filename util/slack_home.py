@@ -5,7 +5,7 @@ import subprocess
 import time
 from copy import deepcopy as copy
 from pprint import pprint
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import taiga
 
@@ -362,6 +362,7 @@ def viewedit_blocks(
     taiga_cache: dict,
     config: dict,
     taiga_auth_token: str,
+    edit=True,
 ):
     """Generate the blocks for a modal for viewing and editing an item"""
 
@@ -400,6 +401,10 @@ def viewedit_blocks(
                 event["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
             )
 
+            # Date is in UTC, convert to WAST by adding 8 hours
+            comment_date = comment_date.replace(tzinfo=None)
+            comment_date = comment_date + timedelta(hours=8)
+
             # When we post we add a byline that we want to strip out from display
             if event["comment"].startswith("Posted from Slack"):
                 match = re.match(r"Posted from Slack by (.*?): (.*)", event["comment"])
@@ -408,9 +413,13 @@ def viewedit_blocks(
                     comment = match.group(2)
 
                     # Look for a Taiga user with the same name
+                    found_taiga = False
                     for user_info in taiga_cache["users"].values():
                         if user_info["name"].lower() == name.lower():
                             image = user_info["photo"]
+                            found_taiga = True
+                    if not found_taiga:
+                        image = None
 
             comments.append(
                 {
@@ -426,6 +435,13 @@ def viewedit_blocks(
 
     # Construct the blocks
     block_list = []
+
+    if not edit:
+        block_list = slack_formatters.add_block(block_list, blocks.context)
+        block_list = slack_formatters.inject_text(
+            block_list=block_list,
+            text=strings.view_only,
+        )
 
     # Add the item title
     block_list = slack_formatters.add_block(block_list, blocks.header)
@@ -534,7 +550,6 @@ def viewedit_blocks(
 
     # Issues have some extra fields
     if item_type == "issue":
-        # pprint(item.to_dict())
         block_list[-1]["fields"].append(
             {
                 "type": "mrkdwn",
@@ -557,10 +572,11 @@ def viewedit_blocks(
         )
 
     # Attach info field edit button
-    button = copy(blocks.button)
-    button["text"]["text"] = "Edit"
-    button["action_id"] = f"edit_info"
-    block_list[-1]["accessory"] = button
+    if edit:
+        button = copy(blocks.button)
+        button["text"]["text"] = "Edit"
+        button["action_id"] = f"edit_info"
+        block_list[-1]["accessory"] = button
 
     # Tasks
     if item_type == "story":
@@ -592,7 +608,10 @@ def viewedit_blocks(
                         block_list=block_list, text=task_str
                     )
                     button = copy(blocks.button)
-                    button["text"]["text"] = "View/edit"
+                    if edit:
+                        button["text"]["text"] = "View/edit"
+                    else:
+                        button["text"]["text"] = "View"
                     button["action_id"] = (
                         f"viewedit-{item.project_extra_info['id']}-task-{task['id']}-update"
                     )
@@ -663,11 +682,12 @@ def viewedit_blocks(
                 )
 
     # Create attach button
-    block_list = slack_formatters.add_block(block_list, blocks.actions)
-    block_list[-1]["elements"].append(copy(blocks.button))
-    block_list[-1]["elements"][0]["text"]["text"] = "Attach files"
-    block_list[-1]["elements"][0]["action_id"] = "home-attach_files"
-    block_list[-1]["block_id"] = "attach_files"
+    if edit:
+        block_list = slack_formatters.add_block(block_list, blocks.actions)
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][0]["text"]["text"] = "Attach files"
+        block_list[-1]["elements"][0]["action_id"] = "home-attach_files"
+        block_list[-1]["block_id"] = "attach_files"
 
     # Comments
     block_list = slack_formatters.add_block(block_list, blocks.divider)
