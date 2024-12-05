@@ -206,6 +206,8 @@ block_list = slack_home.viewedit_blocks(
     item_id=156,
     item_type="story",
     taiga_cache=taiga_cache,
+    config=config,
+    taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
@@ -221,6 +223,8 @@ block_list = slack_home.viewedit_blocks(
     item_id=36,
     item_type="story",
     taiga_cache=taiga_cache,
+    config=config,
+    taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
 assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"

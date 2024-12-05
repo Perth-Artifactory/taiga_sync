@@ -142,6 +142,75 @@ def format_issues(issue_list, compressed=False):
     return project_name, out_str, issue_blocks
 
 
+def format_tasks_modal_blocks(
+    task_list: list, config: dict, taiga_auth_token: str
+) -> list[dict]:
+    """Format a list of tasks into the blocks required for a modal view"""
+    block_list = []
+    # Add information about the user story
+    block_list = add_block(block_list, blocks.header)
+    block_list = inject_text(
+        block_list, task_list[0]["user_story_extra_info"]["subject"]
+    )
+    block_list = add_block(block_list, blocks.divider)
+
+    # Sort the tasks by closed status
+    incomplete_tasks = [task for task in task_list if task["is_closed"] == False]
+    complete_tasks = [task for task in task_list if task["is_closed"] == True]
+    task_list = incomplete_tasks + complete_tasks
+
+    for task in task_list:
+        format_task = f"• *{task['subject']}* ({task['status_extra_info']['name']})"
+
+        block_list = add_block(block_list, blocks.text)
+        block_list = inject_text(block_list, format_task)
+
+        # Set up fields
+        fields = []
+        if task["assigned_to"]:
+            fields.append(
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Assigned to:* {task['assigned_to_extra_info']['full_name_display']}",
+                }
+            )
+
+        if task["due_date"]:
+            fields.append(
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Due Date:* {task['due_date']}",
+                }
+            )
+
+        # Add fields to the block
+        if fields:
+            block_list[-1]["fields"] = fields
+
+        # Set up buttons
+
+        button_list = []
+        # If the task is not closed, add a mark complete button
+        if not task["is_closed"]:
+            button = copy(blocks.button)
+            button["text"]["text"] = "Mark Complete"
+            button["action_id"] = (
+                f"complete-{task['project_extra_info']['id']}-task-{task['id']}"
+            )
+            button_list.append(button)
+
+        # If we only have one button we can attach it to the text block
+        if len(button_list) == 1:
+            block_list[-1]["accessory"] = button_list[0]
+        elif len(button_list) > 1:
+            block_list = add_block(block_list, blocks.actions)
+            block_list[-1]["elements"] = button_list
+            block_list[-1].pop("block_id")
+            block_list = add_block(block_list, blocks.divider)
+
+    return block_list
+
+
 def due_item(item: dict, item_type: str, for_user: str):
     assigned_info = " (Watching)"
     if for_user in item.get("assigned_users", []):

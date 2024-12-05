@@ -408,9 +408,25 @@ def id_to_order(story_statuses: dict, status_id: int) -> int:
 
 
 def get_tasks(
-    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+    config: dict,
+    taiga_auth_token: str,
+    exclude_done: bool = False,
+    taiga_id: int | None = None,
+    story_id: int | None = None,
 ):
-    """Get all tasks assigned to a user."""
+    """Get all tasks assigned to a user or story.
+
+    User will take precedence over story if both are provided.
+    Pass exclude_done=True to exclude tasks that have a closed status.
+    """
+
+    if taiga_id:
+        params = {"assigned_to": taiga_id}
+    elif story_id:
+        params = {"user_story": story_id}
+
+    if exclude_done:
+        params["status__is_closed"] = False
 
     url = f"{config['taiga']['url']}/api/v1/tasks"
     response = requests.get(
@@ -419,12 +435,10 @@ def get_tasks(
             "Authorization": f"Bearer {taiga_auth_token}",
             "x-disable-pagination": "True",
         },
-        params={"assigned_to": taiga_id},
+        params=params,
     )
     tasks = response.json()
 
-    if exclude_done:
-        tasks = [task for task in tasks if not task["is_closed"]]
     return tasks
 
 
@@ -578,14 +592,29 @@ def get_info(
     story_id: int | None = None,
     task_id: int | None = None,
     issue_id: int | None = None,
+    item_type: str | None = None,
+    item_id: int | None = None,
 ):
     """Get the info of a story, task or issue."""
+
+    type_map = {
+        "userstory": "userstories",
+        "story": "userstories",
+        "issue": "issues",
+        "task": "tasks",
+    }
+
     if story_id:
         url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
     elif task_id:
         url = f"{config['taiga']['url']}/api/v1/tasks/{task_id}"
     elif issue_id:
         url = f"{config['taiga']['url']}/api/v1/issues/{issue_id}"
+    elif item_type and item_id:
+        if item_type not in type_map:
+            logger.error(f"Type {item_type} not supported")
+            return False
+        url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}/{item_id}"
 
     if not url:
         logger.error("No ID provided")
@@ -633,6 +662,55 @@ def add_comment(
         logger.error(
             f"Failed to add comment to {type_str} {item_id}: {response.status_code}"
         )
+        return False
+
+
+def mark_complete(
+    config: dict,
+    taiga_auth_token: str,
+    taiga_cache: dict,
+    item_id: int | None = None,
+    item_type: str | None = None,
+    item: dict | None = None,
+) -> bool:
+    """Mark an item as complete.
+
+    Can either pass the item directly or provide the ID and type.
+    """
+
+    if not item:
+        if not item_id or not item_type:
+            logger.error("No item ID or type provided")
+            return False
+        # Get the current version of the item
+        item = get_info(taiga_auth_token, config, item_id=item_id, item_type=item_type)  # type: ignore
+
+    if not item:
+        logger.error(f"Failed to get info for {item_type} {item_id}")
+        return False
+
+    type_map = {"task": "tasks", "issue": "issues", "userstory": "userstories"}
+    if item_type not in type_map:
+        logger.error(f"Type {item_type} not supported")
+        return False
+
+    url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}/{item_id}"
+
+    # Figure out what the closing status is
+    closing_status = taiga_cache["boards"][item["project"]]["closing_status"][item_type]
+
+    response = requests.patch(
+        url,
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        json={"status": closing_status, "version": item["version"]},
+    )
+    if response.status_code == 200:
+        return True
+    else:
+        logger.error(
+            f"Failed to mark {item_type} {item_id} as complete: {response.status_code}"
+        )
+        logger.error(response.json())
         return False
 
 
@@ -779,6 +857,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "members": {},
             "slug": project["slug"],
             "statuses": {"story": {}, "task": {}, "issue": {}},
+            "closing_status": {"story": 0, "task": 0, "issue": 0},
             "severities": {},
             "types": {},
         }
@@ -805,6 +884,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             users[member] = {
                 "name": member_info["full_name_display"],
                 "username": member_info["username"],
+                "photo": member_info["photo"],
             }
 
     # Statuses
@@ -823,6 +903,11 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             boards[status.project]["statuses"][status_type][
                 status.id
             ] = status.to_dict()
+            if (
+                status.is_closed
+                and boards[status.project]["closing_status"][status_type] == 0
+            ):
+                boards[status.project]["closing_status"][status_type] = status.id
 
         # Sort the statuses by order
         for project in boards:

@@ -1,8 +1,10 @@
+import importlib
 import json
 import logging
 import os
 import re
 import sys
+import time
 from pprint import pprint
 
 import requests
@@ -11,17 +13,16 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
-import importlib
 
-from editable_resources import strings, forms
+from editable_resources import forms, strings
 from util import (
     blocks,
     slack,
     slack_formatters,
     slack_forms,
+    slack_home,
     taigalink,
     tidyhq,
-    slack_home,
 )
 
 
@@ -113,7 +114,7 @@ app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
 # Get the ID for our team via the API
 auth_test = app.client.auth_test()
-slack_team_id = auth_test["team_id"]
+slack_team_id: str = auth_test["team_id"]
 
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
@@ -402,6 +403,8 @@ def handle_form_command(ack, respond, command, client, body):
         )
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+        pprint(block_list)
 
 
 @app.action(re.compile(r"^tlink.*"))
@@ -685,11 +688,15 @@ def handle_app_home_viewedit_actions(ack, body):
     # Retrieve action details if applicable
     value_string = body["actions"][0]["action_id"]
 
+    # Sometimes we attach the view method to the action ID
+    modal_method = "open"
+    if value_string.count("-") == 4:
+        modal_method = value_string.split("-")[-1]
+        value_string = "-".join(value_string.split("-")[:-1])
+
     project_id, item_type, item_id = value_string.split("-")[1:]
 
-    logger.info(
-        f"Received view/edit for {item_type} {item_id} in project {project_id}"
-    )
+    logger.info(f"Received view/edit for {item_type} {item_id} in project {project_id}")
     ack()
 
     # Bring up the view/edit modal
@@ -699,30 +706,82 @@ def handle_app_home_viewedit_actions(ack, body):
         item_type=item_type,
         item_id=item_id,
         taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
     )
 
     logger.debug(f"Generated {len(block_list)} blocks")
 
-    # Open the modal
-    try:
-        client.views_open(
-            trigger_id=body["trigger_id"],
-            view={
-                "type": "modal",
-                "callback_id": "finished_editing",
-                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
-                "blocks": block_list,
-                "private_metadata": value_string,
-                "submit": {"type": "plain_text", "text": "Finish"},
-                "clear_on_close": True,
-            },
-        )
-        logger.info(
-            f"View/edit modal for {item_type} {item_id} in project {project_id} sent to {body['user']['id']}"
-        )
-    except SlackApiError as e:
-        logger.error(f"Failed to open modal: {e.response['error']}")
-    
+    if modal_method == "open":
+        # Open the modal
+        try:
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "blocks": block_list,
+                    "private_metadata": value_string,
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+            logger.info(
+                f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']}"
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to open modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+            pprint(block_list)
+
+    elif modal_method == "update":
+        # Update the modal
+        try:
+            client.views_update(
+                view_id=body["view"]["root_view_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "blocks": block_list,
+                    "private_metadata": value_string,
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+            logger.info(
+                f"View/edit modal for {item_type} {item_id} in project {project_id} updated for {body['user']['id']}"
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to update modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+            pprint(block_list)
+
+    elif modal_method == "push":
+
+        # Push a new modal onto the stack
+        try:
+            client.views_push(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "blocks": block_list,
+                    "private_metadata": value_string,
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+            logger.info(
+                f"View/edit modal for {item_type} {item_id} in project {project_id} pushed to {body['user']['id']}"
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to update modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+            pprint(block_list)
+
 
 # Comment
 @app.action("submit_comment")
@@ -737,6 +796,11 @@ def handle_comment_addition(ack, body, logger):
     # Yes I know next/iter exists
     comment = body["view"]["state"]["values"]["comment_field"]
     comment = comment[list(comment.keys())[0]]["value"]
+
+    # Check if the comment is empty
+    if not comment or comment.isspace():
+        logger.info("Comment is empty, ignoring")
+        return
 
     # Get the item details from the private metadata
     project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
@@ -777,6 +841,8 @@ def handle_comment_addition(ack, body, logger):
         item_type=item_type,
         item_id=item_id,
         taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
     )
 
     # Push the modal
@@ -825,6 +891,47 @@ def attach_files_modal(ack, body):
         )
     except SlackApiError as e:
         logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.action(re.compile(r"^view_tasks-.*"))
+def view_tasks(ack, body, logger):
+    """Push a modal to view tasks attached to a specific user story"""
+    ack()
+
+    value_string = body["actions"][0]["action_id"]
+    story_id = value_string.split("-")[1]
+
+    # Get the tasks for the user story
+    tasks = taigalink.get_tasks(
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        exclude_done=False,
+        story_id=story_id,
+    )
+
+    block_list = slack_formatters.format_tasks_modal_blocks(
+        task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
+    )
+
+    # Push a new modal
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "view_tasks",
+                "title": {"type": "plain_text", "text": "View Tasks"},
+                "close": {"type": "plain_text", "text": "Back"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+            },
+        )
+        logger.info(f"Pushed tasks modal for user story {story_id}")
+        logger.info(f"Task modal for story {story_id} pushed for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 @app.view("submit_files")
@@ -862,6 +969,8 @@ def attach_files(ack, body):
         item_type=item_type,
         item_id=item_id,
         taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
     )
 
     # Push the modal
@@ -1018,6 +1127,104 @@ def edit_info(ack, body, logger):
 def finished_editing(ack, body):
     """Acknowledge the view submission"""
     ack()
+
+
+@app.action(re.compile(r"^complete-.*"))
+def complete_task(ack, body, client):
+    """Mark a task a complete"""
+    ack()
+
+    # Get the item details from the action ID
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
+
+    # Get the item from Taiga
+    item = taigalink.get_info(
+        taiga_auth_token=taiga_auth_token,
+        config=config,
+        item_id=item_id,
+        item_type=item_type,
+    )
+    if not item:
+        logger.error(f"Failed to get item {item_type} {item_id}")
+        return
+
+    complete = taigalink.mark_complete(
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        item_id=item_id,
+        item_type=item_type,
+        item=item,
+        taiga_cache=taiga_cache,
+    )
+
+    if not complete:
+        logger.error(f"Failed to mark {item_type} {item_id} as complete")
+        return
+
+    if item_type == "task":
+        # Give Taiga time to update
+        # time.sleep(0.5)
+
+        # Get the tasks for the modal
+        tasks = taigalink.get_tasks(
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=False,
+            story_id=item["user_story"],
+        )
+
+        # Regenerate the task view modal
+        block_list = slack_formatters.format_tasks_modal_blocks(
+            task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
+        )
+
+        # Update the current modal
+        try:
+            client.views_update(
+                view_id=body["view"]["id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "view_tasks",
+                    "title": {"type": "plain_text", "text": "View Tasks"},
+                    "close": {"type": "plain_text", "text": "Back"},
+                    "blocks": block_list,
+                    "private_metadata": body["view"]["private_metadata"],
+                },
+            )
+            logger.info(
+                f"Task modal for story {item['user_story']} updated for {body['user']['id']}"
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to push modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+
+    # Update the view/edit modal
+    block_list = slack_home.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type="story",
+        item_id=item["user_story"],
+        taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+    )
+
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 # The cron mode renders the app home for every user in the workspace

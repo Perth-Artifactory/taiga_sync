@@ -360,6 +360,8 @@ def viewedit_blocks(
     item_id,
     item_type,
     taiga_cache: dict,
+    config: dict,
+    taiga_auth_token: str,
 ):
     """Generate the blocks for a modal for viewing and editing an item"""
 
@@ -381,22 +383,40 @@ def viewedit_blocks(
     comments = []
     for event in history:
         if event["comment"]:
-
             # Skip deleted comments
             if event["delete_comment_user"]:
                 continue
 
             name = event["user"]["name"]
             comment = event["comment"]
+            image = event["user"]["photo"]
 
-            # When we post we add a byline
+            # Calculate a useful date
+            # Comes in format of 2024-11-29T06:09:39.642Z
+            comment_date: datetime = datetime.strptime(
+                event["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            )
+
+            # When we post we add a byline that we want to strip out from display
             if event["comment"].startswith("Posted from Slack"):
                 match = re.match(r"Posted from Slack by (.*?): (.*)", event["comment"])
                 if match:
                     name = match.group(1)
                     comment = match.group(2)
 
-            comments.append({"author": name, "comment": comment})
+                    # Look for a Taiga user with the same name
+                    for user_info in taiga_cache["users"].values():
+                        if user_info["name"].lower() == name.lower():
+                            image = user_info["photo"]
+
+            comments.append(
+                {
+                    "author": name,
+                    "comment": comment,
+                    "photo": image,
+                    "date": comment_date,
+                }
+            )
 
     # We want to show the most recent comments last and the history list is in reverse order
     comments.reverse()
@@ -409,6 +429,41 @@ def viewedit_blocks(
     block_list = slack_formatters.inject_text(
         block_list=block_list, text=f"{item_type.capitalize()}: {item.subject}"
     )
+
+    # Add context of who created the item
+    block_list = slack_formatters.add_block(block_list, blocks.context)
+    elements = []
+    elements.append(
+        {
+            "type": "image",
+            "image_url": item.owner_extra_info["photo"],
+            "alt_text": "User photo",
+        }
+    )
+    elements.append(
+        {
+            "type": "mrkdwn",
+            "text": f"*Created by*: {item.owner_extra_info['full_name_display']}",
+        }
+    )
+    block_list[-1]["elements"] = elements
+
+    # Parent card if task
+    if item_type == "task":
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
+        block_list = slack_formatters.add_block(block_list, blocks.text)
+        block_list = slack_formatters.inject_text(
+            block_list=block_list,
+            text=f"*Parent card:* {item.user_story_extra_info['subject']}",
+        )
+        # Add an accessory to view the parent card
+        button = copy(blocks.button)
+        button["text"]["text"] = "View parent"
+        button["action_id"] = (
+            f"viewedit-{item.project_extra_info['id']}-story-{item.user_story_extra_info['id']}-update"
+        )
+        block_list[-1]["accessory"] = button
+        block_list = slack_formatters.add_block(block_list, blocks.divider)
 
     block_list = slack_formatters.add_block(block_list, blocks.text)
     block_list = slack_formatters.inject_text(
@@ -480,6 +535,57 @@ def viewedit_blocks(
     button["action_id"] = f"edit_info"
     block_list[-1]["accessory"] = button
 
+    # Tasks
+    if item_type == "story":
+        tasks = taigalink.get_tasks(
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            exclude_done=False,
+            story_id=item_id,
+        )
+        if tasks:
+            block_list = slack_formatters.add_block(block_list, blocks.divider)
+            block_list = slack_formatters.add_block(block_list, blocks.header)
+            block_list = slack_formatters.inject_text(
+                block_list=block_list, text="Attached Tasks"
+            )
+
+            closed = 0
+
+            for task in tasks:
+
+                if task["is_closed"]:
+                    closed += 1
+                else:
+                    task_str = (
+                        f"• {task['subject']} ({task['status_extra_info']['name']})"
+                    )
+                    block_list = slack_formatters.add_block(block_list, blocks.text)
+                    block_list = slack_formatters.inject_text(
+                        block_list=block_list, text=task_str
+                    )
+                    button = copy(blocks.button)
+                    button["text"]["text"] = "View/edit"
+                    button["action_id"] = (
+                        f"viewedit-{item.project_extra_info['id']}-task-{task['id']}-update"
+                    )
+                    block_list[-1]["accessory"] = button
+
+            # If all of the tasks are closed none of them will be shown
+            if closed == len(tasks):
+                block_list = slack_formatters.add_block(block_list, blocks.text)
+                block_list = slack_formatters.inject_text(
+                    block_list=block_list, text="<No open tasks>"
+                )
+
+            # Add a button to view all tasks
+            block_list = slack_formatters.add_block(block_list, blocks.actions)
+            block_list[-1].pop("block_id")
+            button = copy(blocks.button)
+            button["text"]["text"] = f"View all tasks ({closed}/{len(tasks)})"
+            button["action_id"] = f"view_tasks-{item_id}"
+            block_list[-1]["elements"].append(button)
+
     # Files
     block_list = slack_formatters.add_block(block_list, blocks.divider)
     block_list = slack_formatters.add_block(block_list, blocks.header)
@@ -540,19 +646,34 @@ def viewedit_blocks(
     block_list = slack_formatters.add_block(block_list, blocks.divider)
     block_list = slack_formatters.add_block(block_list, blocks.header)
     block_list = slack_formatters.inject_text(block_list=block_list, text="Comments")
-    current_commenter = ""
     for comment in comments:
-        if comment["author"] != current_commenter:
-            block_list = slack_formatters.add_block(block_list, blocks.text)
-            block_list = slack_formatters.inject_text(
-                block_list=block_list, text=f"*{comment['author']}*"
-            )
-            current_commenter = comment["author"]
         block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
             block_list=block_list, text=f"{comment['comment']}"
         )
-        block_list = slack_formatters.add_block(block_list, blocks.divider)
+        block_list = slack_formatters.add_block(block_list, blocks.context)
+        elements = []
+        if comment["photo"]:
+            elements.append(
+                {
+                    "type": "image",
+                    "image_url": comment["photo"],
+                    "alt_text": "User photo",
+                }
+            )
+        elements.append(
+            {
+                "type": "mrkdwn",
+                "text": f"*{comment['author']}*",
+            }
+        )
+        elements.append(
+            {
+                "type": "mrkdwn",
+                "text": f"<!date^{int(comment['date'].timestamp())}^{{ago}} ({{date_short_pretty}})|{comment['date'].strftime('%Y-%m-%d %H:%M') }>",
+            }
+        )
+        block_list[-1]["elements"] = elements
 
     if not comments:
         block_list = slack_formatters.add_block(block_list, blocks.text)
