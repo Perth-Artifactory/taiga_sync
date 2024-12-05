@@ -103,6 +103,12 @@ taiga_cache = taigalink.setup_cache(
     config=config, taiga_auth_token=taiga_auth_token, taigacon=taigacon
 )
 
+# Write the cache to a file
+# We never actually load this back in but it's useful for debugging
+with open("taiga_cache.json", "w") as f:
+    json.dump(taiga_cache, f)
+
+
 # Set up TidyHQ cache
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 setup_logger.info(
@@ -1121,6 +1127,27 @@ def edit_info(ack, body, logger):
             if int(status) != item.status:
                 logger.info(f"Updating status from {item.status} to {status}")
                 item.patch(fields=["status"], status=int(status), version=item.version)
+
+        # Issue specific fields
+        elif field == "type":
+            type_id = data["selected_option"]["value"]
+            if int(type_id) != item.type:
+                logger.info(f"Updating type from {item.type} to {type_id}")
+                item.patch(fields=["type"], type=int(type_id), version=item.version)
+        elif field == "severity":
+            severity_id = data["selected_option"]["value"]
+            if int(severity_id) != item.severity:
+                logger.info(f"Updating severity from {item.severity} to {severity_id}")
+                item.patch(
+                    fields=["severity"], severity=int(severity_id), version=item.version
+                )
+        elif field == "priority":
+            priority = data["selected_option"]["value"]
+            if int(priority) != item.priority:
+                logger.info(f"Updating priority from {item.priority} to {priority}")
+                item.patch(
+                    fields=["priority"], priority=int(priority), version=item.version
+                )
 
 
 @app.view("finished_editing")

@@ -379,6 +379,9 @@ def viewedit_blocks(
     if not item.description:
         item.description = "<No description provided>"
 
+    # Convert normal description markdown to slack markdown
+    item.description = slack_formatters.convert_markdown(item.description)
+
     # Build up a history of comments
     comments = []
     for event in history:
@@ -526,6 +529,30 @@ def viewedit_blocks(
             {
                 "type": "mrkdwn",
                 "text": f"*Due:* {item.due_date} ({days_until} days)",
+            }
+        )
+
+    # Issues have some extra fields
+    if item_type == "issue":
+        # pprint(item.to_dict())
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Type:* {taiga_cache['boards'][item.project]['types'][item.type]['name']}",
+            }
+        )
+
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Severity:* {taiga_cache['boards'][item.project]['severities'][item.severity]['name']}",
+            }
+        )
+
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Priority:* {taiga_cache['boards'][item.project]['priorities'][item.priority]['name']}",
             }
         )
 
@@ -753,6 +780,35 @@ def edit_info_blocks(
         for status_id, status_info in raw_statuses.items()
     }
 
+    if item_type == "issue":
+        current_type = item.type
+        current_severity = item.severity
+        current_priority = item.priority
+
+        # Trim down the type info to just the type name
+        types = {
+            type_id: type_info["name"]
+            for type_id, type_info in taiga_cache["boards"][int(project_id)][
+                "types"
+            ].items()
+        }
+
+        # Trim down the severity info to just the severity name
+        severities = {
+            severity_id: severity_info["name"]
+            for severity_id, severity_info in taiga_cache["boards"][int(project_id)][
+                "severities"
+            ].items()
+        }
+
+        # Trim down the priority info to just the priority name
+        priorities = {
+            priority_id: priority_info["name"]
+            for priority_id, priority_info in taiga_cache["boards"][int(project_id)][
+                "priorities"
+            ].items()
+        }
+
     current_watchers = item.watchers
     if 6 in current_watchers:
         current_watchers.remove(6)
@@ -791,6 +847,62 @@ def edit_info_blocks(
         "text": {"type": "plain_text", "text": current_status[item.status]},
         "value": str(item.status),
     }
+
+    if item_type == "issue":
+        # Type
+        block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+        block_list[-1]["label"]["text"] = "Type"
+        block_list[-1]["element"]["options"] = []
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the type"
+        for type_id in types:
+            block_list[-1]["element"]["options"].append(
+                {
+                    "text": {"type": "plain_text", "text": types[type_id]},
+                    "value": str(type_id),
+                }
+            )
+        block_list[-1]["element"]["action_id"] = "type"
+        block_list[-1]["block_id"] = "type"
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the type"
+        block_list[-1]["element"]["initial_option"] = {
+            "text": {"type": "plain_text", "text": types[current_type]},
+            "value": str(current_type),
+        }
+
+        # Severity
+        block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+        block_list[-1]["label"]["text"] = "Severity"
+        block_list[-1]["element"]["options"] = []
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the severity"
+        for severity_id in severities:
+            block_list[-1]["element"]["options"].append(
+                {
+                    "text": {"type": "plain_text", "text": severities[severity_id]},
+                    "value": str(severity_id),
+                }
+            )
+        block_list[-1]["element"]["action_id"] = "severity"
+        block_list[-1]["block_id"] = "severity"
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the severity"
+        block_list[-1]["element"]["initial_option"] = {
+            "text": {"type": "plain_text", "text": severities[current_severity]},
+            "value": str(current_severity),
+        }
+
+        # Priority
+        block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+        block_list[-1]["label"]["text"] = "Priority"
+        block_list[-1]["element"]["options"] = []
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the priority"
+        for priority_id in priorities:
+            block_list[-1]["element"]["options"].append(
+                {
+                    "text": {"type": "plain_text", "text": priorities[priority_id]},
+                    "value": str(priority_id),
+                }
+            )
+        block_list[-1]["element"]["action_id"] = "priority"
+        block_list[-1]["block_id"] = "priority"
 
     # Description
     block_list = slack_formatters.add_block(block_list, blocks.text_question)

@@ -312,3 +312,11 @@ def compress_blocks(block_list) -> list:
     logging.debug(f"Blocks reduced from {len(block_list)} to {len(compressed_blocks)}")
 
     return compressed_blocks
+
+
+def convert_markdown(text: str) -> str:
+    """Convert normal markdown to slack markdown"""
+    # Convert bold
+    text = text.replace("**", "*")
+
+    return text

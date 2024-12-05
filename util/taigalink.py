@@ -860,6 +860,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "closing_status": {"story": 0, "task": 0, "issue": 0},
             "severities": {},
             "types": {},
+            "priorities": {},
         }
 
         # Add the project to the project cache
@@ -928,9 +929,14 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     for type in types:
         boards[type.project]["types"][type.id] = type.to_dict()
 
-    # Sort types and severities by order
+    # Get all priorities
+    priorities = taigacon.priorities.list()
+    for priority in priorities:
+        boards[priority.project]["priorities"][priority.id] = priority.to_dict()
+
+    # Sort types, severities, and priorities by order
     for project in boards:
-        for key in ["severities", "types"]:
+        for key in ["severities", "types", "priorities"]:
             boards[project][key] = dict(
                 sorted(
                     boards[project][key].items(),
