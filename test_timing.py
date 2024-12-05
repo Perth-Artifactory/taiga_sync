@@ -535,3 +535,20 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (local)")
 assert len(remote_tasks) == len(
     local_tasks
 ), f"remote_tasks: {len(remote_tasks)} local_tasks: {len(local_tasks)}"
+
+div("Taiga DB validation")
+# Validate that all items with an assigned_users field also have an assigned_to field
+logger.info("Validate assigned_to field")
+response = requests.get(
+    f"{config['taiga']['url']}/api/v1/userstories",
+    headers={
+        "Authorization": f"Bearer {taiga_auth_token}",
+        "x-disable-pagination": "True",
+    },
+)
+stories = response.json()
+for story in stories:
+    if story.get("assigned_users"):
+        url = f"https://tasks.artifactory.org.au/project/{story['project_extra_info']['slug']}/us/{story['ref']}"
+        if not story.get("assigned_to") and story["assigned_users"]:
+            print(url)
