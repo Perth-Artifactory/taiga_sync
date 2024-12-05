@@ -859,11 +859,11 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     projects["by_name_with_extra"] = projects["by_name"]
     # Duplicate similar board names for QoL
     projects["by_name_with_extra"]["infra"] = projects["by_name_with_extra"][
-        "Infrastructure"
+        "infrastructure"
     ]
-    projects["by_name_with_extra"]["laser"] = projects["by_name_with_extra"]["Lasers"]
-    projects["by_name_with_extra"]["printer"] = projects["by_name_with_extra"]["3D"]
-    projects["by_name_with_extra"]["printers"] = projects["by_name_with_extra"]["3D"]
+    projects["by_name_with_extra"]["laser"] = projects["by_name_with_extra"]["lasers"]
+    projects["by_name_with_extra"]["printer"] = projects["by_name_with_extra"]["3d"]
+    projects["by_name_with_extra"]["printers"] = projects["by_name_with_extra"]["3d"]
 
     cache["projects"] = projects
 
