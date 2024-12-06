@@ -325,9 +325,23 @@ def add_block(block_list: list, block: dict | list) -> list[dict]:
     return block_list
 
 
-def validate(blocks):
+def validate(blocks, surface: str | None = "modal"):
     # We want our own logger for this function
     schemalogger = logging.getLogger("block-kit validator")
+
+    if surface in ["modal", "home"]:
+        if len(blocks) > 100:
+            schemalogger.error(f"Block list too long {len(blocks)}/100")
+            return False
+    elif surface in ["message", "msg"]:
+        if len(blocks) > 50:
+            schemalogger.error(f"Block list too long {len(blocks)}/50")
+            return False
+
+    # Recursively search for all fields called "text" and ensure they don't have an empty string
+    for block in blocks:
+        if not check_for_empty_text(block, schemalogger):
+            return False
 
     # Load the schema from file
     with open("block-kit-schema.json") as f:
@@ -338,6 +352,17 @@ def validate(blocks):
     except jsonschema.exceptions.ValidationError as e:  # type: ignore
         schemalogger.error(e)
         return False
+    return True
+
+
+def check_for_empty_text(block, logger):
+    for key, value in block.items():
+        if key == "text" and value == "":
+            logger.error(f"Empty text field found in block {block}")
+            return False
+        if isinstance(value, dict):
+            if not check_for_empty_text(value, logger):
+                return False
     return True
 
 
