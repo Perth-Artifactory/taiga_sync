@@ -1438,7 +1438,7 @@ def create_item(ack, body, logger, client):
 def create_from_message(ack, body):
     """Bring up a modal that allows the user to select the item type and what project to create it in.
 
-    Adds the message text to the description field"""
+    Sets the initial value of the description field to the message"""
     ack()
 
     # Retrieve message particulars
@@ -1456,10 +1456,10 @@ def create_from_message(ack, body):
     if not taiga_id:
         logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
 
-        app.client.chat_postEphemeral(
-            channel=body["channel"]["id"],
-            user=body["user"]["id"],
-            text="Sorry, I can't create a new item as your Slack account is not linked to a Taiga account.\nIf you think this is an error please reach out to #it.",
+        slack.send_dm(
+            slack_app=app,
+            slack_id=body["user"]["id"],
+            message="Sorry, I can't create a new item as your Slack account is not linked to a Taiga account.\nIf you think this is an error please reach out to #it.",
         )
         return
 
