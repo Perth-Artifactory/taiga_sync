@@ -13,15 +13,24 @@ def valid_phone_number(num: str) -> bool:
     return False
 
 
-def calculate_circle_emoji(count, total) -> str:
-    """Return the appropriate circle percentage emoji based on the count and total."""
+def calculate_circle_emoji(count: int | float, total: int | float) -> str:
+    """Return the appropriate circle percentage emoji based on the count and total.
+
+    Rounds down to the nearest 10%
+    """
 
     # Calculate the percentage rounded down to the nearest 10
-    percentage = int(count / total * 10) * 10
+    try:
+        percentage = int(count / total * 10) * 10
+    except ZeroDivisionError:
+        raise ValueError("Total cannot be 0")
 
     # We don't have a 0% right now
     if percentage == 0:
         percentage = 10
+
+    if percentage > 100:
+        percentage = 100
 
     return f":circle{percentage}:"
 
@@ -31,7 +40,7 @@ def hash_question(question_text: str) -> str:
 
     # strip non alphanumeric/space characters
     question_text = "".join(
-        char for char in question_text if char.isalnum() or char.isspace()
+        char.lower() for char in question_text if char.isalnum() or char.isspace()
     )
 
     # strip leading/trailing whitespace
