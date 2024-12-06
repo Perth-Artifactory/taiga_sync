@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import taiga
 
 from editable_resources import strings
-from util import blocks, slack_formatters, taigalink, tidyhq
+from util import blocks, slack_formatters, taigalink, tidyhq, misc
 
 # Set up logging
 logger = logging.getLogger("slack_home")
@@ -84,8 +84,18 @@ def generate_app_home(
 
         # Construct blocks
         block_list = slack_formatters.add_block(block_list, blocks.text)
+
+        # Figure out why we don't know the user
+        reasons = []
+        if not tidyhq.map_slack_to_tidyhq(
+            tidyhq_cache=tidyhq_cache, slack_id=user_id, config=config
+        ):
+            reasons.append(strings.unrecognised_no_tidyhq)
+        else:
+            reasons.append(strings.unrecognised_no_taiga_match)
+            reasons.append(strings.unrecognised_no_taiga)
         block_list = slack_formatters.inject_text(
-            block_list=block_list, text=strings.unrecognised
+            block_list=block_list, text=strings.unrecognised + "\n" + "\n".join(reasons)
         )
         block_list = slack_formatters.add_block(block_list, blocks.divider)
         block_list = slack_formatters.add_block(block_list, blocks.text)
@@ -534,13 +544,6 @@ def viewedit_blocks(
         }
     )
 
-    block_list[-1]["fields"].append(
-        {
-            "type": "mrkdwn",
-            "text": f"*Creator:* {item.owner_extra_info['full_name_display']}",
-        }
-    )
-
     if item.assigned_to:
         block_list[-1]["fields"].append(
             {
@@ -655,7 +658,9 @@ def viewedit_blocks(
             block_list = slack_formatters.add_block(block_list, blocks.actions)
             block_list[-1].pop("block_id")
             button = copy(blocks.button)
-            button["text"]["text"] = f"View all tasks ({closed}/{len(tasks)})"
+            button["text"][
+                "text"
+            ] = f"View all tasks {misc.calculate_circle_emoji(closed,len(tasks))} ({closed}/{len(tasks)})"
             button["action_id"] = f"view_tasks-{item_id}"
             block_list[-1]["elements"].append(button)
 
