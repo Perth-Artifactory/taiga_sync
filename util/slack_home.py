@@ -815,7 +815,8 @@ def edit_info_blocks(
     # All item types have status, watchers, assigned_to, due_date, subject, description, tags
     # Issues also have type, severity, priority
 
-    current_status = {item.status: item.status_extra_info["name"]}
+    if not new:
+        current_status = {item.status: item.status_extra_info["name"]}
 
     # Trim down the status info to just the status name
     statuses = {
@@ -824,9 +825,10 @@ def edit_info_blocks(
     }
 
     if item_type == "issue":
-        current_type = item.type
-        current_severity = item.severity
-        current_priority = item.priority
+        if not new:
+            current_type = item.type
+            current_severity = item.severity
+            current_priority = item.priority
 
         # Trim down the type info to just the type name
         types = {
@@ -852,14 +854,21 @@ def edit_info_blocks(
             ].items()
         }
 
-    current_watchers = item.watchers
-    if 6 in current_watchers:
-        current_watchers.remove(6)
+    if new:
+        subject = ""
+        description = ""
+        due_date = ""
+        current_watchers = []
+        current_assigned = None
+    else:
+        current_watchers = item.watchers
+        if 6 in current_watchers:
+            current_watchers.remove(6)
 
-    current_assigned = item.assigned_to
-    due_date = item.due_date
-    subject = item.subject
-    description = item.description
+        current_assigned = item.assigned_to
+        due_date = item.due_date
+        subject = item.subject
+        description = item.description
 
     # Set up blocks
     block_list = []
@@ -885,11 +894,14 @@ def edit_info_blocks(
         )
     block_list[-1]["element"]["action_id"] = "status"
     block_list[-1]["block_id"] = "status"
-    block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
-    block_list[-1]["element"]["initial_option"] = {
-        "text": {"type": "plain_text", "text": current_status[item.status]},
-        "value": str(item.status),
-    }
+    if new:
+        block_list[-1]["element"]["placeholder"]["text"] = "Select a status"
+    else:
+        block_list[-1]["element"]["placeholder"]["text"] = "Change the status"
+        block_list[-1]["element"]["initial_option"] = {
+            "text": {"type": "plain_text", "text": current_status[item.status]},
+            "value": str(item.status),
+        }
 
     if item_type == "issue":
         # Type
@@ -906,16 +918,19 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "type"
         block_list[-1]["block_id"] = "type"
-        block_list[-1]["element"]["initial_option"] = {
-            "text": {"type": "plain_text", "text": types[current_type]},
-            "value": str(current_type),
-        }
+        if new:
+            block_list[-1]["element"]["placeholder"]["text"] = "Select a type"
+        else:
+            block_list[-1]["element"]["placeholder"]["text"] = "Change the type"
+            block_list[-1]["element"]["initial_option"] = {
+                "text": {"type": "plain_text", "text": types[current_type]},
+                "value": str(current_type),
+            }
 
         # Severity
         block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
         block_list[-1]["label"]["text"] = "Severity"
         block_list[-1]["element"]["options"] = []
-        block_list[-1]["element"]["placeholder"]["text"] = "Change the severity"
         for severity_id in severities:
             block_list[-1]["element"]["options"].append(
                 {
@@ -925,16 +940,19 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "severity"
         block_list[-1]["block_id"] = "severity"
-        block_list[-1]["element"]["initial_option"] = {
-            "text": {"type": "plain_text", "text": severities[current_severity]},
-            "value": str(current_severity),
-        }
+        if new:
+            block_list[-1]["element"]["placeholder"]["text"] = "Select a severity"
+        else:
+            block_list[-1]["element"]["placeholder"]["text"] = "Change the severity"
+            block_list[-1]["element"]["initial_option"] = {
+                "text": {"type": "plain_text", "text": severities[current_severity]},
+                "value": str(current_severity),
+            }
 
         # Priority
         block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
         block_list[-1]["label"]["text"] = "Priority"
         block_list[-1]["element"]["options"] = []
-        block_list[-1]["element"]["placeholder"]["text"] = "Change the priority"
         for priority_id in priorities:
             block_list[-1]["element"]["options"].append(
                 {
@@ -944,10 +962,14 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "priority"
         block_list[-1]["block_id"] = "priority"
-        block_list[-1]["element"]["initial_option"] = {
-            "text": {"type": "plain_text", "text": priorities[current_priority]},
-            "value": str(current_priority),
-        }
+        if new:
+            block_list[-1]["element"]["placeholder"]["text"] = "Select a priority"
+        else:
+            block_list[-1]["element"]["placeholder"]["text"] = "Change the priority"
+            block_list[-1]["element"]["initial_option"] = {
+                "text": {"type": "plain_text", "text": priorities[current_priority]},
+                "value": str(current_priority),
+            }
 
     # Description
     block_list = slack_formatters.add_block(block_list, blocks.text_question)
@@ -960,9 +982,7 @@ def edit_info_blocks(
         block_list[-1]["element"]["initial_value"] = description
         block_list[-1]["element"].pop("placeholder")
     else:
-        block_list[-1]["element"]["placeholder"][
-            "text"
-        ] = "No description has been provided so far!"
+        block_list[-1]["element"]["placeholder"]["text"] = "Enter a description"
 
     # Due date
     block_list = slack_formatters.add_block(block_list, blocks.base_input)
