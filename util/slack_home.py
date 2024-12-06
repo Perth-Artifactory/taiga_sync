@@ -668,51 +668,50 @@ def viewedit_blocks(
             block_list=block_list, text="<No files attached>"
         )
 
+    images_attached = 0
+
     for attachment in item.list_attachments():
         if attachment.is_deprecated:
             continue
 
         filetype = attachment.attached_file.split(".")[-1]
 
-        # Display images with image blocks directly
         if filetype in ["png", "jpg", "jpeg", "gif"]:
-            block_list = slack_formatters.add_block(block_list, blocks.image)
-            block_list[-1]["image_url"] = attachment.url
-            if attachment.description:
-                block_list[-1]["title"] = {
-                    "type": "plain_text",
-                    "text": attachment.description,
-                }
-                block_list[-1]["alt_text"] = attachment.description
-            else:
-                block_list[-1]["title"] = {
-                    "type": "plain_text",
-                    "text": attachment.name,
-                }
-                block_list[-1]["alt_text"] = attachment.name
-
+            images_attached += 1
         # Display other files as links using the description as the text if possible
+        if attachment.description:
+            block_list = slack_formatters.add_block(block_list, blocks.text)
+            block_list = slack_formatters.inject_text(
+                block_list=block_list,
+                text=f"• <{attachment.url}|{attachment.description}>",
+            )
         else:
-            if attachment.description:
-                block_list = slack_formatters.add_block(block_list, blocks.text)
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list,
-                    text=f"• <{attachment.url}|{attachment.description}>",
-                )
-            else:
-                block_list = slack_formatters.add_block(block_list, blocks.text)
-                block_list = slack_formatters.inject_text(
-                    block_list=block_list,
-                    text=f"• <{attachment.url}|{attachment.name}>",
-                )
+            block_list = slack_formatters.add_block(block_list, blocks.text)
+            block_list = slack_formatters.inject_text(
+                block_list=block_list,
+                text=f"• <{attachment.url}|{attachment.name}>",
+            )
 
+    # Add a button to view images if there are any
+    buttons = []
     # Create attach button
     if edit:
+        button = copy(blocks.button)
+        button["text"]["text"] = "Attach files"
+        button["action_id"] = "home-attach_files"
+        buttons.append(button)
+
+    # Add view images button if there's at least one image
+    if images_attached:
+        button = copy(blocks.button)
+        button["text"]["text"] = f"View image attachments inline ({images_attached})"
+        button["action_id"] = f"view_attachments-{project_id}-{item_type}-{item_id}"
+        buttons.append(button)
+
+    if buttons:
         block_list = slack_formatters.add_block(block_list, blocks.actions)
-        block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][0]["text"]["text"] = "Attach files"
-        block_list[-1]["elements"][0]["action_id"] = "home-attach_files"
-        block_list[-1]["block_id"] = "attach_files"
+        block_list[-1]["elements"] = buttons
+        block_list[-1].pop("block_id")
 
     # Comments
     block_list = slack_formatters.add_block(block_list, blocks.divider)

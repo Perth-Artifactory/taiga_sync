@@ -1518,6 +1518,59 @@ def promote_issue(ack, body, client, respond):
             )
 
 
+@app.action(re.compile(r"^view_attachments-.*"))
+def handle_some_action(ack, body, logger):
+    ack()
+    start_time = time.time()
+
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
+
+    # Get attachments
+    if item_type in ["story", "userstory"]:
+        attachments = taigacon.user_story_attachments.list(
+            project=project_id, object_id=item_id
+        )
+    if item_type == "issue":
+        attachments = taigacon.issue_attachments.list(
+            project=project_id, object_id=item_id
+        )
+    if item_type == "task":
+        attachments = taigacon.task_attachments.list(
+            project=project_id, object_id=item_id
+        )
+
+    # Generate blocks to display attachments
+    block_list = slack_formatters.format_attachments(attachments)
+
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause="Attachment retrieval, attachment modal generation",
+    )
+
+    # Push a new modal
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "view_attachments",
+                "title": {"type": "plain_text", "text": "View Attachments"},
+                "close": {"type": "plain_text", "text": "Back"},
+                "blocks": block_list,
+                "private_metadata": body["view"]["private_metadata"],
+            },
+        )
+        logger.info(
+            f"Pushed attachments modal for {item_type} {item_id} in project {project_id} to {body['user']['id']}"
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+        pprint(block_list)
+
+
 # The cron mode renders the app home for every user in the workspace
 if "--cron" in sys.argv:
     # Update homes for all slack users

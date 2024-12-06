@@ -142,6 +142,45 @@ def format_issues(issue_list, compressed=False):
     return project_name, out_str, issue_blocks
 
 
+def format_attachments(attachments) -> list[dict]:
+    """Format a list of taiga attachments into a list of blocks including image blocks as appropriate."""
+    block_list = []
+    for attachment in attachments:
+
+        filetype = attachment.attached_file.split(".")[-1]
+
+        if filetype in ["jpg", "jpeg", "png", "gif"]:
+            block_list = add_block(block_list, blocks.image)
+            block_list[-1]["image_url"] = attachment.url
+            if attachment.description:
+                block_list[-1]["title"] = {
+                    "type": "plain_text",
+                    "text": attachment.description,
+                }
+                block_list[-1]["alt_text"] = attachment.description
+            else:
+                block_list[-1]["title"] = {
+                    "type": "plain_text",
+                    "text": attachment.name,
+                }
+                block_list[-1]["alt_text"] = attachment.name
+        else:
+            if attachment.description:
+                block_list = add_block(block_list, blocks.text)
+                block_list = inject_text(
+                    block_list=block_list,
+                    text=f"• <{attachment.url}|{attachment.description}>",
+                )
+            else:
+                block_list = add_block(block_list, blocks.text)
+                block_list = inject_text(
+                    block_list=block_list,
+                    text=f"• <{attachment.url}|{attachment.name}>",
+                )
+
+    return block_list
+
+
 def format_tasks_modal_blocks(
     task_list: list, config: dict, taiga_auth_token: str, edit=True
 ) -> list[dict]:
