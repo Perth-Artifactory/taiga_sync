@@ -5,7 +5,7 @@ import sys
 import time
 from copy import deepcopy as copy
 from pprint import pprint
-from typing import Any, Literal
+from typing import Any
 
 import requests
 

@@ -13,7 +13,9 @@ from slack_bolt import App
 from taiga import TaigaAPI
 
 from editable_resources import forms
-from util import slack, slack_formatters, slack_forms, slack_home, taigalink, tidyhq
+from util import taigalink, tidyhq, misc
+from slack import block_formatters
+from slack import misc as slack_misc
 
 
 def div(title: str | None = None):
@@ -171,42 +173,42 @@ div("App homes")
 # Generate app home block list for a non existent user
 logger.info("Generating app home block list for a non existent user")
 start_time = time.time()
-block_list = slack_home.generate_app_home(
+block_list = block_formatters.app_home(
     user_id="UXXX",
     config=config,
     tidyhq_cache=tidyhq_cache,
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Generate app home for low frequency Taiga user
 logger.info("Generating app home for low frequency Taiga user")
 start_time = time.time()
-block_list = slack_home.generate_app_home(
+block_list = block_formatters.app_home(
     user_id="U06PX5QRKRQ",
     config=config,
     tidyhq_cache=tidyhq_cache,
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Generate app home for high frequency Taiga user
 logger.info("Generating app home for high frequency Taiga user")
 start_time = time.time()
-block_list = slack_home.generate_app_home(
+block_list = block_formatters.app_home(
     user_id="UC6T4U150",
     config=config,
     tidyhq_cache=tidyhq_cache,
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -214,7 +216,7 @@ div("View/edit modal")
 # Generate the viewedit modal for a simple task
 logger.info("Generating viewedit modal for a simple user story")
 start_time = time.time()
-block_list = slack_home.viewedit_blocks(
+block_list = block_formatters.viewedit_blocks(
     taigacon=taigacon,
     project_id=3,
     item_id=156,
@@ -224,14 +226,14 @@ block_list = slack_home.viewedit_blocks(
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Generate the viewedit modal for a complex task
 logger.info("Generating viewedit modal for an item with lots of tasks")
 start_time = time.time()
-block_list = slack_home.viewedit_blocks(
+block_list = block_formatters.viewedit_blocks(
     taigacon=taigacon,
     project_id=1,
     item_id=36,
@@ -241,7 +243,7 @@ block_list = slack_home.viewedit_blocks(
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -249,7 +251,7 @@ div("Edit modal")
 # Generate the edit modal for a simple user story
 logger.info("Generating edit modal for a simple user story")
 start_time = time.time()
-block_list = slack_home.edit_info_blocks(
+block_list = block_formatters.edit_info_blocks(
     taigacon=taigacon,
     project_id=3,
     item_id=156,
@@ -257,14 +259,14 @@ block_list = slack_home.edit_info_blocks(
     taiga_cache=taiga_cache,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Generate the edit modal for a complex user story
 logger.info("Generating edit modal for a complex user story")
 start_time = time.time()
-block_list = slack_home.edit_info_blocks(
+block_list = block_formatters.edit_info_blocks(
     taigacon=taigacon,
     project_id=5,
     item_id=204,
@@ -272,7 +274,7 @@ block_list = slack_home.edit_info_blocks(
     taiga_cache=taiga_cache,
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -287,32 +289,32 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 # Render the form modal for a non member
 logger.info("Rendering form modal for a non member")
 start_time = time.time()
-block_list = slack_forms.render_form_list(form_list=forms.forms, member=False)
+block_list = block_formatters.render_form_list(form_list=forms.forms, member=False)
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Render the form modal for a member
 logger.info("Rendering form modal for a member")
 start_time = time.time()
-block_list = slack_forms.render_form_list(form_list=forms.forms, member=True)
+block_list = block_formatters.render_form_list(form_list=forms.forms, member=True)
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
 # Render a specific form modal
 logger.info("Rendering a specific form modal")
 start_time = time.time()
-block_list = slack_forms.questions_to_blocks(
+block_list = block_formatters.questions_to_blocks(
     questions=forms.forms["infra"]["questions"],
     taigacon=taigacon,
     taiga_cache=taiga_cache,
     taiga_project="Infrastructure",
 )
 end_time = time.time()
-assert slack_formatters.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 

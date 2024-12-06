@@ -5,7 +5,8 @@ from typing import Literal
 
 import requests
 
-from util import slack, tidyhq
+from util import tidyhq
+from slack import misc as slack_misc
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -906,7 +907,7 @@ def attach_file(
         if not url:
             logger.error("No URL or file object provided")
             return False
-        file_obj = slack.download_file(url, config)
+        file_obj = slack_misc.download_file(url, config)
 
     if not file_obj:
         logger.error("Failed to download file")

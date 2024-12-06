@@ -7,8 +7,6 @@ from pprint import pprint
 import requests
 from taiga import TaigaAPI
 
-from util import conditional_closing, intake, taiga_janitor, tasks, tidyhq
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 # Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug

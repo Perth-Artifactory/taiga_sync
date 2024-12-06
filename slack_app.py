@@ -5,6 +5,7 @@ import os
 import re
 import sys
 import time
+from copy import deepcopy as copy
 from pprint import pprint
 
 import requests
@@ -13,18 +14,12 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
-from copy import deepcopy as copy
 
 from editable_resources import forms, strings
-from util import (
-    blocks,
-    slack,
-    slack_formatters,
-    slack_forms,
-    slack_home,
-    taigalink,
-    tidyhq,
-)
+from slack import blocks, block_formatters
+from slack import misc as slack_misc
+from slack import forms as slack_forms
+from util import taigalink, tidyhq
 
 
 def log_time(
@@ -236,7 +231,7 @@ def handle_form_command(ack, respond, command, client, body):
                 artifactory_member = True
 
     # Render the blocks for the form selection modal
-    block_list = slack_forms.render_form_list(
+    block_list = block_formatters.render_form_list(
         form_list=forms.forms, member=artifactory_member
     )
 
@@ -307,7 +302,7 @@ def handle_form_open_button(ack, body, client):
     form = forms.forms[form_name]
 
     # Convert the form questions to blocks
-    block_list = slack_forms.questions_to_blocks(
+    block_list = block_formatters.questions_to_blocks(
         form["questions"],
         taigacon=taigacon,
         taiga_project=form.get("taiga_project"),
@@ -415,7 +410,7 @@ def handle_form_submissions(ack, body, logger):
 
     upload_success = True
     for filelink in files:
-        downloaded_file = slack.download_file(url=filelink, config=config)
+        downloaded_file = slack_misc.download_file(url=filelink, config=config)
 
         if not downloaded_file:
             logger.error(f"Failed to download file {filelink}")
@@ -439,7 +434,7 @@ def handle_form_submissions(ack, body, logger):
     if not upload_success:
         message += "\n\n" + strings.file_upload_failure
 
-    slack.send_dm(slack_id=body["user"]["id"], message=message, slack_app=app)
+    slack_misc.send_dm(slack_id=body["user"]["id"], message=message, slack_app=app)
 
     if len(files) > 0:
         log_time(
@@ -576,7 +571,7 @@ def handle_app_home_opened_events(body, client, logger):
     global tidyhq_cache
     tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
 
-    slack_home.push_home(
+    slack_misc.push_home(
         user_id=user_id,
         config=config,
         tidyhq_cache=tidyhq_cache,
@@ -628,7 +623,7 @@ def handle_viewedit_actions(ack, body):
         edit = True
 
     # Generate the blocks for the view/edit modal
-    block_list = slack_home.viewedit_blocks(
+    block_list = block_formatters.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -767,7 +762,7 @@ def handle_comment_addition(ack, body, logger):
         taiga_user_info = taiga_cache["users"][taiga_id]
         poster_name = taiga_user_info["name"]
     else:
-        poster_name = slack.name_mapper(slack_id=user_id, slack_app=app)
+        poster_name = slack_misc.name_mapper(slack_id=user_id, slack_app=app)
 
     # Add byline
     comment = f"Posted from Slack by {poster_name}: {comment}"
@@ -789,7 +784,7 @@ def handle_comment_addition(ack, body, logger):
         logger.info(":".join(comment.split(":")[1:]))
 
     # Regenerate the view/edit modal
-    block_list = slack_home.viewedit_blocks(
+    block_list = block_formatters.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -833,7 +828,7 @@ def attach_files_modal(ack, body):
 
     block_list = []
     # Create upload field
-    block_list = slack_formatters.add_block(block_list, blocks.file_input)
+    block_list = block_formatters.add_block(block_list, blocks.file_input)
     block_list[-1]["block_id"] = "upload_section"
     block_list[-1]["element"]["action_id"] = "upload_file"
     block_list[-1]["label"]["text"] = "Upload files"
@@ -884,7 +879,7 @@ def view_tasks(ack, body, logger):
     if taiga_id:
         edit = True
 
-    block_list = slack_formatters.format_tasks_modal_blocks(
+    block_list = block_formatters.format_tasks_modal_blocks(
         task_list=tasks, config=config, taiga_auth_token=taiga_auth_token, edit=edit
     )
 
@@ -940,7 +935,7 @@ def attach_files(ack, body):
 
     # Unlike trigger IDs (3s expiry) we seem to be able to update the view as required
 
-    block_list = slack_home.viewedit_blocks(
+    block_list = block_formatters.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -985,7 +980,7 @@ def send_info_modal(ack, body, logger):
     # Get the item details from the private metadata
     project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
 
-    block_list = slack_home.edit_info_blocks(
+    block_list = block_formatters.edit_info_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -1190,7 +1185,7 @@ def complete_task(ack, body, client):
         )
 
         # Regenerate the task view modal
-        block_list = slack_formatters.format_tasks_modal_blocks(
+        block_list = block_formatters.format_tasks_modal_blocks(
             task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
         )
 
@@ -1222,7 +1217,7 @@ def complete_task(ack, body, client):
             logger.error(e.response["response_metadata"]["messages"])
 
     # Update the view/edit modal
-    block_list = slack_home.viewedit_blocks(
+    block_list = block_formatters.viewedit_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type="story",
@@ -1301,7 +1296,7 @@ def promote_issue(ack, body, client, respond):
     # Check if we're in a message or modal
     if "view" in body:
         # Update the view/edit modal
-        block_list = slack_home.viewedit_blocks(
+        block_list = block_formatters.viewedit_blocks(
             taigacon=taigacon,
             project_id=project_id,
             item_type="story",
@@ -1363,7 +1358,7 @@ def handle_some_action(ack, body, logger):
         )
 
     # Generate blocks to display attachments
-    block_list = slack_formatters.format_attachments(attachments)
+    block_list = block_formatters.format_attachments(attachments)
 
     log_time(
         start_time,
@@ -1410,7 +1405,7 @@ def create_item(ack, body, logger, client):
         logger.error(f"Failed to map Slack user {user_id} to Taiga user")
         return
 
-    selector_blocks = slack_home.new_item_selector_blocks(
+    selector_blocks = block_formatters.new_item_selector_blocks(
         taiga_id=taiga_id, taiga_cache=taiga_cache
     )
 
@@ -1444,7 +1439,7 @@ def create_from_message(ack, body):
     # Retrieve message particulars
     message = body["message"]["blocks"][0]["elements"][0]["elements"][0]["text"]
     author_id = body["message"]["user"]
-    author_name = slack.name_mapper(slack_id=author_id, slack_app=app)
+    author_name = slack_misc.name_mapper(slack_id=author_id, slack_app=app)
 
     # Attempt to map the Slack user to a Taiga user
     taiga_id = tidyhq.map_slack_to_taiga(
@@ -1456,7 +1451,7 @@ def create_from_message(ack, body):
     if not taiga_id:
         logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
 
-        slack.send_dm(
+        slack_misc.send_dm(
             slack_app=app,
             slack_id=body["user"]["id"],
             message="Sorry, I can't create a new item as your Slack account is not linked to a Taiga account.\nIf you think this is an error please reach out to #it.",
@@ -1481,7 +1476,7 @@ def create_from_message(ack, body):
     description += byline
 
     # Generate blocks
-    selector_blocks = slack_home.new_item_selector_blocks(
+    selector_blocks = block_formatters.new_item_selector_blocks(
         taiga_id=taiga_id, taiga_cache=taiga_cache
     )
 
@@ -1523,7 +1518,7 @@ def new_item(ack, body, client):
 
     logging.info(f"Creating new {item_type} in project {project_id}")
 
-    edit_blocks = slack_home.edit_info_blocks(
+    edit_blocks = block_formatters.edit_info_blocks(
         taigacon=taigacon,
         project_id=project_id,
         item_type=item_type,
@@ -1622,7 +1617,7 @@ def write_item(ack, body, client):
     # Instead we'll send a DM to the user to let them know the item has been created
 
     block_list = []
-    block_list = slack_formatters.add_block(block_list, blocks.text)
+    block_list = block_formatters.add_block(block_list, blocks.text)
     block_list[-1]["text"][
         "text"
     ] = f"Created new {item_type}: {new_item_details['subject']}"
@@ -1633,7 +1628,7 @@ def write_item(ack, body, client):
     button["action_id"] = f"viewedit-{project_id}-{item_type}-{item_id}"
     block_list[-1]["accessory"] = button
 
-    slack.send_dm(
+    slack_misc.send_dm(
         slack_app=app,
         slack_id=body["user"]["id"],
         message=f"Created new {item_type}: {new_item_details['subject']}",
@@ -1667,7 +1662,7 @@ if "--cron" in sys.argv:
 
     for user in users:
         user_id = user["id"]
-        slack_home.push_home(
+        slack_misc.push_home(
             user_id=user_id,
             config=config,
             tidyhq_cache=tidyhq_cache,
@@ -1676,7 +1671,7 @@ if "--cron" in sys.argv:
         )
 
         logger.info(
-            f"Updated home for {user_id} - {slack.name_mapper(slack_id=user_id, slack_app=app)} ({x}/{len(users)})"
+            f"Updated home for {user_id} - {slack_misc.name_mapper(slack_id=user_id, slack_app=app)} ({x}/{len(users)})"
         )
         x += 1
     logger.info(f"All homes updated ({x})")

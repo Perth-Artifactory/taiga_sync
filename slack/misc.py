@@ -1,14 +1,91 @@
+import json
 import logging
 from pprint import pprint
-
 import requests
-import slack_sdk
+
+import jsonschema
 
 from util import tidyhq
+from slack import block_formatters
 
 # Set up logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger("slack.misc")
+
+
+def validate(blocks, surface: str | None = "modal"):
+    # We want our own logger for this function
+    schemalogger = logging.getLogger("block-kit validator")
+
+    if surface in ["modal", "home"]:
+        if len(blocks) > 100:
+            schemalogger.error(f"Block list too long {len(blocks)}/100")
+            return False
+    elif surface in ["message", "msg"]:
+        if len(blocks) > 50:
+            schemalogger.error(f"Block list too long {len(blocks)}/50")
+            return False
+
+    # Recursively search for all fields called "text" and ensure they don't have an empty string
+    for block in blocks:
+        if not check_for_empty_text(block, schemalogger):
+            return False
+
+    # Load the schema from file
+    with open("block-kit-schema.json") as f:
+        schema = json.load(f)
+
+    try:
+        jsonschema.validate(instance=blocks, schema=schema)
+    except jsonschema.exceptions.ValidationError as e:  # type: ignore
+        schemalogger.error(e)
+        return False
+    return True
+
+
+def check_for_empty_text(block, logger):
+    for key, value in block.items():
+        if key == "text" and value == "":
+            logger.error(f"Empty text field found in block {block}")
+            return False
+        if isinstance(value, dict):
+            if not check_for_empty_text(value, logger):
+                return False
+    return True
+
+
+def convert_markdown(text: str) -> str:
+    """Convert normal markdown to slack markdown"""
+    # Convert bold
+    text = text.replace("**", "*")
+
+    return text
+
+
+def push_home(
+    user_id: str, config: dict, tidyhq_cache: dict, taiga_auth_token: str, slack_app
+):
+    """Push the app home view to a specified user."""
+    # Generate the app home view
+    block_list = block_formatters.app_home(
+        user_id=user_id,
+        config=config,
+        tidyhq_cache=tidyhq_cache,
+        taiga_auth_token=taiga_auth_token,
+    )
+
+    try:
+        slack_app.client.views_publish(
+            user_id=user_id,
+            view={
+                "type": "home",
+                "blocks": block_list,
+            },
+        )
+        logger.info(f"Set app home for {user_id} ")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to push home view: {e}")
+        return False
 
 
 def name_mapper(slack_id: str, slack_app) -> str:

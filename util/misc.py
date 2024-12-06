@@ -1,4 +1,5 @@
 import phonenumbers
+import hashlib
 
 
 def valid_phone_number(num: str) -> bool:
@@ -23,3 +24,17 @@ def calculate_circle_emoji(count, total) -> str:
         percentage = 10
 
     return f":circle{percentage}:"
+
+
+def hash_question(question_text: str) -> str:
+    """Converts a string into a hash for use as a repeatable but unique action_id"""
+
+    # strip non alphanumeric/space characters
+    question_text = "".join(
+        char for char in question_text if char.isalnum() or char.isspace()
+    )
+
+    # strip leading/trailing whitespace
+    question_text = question_text.strip()
+
+    return hashlib.md5(question_text.encode()).hexdigest()

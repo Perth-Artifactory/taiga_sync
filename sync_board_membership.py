@@ -9,7 +9,8 @@ import time
 
 from taiga import TaigaAPI
 
-from util import slack, taigalink, tidyhq
+from util import tidyhq
+from slack import misc as slack_misc
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -152,7 +153,7 @@ for channel in slack_channels:
     # Check if any of the channel's members exist in taiga_users
     for member in channel_members:
         if member in taiga_slack_users:
-            member_name = slack.name_mapper(slack_id=member, slack_app=app)
+            member_name = slack_misc.name_mapper(slack_id=member, slack_app=app)
             logger.debug(
                 f"Found Taiga user {member_name} ({member}) in channel #{channel['name']}"
             )

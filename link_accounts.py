@@ -1,15 +1,16 @@
-import requests
-import logging
 import json
+import logging
 import sys
-from slack_bolt import App
-from datetime import datetime
-from pprint import pprint, pformat
 import time
+from datetime import datetime
+from pprint import pformat, pprint
 
+import requests
+from slack_bolt import App
 from taiga import TaigaAPI
 
-from util import slack, taigalink, tidyhq, blocks, slack_formatters
+from slack import blocks, block_formatters
+from util import taigalink, tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -35,13 +36,13 @@ def notify(message: str, blocks: list, slack_app):
 
 def construct_link_blocks(tidyhq_id, tidyhq_name, taiga_username, method):
     block_list = []
-    block_list = slack_formatters.add_block(block_list=block_list, block=blocks.text)
-    block_list = slack_formatters.inject_text(
+    block_list = block_formatters.add_block(block_list=block_list, block=blocks.text)
+    block_list = block_formatters.inject_text(
         block_list=block_list,
         text=f"Linking TidyHQ contact <{tidyhq_user_url.format(contact_id=tidyhq_id)}|{tidyhq_name}> to Taiga user <{taiga_user_url.format(username=taiga_username)}|@{taiga_username}>",
     )
-    block_list = slack_formatters.add_block(block_list=block_list, block=blocks.context)
-    block_list = slack_formatters.inject_text(
+    block_list = block_formatters.add_block(block_list=block_list, block=blocks.context)
+    block_list = block_formatters.inject_text(
         block_list=block_list, text=f"This match was performed by: {method}"
     )
     return block_list
