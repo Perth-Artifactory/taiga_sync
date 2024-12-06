@@ -780,16 +780,18 @@ def edit_info_blocks(
     item_id,
     item_type,
     taiga_cache: dict,
+    new: bool = False,
 ):
     """Return the blocks required for editing information about an item"""
 
     # Get the item from Taiga
-    if item_type == "issue":
-        item = taigacon.issues.get(item_id)
-    elif item_type == "task":
-        item = taigacon.tasks.get(item_id)
-    elif item_type == "story":
-        item = taigacon.user_stories.get(item_id)
+    if not new:
+        if item_type == "issue":
+            item = taigacon.issues.get(item_id)
+        elif item_type == "task":
+            item = taigacon.tasks.get(item_id)
+        elif item_type == "story":
+            item = taigacon.user_stories.get(item_id)
     raw_statuses: dict = taiga_cache["boards"][int(project_id)]["statuses"][item_type]
 
     # Trim down the board members to just id:name
@@ -904,7 +906,6 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "type"
         block_list[-1]["block_id"] = "type"
-        block_list[-1]["element"]["placeholder"]["text"] = "Change the type"
         block_list[-1]["element"]["initial_option"] = {
             "text": {"type": "plain_text", "text": types[current_type]},
             "value": str(current_type),
@@ -924,7 +925,6 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "severity"
         block_list[-1]["block_id"] = "severity"
-        block_list[-1]["element"]["placeholder"]["text"] = "Change the severity"
         block_list[-1]["element"]["initial_option"] = {
             "text": {"type": "plain_text", "text": severities[current_severity]},
             "value": str(current_severity),
@@ -944,6 +944,10 @@ def edit_info_blocks(
             )
         block_list[-1]["element"]["action_id"] = "priority"
         block_list[-1]["block_id"] = "priority"
+        block_list[-1]["element"]["initial_option"] = {
+            "text": {"type": "plain_text", "text": priorities[current_priority]},
+            "value": str(current_priority),
+        }
 
     # Description
     block_list = slack_formatters.add_block(block_list, blocks.text_question)
