@@ -966,6 +966,19 @@ def handle_comment_addition(ack, body, logger):
     # Post the comment
     commenting = item.add_comment(comment)
 
+    if not commenting:
+        logger.info(
+            f"Failed to add comment to {item_type} {item_id} in project {project_id} by {user_id}"
+        )
+        logger.info(":".join(comment.split(":")[1:]))
+        return
+
+    else:
+        logger.info(
+            f"Comment added to {item_type} {item_id} in project {project_id} by {user_id}"
+        )
+        logger.info(":".join(comment.split(":")[1:]))
+
     # Regenerate the view/edit modal
     block_list = slack_home.viewedit_blocks(
         taigacon=taigacon,
@@ -985,7 +998,6 @@ def handle_comment_addition(ack, body, logger):
     )
 
     # Push the modal
-    logging.info("Opening new modal")
     try:
         client.views_update(
             view_id=body["view"]["root_view_id"],
@@ -999,8 +1011,10 @@ def handle_comment_addition(ack, body, logger):
                 "clear_on_close": True,
             },
         )
+        logger.info(f"Updated view/edit modal for {item_type} {item_id} for {user_id}")
     except SlackApiError as e:
         logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 @app.action("home-attach_files")

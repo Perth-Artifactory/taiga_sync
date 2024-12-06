@@ -3,9 +3,9 @@ unrecognised = """Welcome to Taiga! Unfortunately I don't recognise you. It coul
 • You're not signed up for Taiga yet. <https://tasks.artifactory.org.au/register|Sign up here>.
 • Your email address in Taiga doesn't match the one you use for Slack (Reach out to #it if this is the case)"""
 header = "Artifactory Issue Tracker"
-do_instead = """Here are some things you can do in the meantime:
-• Have a look at what our <https://tasks.artifactory.org.au/project/infrastructure/kanban|Infrastructure> team is up to.
-• See what's up with the <https://tasks.artifactory.org.au/project/lasers/kanban|laser cutters>."""
+do_instead = (
+    """Below are a list of items that are assigned to the whiteboard instead!"""
+)
 version = "Version: {branch}/{commit}-{platform}"
 footer = (
     """This app is in constant development. If you have any feedback or suggestions, please reach out to #it. | """
