@@ -1620,7 +1620,7 @@ if "--cron" in sys.argv:
         )
 
         logger.info(
-            f"Updated home for {user_id} - {user['profile']['real_name_normalized']} ({x}/{len(users)})"
+            f"Updated home for {user_id} - {slack.name_mapper(slack_id=user_id, slack_app=app)} ({x}/{len(users)})"
         )
         x += 1
     logger.info(f"All homes updated ({x})")
