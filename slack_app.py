@@ -13,6 +13,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
+from copy import deepcopy as copy
 
 from editable_resources import forms, strings
 from util import (
@@ -172,208 +173,16 @@ for channel in channels:
 
 # Event listener for messages that mention the bot
 @app.event("app_mention")
-def handle_app_mention(event, ack, client, respond):
-    start_time = time.time()
-    """Respond to a mention of the bot with a message"""
-    user = event["user"]
-    text = event["text"]
-    channel = event["channel"]
-
-    user_info = client.users_info(user=user)
-    user_display_name = user_info["user"]["profile"].get(
-        "real_name", user_info["user"]["profile"]["display_name"]
-    )
-
-    # This command is used elsewhere to silence notifications
-    if text.startswith("MUTE"):
-        ack()
-        return
-
-    board, description = extract_issue_particulars(message=text)
-    if board not in taiga_cache["projects"]["by_name_with_extra"] or not description:
-        client.chat_postEphemeral(
-            channel=event["channel"],
-            user=event["user"],
-            text=(
-                "Sorry, I couldn't understand your message. Please try again.\n"
-                "It should be in the format of <board name> <description>\n"
-                "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
-            ),
-            thread_ts=event["thread_ts"] if "thread_ts" in event else None,
-        )
-        return
-
-    # Determine whether this is a root message or a reply to a thread
-    if "thread_ts" in event:
-        thread_ts = event["thread_ts"]
-
-        # Get the thread's root message
-        response = client.conversations_replies(channel=channel, ts=thread_ts)
-        root_message = response["messages"][0] if response["messages"] else None
-
-        if root_message:
-            root_text = root_message["text"]
-            # Get the display name of the user who created the thread
-            root_user_display_name = slack.name_mapper(
-                slack_id=root_message["user"], slack_app=app
-            )
-
-            board, description = extract_issue_particulars(message=text)
-            if not board or not description:
-                client.chat_postEphemeral(
-                    channel=channel,
-                    user=user,
-                    text=(
-                        "Sorry, I couldn't understand your message. Please try again.\n"
-                        "It should be in the format of <board name> <description>\n"
-                        "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
-                    ),
-                    thread_ts=thread_ts,
-                )
-                return
-
-            issue = taigalink.create_slack_issue(
-                board=board,
-                description=f"From {root_user_display_name} on Slack: {root_text}",
-                subject=description,
-                by_slack=user_info,
-                project_ids=taiga_cache["projects"]["by_name_with_extra"],
-                config=config,
-                taiga_auth_token=taiga_auth_token,
-                slack_team_id=slack_team_id,
-            )
-
-            if issue:
-                client.chat_postMessage(
-                    channel=channel,
-                    text=f"The issue has been created on Taiga, thanks!",
-                    thread_ts=thread_ts,
-                )
-    else:
-        board, description = extract_issue_particulars(message=text)
-        if not board or not description:
-            client.chat_postEphemeral(
-                channel=channel,
-                user=user,
-                text=(
-                    "Sorry, I couldn't understand your message. Please try again.\n"
-                    "It should be in the format of <board name> <description>\n"
-                    "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
-                ),
-            )
-            return
-
-        issue = taigalink.create_slack_issue(
-            board=board,
-            description="",
-            subject=description,
-            by_slack=user_info,
-            project_ids=taiga_cache["projects"]["by_name_with_extra"],
-            config=config,
-            taiga_auth_token=taiga_auth_token,
-            slack_team_id=slack_team_id,
-        )
-        if issue:
-            client.chat_postMessage(
-                channel=channel,
-                text="The issue has been created on Taiga, thanks!",
-                thread_ts=event["ts"],
-            )
-        log_time(start_time, time.time(), response_logger, cause="Issue creation")
+def ignore_app_mention(ack):
+    """Dummy function to acknowledge the mention"""
+    ack()
 
 
 # Event listener for direct messages to the bot
 @app.event("message")
 def handle_message(event, say, client, ack):
-    """Respond to direct messages sent to the bot"""
-    start_time = time.time()
-    if event.get("channel_type") != "im":
-        ack()
-        return
-    user = event["user"]
-    text = event["text"]
-
-    user_info = client.users_info(user=user)
-    user_display_name = user_info["user"]["profile"].get(
-        "real_name", user_info["user"]["profile"]["display_name"]
-    )
-
-    board, description = extract_issue_particulars(message=text)
-    if (
-        board not in taiga_cache["projects"]["by_name_with_extra"]
-        or not description
-        or not board
-    ):
-        client.chat_postEphemeral(
-            channel=event["channel"],
-            user=event["user"],
-            text=(
-                "Sorry, I couldn't understand your message. Please try again.\n"
-                "It should be in the format of <board name> <description>\n"
-                "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
-            ),
-            thread_ts=event["thread_ts"] if "thread_ts" in event else None,
-        )
-        return
-
-    issue = taigalink.create_slack_issue(
-        board=board,
-        description="",
-        subject=description,
-        by_slack=user_info,
-        project_ids=taiga_cache["projects"]["by_name_with_extra"],
-        config=config,
-        taiga_auth_token=taiga_auth_token,
-        slack_team_id=slack_team_id,
-    )
-    if issue:
-        say("The issue has been created on Taiga, thanks!")
-    log_time(start_time, time.time(), response_logger, cause="Issue creation")
-
-
-# Command listener for /issue
-@app.command("/issue")
-def handle_issue_command(ack, respond, command, client):
-    """Raise issues on Taiga via /issue"""
-    start_time = time.time()
-    logger.info(f"Received /issue command")
+    """Ignore messages sent to the bot"""
     ack()
-    user = command["user_id"]
-
-    user_info = client.users_info(user=user)
-    user_display_name = user_info["user"]["profile"].get(
-        "real_name", user_info["user"]["profile"]["display_name"]
-    )
-
-    board, description = extract_issue_particulars(message=command["text"])
-
-    if (
-        board not in taiga_cache["projects"]["by_name_with_extra"]
-        or not description
-        or not board
-    ):
-        respond(
-            "Sorry, I couldn't understand your message. Please try again.\n"
-            "It should be in the format of `/issue <board name> <description>`\n"
-            "Valid board names are: `3d`, `infra`, `it`, `lasers`, `committee`"
-        )
-        return
-
-    issue = taigalink.create_slack_issue(
-        board=board,
-        description="",
-        subject=description,
-        by_slack=user_info,
-        project_ids=taiga_cache["projects"]["by_name_with_extra"],
-        config=config,
-        taiga_auth_token=taiga_auth_token,
-        slack_team_id=slack_team_id,
-    )
-
-    if issue:
-        respond("The issue has been created on Taiga, thanks!")
-
-    log_time(start_time, time.time(), response_logger, cause="Issue creation")
 
 
 # Command listener for form selection
@@ -1583,6 +1392,177 @@ def handle_some_action(ack, body, logger):
         logger.error(f"Failed to push modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
         pprint(block_list)
+
+
+@app.action("create_item")
+def create_item(ack, body, logger, client):
+    """Bring up a modal that allows the user to select the item type and what project to create it in"""
+    ack()
+
+    user_id = body["user"]["id"]
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=user_id,
+    )
+    # We don't need to be particularly verbose here as this button _should_ only be presented to Taiga users.
+    if not taiga_id:
+        logger.error(f"Failed to map Slack user {user_id} to Taiga user")
+        return
+
+    selector_blocks = slack_home.new_item_selector_blocks(
+        taiga_id=taiga_id, taiga_cache=taiga_cache
+    )
+
+    # Open the modal
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "new_item",
+                "title": {"type": "plain_text", "text": "Create a new item"},
+                "blocks": selector_blocks,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Next"},
+            },
+        )
+        logger.info(f"Opened new item select modal for {user_id}")
+
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view_submission("new_item")
+def new_item(ack, body, client):
+    """Open a modal to create a new item"""
+    ack()
+
+    project_id = body["view"]["state"]["values"]["project"]["project"][
+        "selected_option"
+    ]["value"]
+    item_type = body["view"]["state"]["values"]["item_type"]["item_type"][
+        "selected_option"
+    ]["value"]
+
+    logging.info(f"Creating new {item_type} in project {project_id}")
+
+    edit_blocks = slack_home.edit_info_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id="0",
+        taiga_cache=taiga_cache,
+        new=True,
+    )
+
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "write_item",
+                "title": {"type": "plain_text", "text": f"Create new {item_type}"},
+                "blocks": edit_blocks,
+                "private_metadata": f"{project_id}-{item_type}",
+                "submit": {"type": "plain_text", "text": f"Create {item_type}"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Opened new item creation modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view_submission("write_item")
+def write_item(ack, body, client):
+    """Write the new item to Taiga"""
+    start_time = time.time()
+    ack()
+
+    # Get the project_id and item type from the private metadata
+    project_id, item_type = body["view"]["private_metadata"].split("-")
+
+    new_item_details = {}
+
+    for field in body["view"]["state"]["values"]:
+        data = body["view"]["state"]["values"][field][field]
+
+        # Patching everything at the same time didn't seem to work
+
+        if field == "subject":
+            new_item_details["subject"] = data["value"]
+
+        elif field == "description":
+            if data["value"].strip() != "":
+                new_item_details["description"] = data["value"]
+
+        elif field == "due_date":
+            new_item_details["due_date"] = data["selected_date"]
+
+        elif field == "assigned_to":
+            assigned = data["selected_option"]["value"]
+            new_item_details["assigned_to"] = int(assigned)
+
+        elif field == "watchers":
+            new_item_details["watchers"] = [
+                int(watcher["value"]) for watcher in data["selected_options"]
+            ]
+
+        elif field == "status":
+            status = data["selected_option"]["value"]
+            new_item_details["status"] = int(status)
+
+        # Issue specific fields
+        elif field == "type":
+            type_id = data["selected_option"]["value"]
+            new_item_details["type"] = int(type_id)
+
+        elif field == "severity":
+            severity_id = data["selected_option"]["value"]
+            new_item_details["severity"] = int(severity_id)
+
+        elif field == "priority":
+            priority = data["selected_option"]["value"]
+            new_item_details["priority"] = int(priority)
+
+    # Create the new item
+    item_id, version = taigalink.create_item(
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        project_id=project_id,
+        item_type=item_type,
+        **new_item_details,
+    )
+
+    if not item_id:
+        logger.error(f"Failed to create new {item_type}")
+        return
+
+    # This process typically takes longer than the 3s we have to respond to the view submission
+    # So we can't open the view/edit modal
+    # Instead we'll send a DM to the user to let them know the item has been created
+
+    block_list = []
+    block_list = slack_formatters.add_block(block_list, blocks.text)
+    block_list[-1]["text"][
+        "text"
+    ] = f"Created new {item_type}: {new_item_details['subject']}"
+
+    # Add a button to view the new item
+    button = copy(blocks.button)
+    button["text"]["text"] = "View/Edit"
+    button["action_id"] = f"viewedit-{project_id}-{item_type}-{item_id}"
+    block_list[-1]["accessory"] = button
+
+    slack.send_dm(
+        slack_app=app,
+        slack_id=body["user"]["id"],
+        message=f"Created new {item_type}: {new_item_details['subject']}",
+        blocks=block_list,
+    )
 
 
 # The cron mode renders the app home for every user in the workspace

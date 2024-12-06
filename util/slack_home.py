@@ -65,10 +65,6 @@ def generate_app_home(
         slack_id=user_id,
     )
 
-    if not taiga_id:
-        logger.info(f"User {user_id} does not have a Taiga account")
-        taiga_id = config["taiga"]["guest_user"]
-
     block_list = []
     block_list = slack_formatters.add_block(block_list, blocks.header)
     block_list = slack_formatters.inject_text(
@@ -77,11 +73,15 @@ def generate_app_home(
 
     # Add a "submit form" button
     block_list = slack_formatters.add_block(block_list, blocks.actions)
+    block_list[-1].pop("block_id")
     block_list[-1]["elements"].append(copy(blocks.button))
-    block_list[-1]["elements"][0]["text"]["text"] = "Submit a form"
-    block_list[-1]["elements"][0]["action_id"] = "submit_form"
+    block_list[-1]["elements"][-1]["text"]["text"] = "Submit a form"
+    block_list[-1]["elements"][-1]["action_id"] = "submit_form"
 
-    if taiga_id == config["taiga"]["guest_user"]:
+    if not taiga_id:
+        logger.info(f"User {user_id} does not have a Taiga account")
+        taiga_id = config["taiga"]["guest_user"]
+
         # Construct blocks
         block_list = slack_formatters.add_block(block_list, blocks.text)
         block_list = slack_formatters.inject_text(
@@ -96,6 +96,11 @@ def generate_app_home(
     else:
         # We recognise the user
         logger.info(f"User {user_id} has a Taiga account - {taiga_id}")
+
+        # Add create button
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][-1]["text"]["text"] = "Create an item"
+        block_list[-1]["elements"][-1]["action_id"] = "create_item"
 
         # Construct blocks
         block_list = slack_formatters.add_block(block_list, blocks.text)
@@ -1027,5 +1032,49 @@ def edit_info_blocks(
                     "value": str(watcher),
                 }
             )
+
+    return block_list
+
+
+def new_item_selector_blocks(taiga_id: int, taiga_cache: dict):
+    """Generate the blocks for a modal to select the type of item to create and on what project"""
+
+    # Get the user's projects
+    user_projects = taiga_cache["users"][taiga_id]["projects"]
+
+    # Set up blocks
+    block_list = []
+
+    # Project selector
+    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+    block_list[-1]["label"]["text"] = "Project"
+    block_list[-1]["element"]["options"] = []
+    for project_id in user_projects:
+        block_list[-1]["element"]["options"].append(
+            {
+                "text": {
+                    "type": "plain_text",
+                    "text": taiga_cache["boards"][project_id]["name"],
+                },
+                "value": str(project_id),
+            }
+        )
+    block_list[-1]["element"]["action_id"] = "project"
+    block_list[-1]["block_id"] = "project"
+    block_list[-1]["element"]["placeholder"]["text"] = "Select a project"
+
+    # Item type selector
+    block_list = slack_formatters.add_block(block_list, blocks.static_dropdown)
+    block_list[-1]["label"]["text"] = "Item type"
+    for item_type in ["story", "issue"]:
+        block_list[-1]["element"]["options"].append(
+            {
+                "text": {"type": "plain_text", "text": item_type.capitalize()},
+                "value": item_type,
+            }
+        )
+    block_list[-1]["element"]["action_id"] = "item_type"
+    block_list[-1]["block_id"] = "item_type"
+    block_list[-1]["element"]["placeholder"]["text"] = "Select an item type"
 
     return block_list

@@ -285,20 +285,35 @@ def create_slack_issue(
     return issue_info
 
 
-def create_story(
+def create_item(
     config: dict,
     taiga_auth_token: str,
     project_id: int,
+    item_type: str,
     subject: str,
     assigned_to: int | None = None,
     description: str | None = None,
     due_date: str | None = None,
+    status: int | None = None,
     tags: list[str] | None = None,
     watchers: list[int] | None = None,
+    type: int | None = None,
+    priority: int | None = None,
+    severity: int | None = None,
 ):
-    """Create a story on a Taiga project.
+    """Create an item on a Taiga project.
 
-    Returns the story ID and version if successful."""
+    Returns the item ID and version if successful."""
+
+    type_map = {
+        "story": "userstories",
+        "issue": "issues",
+    }
+
+    if item_type not in type_map:
+        raise ValueError(
+            f"Item type {item_type} not supported must be one of: {type_map.keys()}"
+        )
 
     data = {
         "project": project_id,
@@ -310,8 +325,16 @@ def create_story(
         data["assigned_to"] = assigned_to
     if tags:
         data["tags"] = tags
+    if type:
+        data["type"] = type
+    if priority:
+        data["priority"] = priority
+    if severity:
+        data["severity"] = severity
+    if status:
+        data["status"] = status
 
-    create_url = f"{config['taiga']['url']}/api/v1/userstories"
+    create_url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}"
     response = requests.post(
         create_url,
         headers={
@@ -320,7 +343,9 @@ def create_story(
         json=data,
     )
     if response.status_code == 201:
-        logger.info(f"Created story {response.json()['id']} on project {project_id}")
+        logger.info(
+            f"Created {item_type} {response.json()['id']} on project {project_id}"
+        )
         story_id = response.json()["id"]
 
         version = response.json()["version"]
@@ -330,7 +355,7 @@ def create_story(
             current_watchers = []
             for watcher in watchers:
                 added_watcher = watch(
-                    type_str="story",
+                    type_str=item_type,
                     item_id=story_id,
                     watchers=current_watchers,
                     taiga_id=watcher,
@@ -350,14 +375,14 @@ def create_story(
                 json={"due_date": due_date, "version": version},
             )
             if response.status_code == 200:
-                logger.info(f"Added due date to story {story_id}")
+                logger.info(f"Added due date to {item_type} {story_id}")
                 version = response.json()["version"]
 
         return story_id, version
 
     else:
         logger.error(
-            f"Failed to create story on project {project_id}: {response.status_code}"
+            f"Failed to create {item_type} on project {project_id}: {response.status_code}"
         )
         logger.error(response.json())
         return False, None
@@ -973,11 +998,15 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             }
 
             # Add the user to the global users list
-            users[member] = {
-                "name": member_info["full_name_display"],
-                "username": member_info["username"],
-                "photo": member_info["photo"],
-            }
+            if member not in users:
+                users[member] = {
+                    "name": member_info["full_name_display"],
+                    "username": member_info["username"],
+                    "photo": member_info["photo"],
+                    "projects": [],
+                }
+
+            users[member]["projects"].append(project["id"])
 
     # Statuses
 
@@ -1077,10 +1106,11 @@ def promote_issue(
     }
 
     # Create the user story
-    story_id, version = create_story(
+    story_id, version = create_item(
         config,
         taiga_auth_token,
         issue["project"],
+        item_type="story",
         **issue_data,
     )
 
@@ -1098,7 +1128,6 @@ def promote_issue(
 
     if issues:
         for attachment in issues:
-            pprint(attachment)
             attach_file(
                 taiga_auth_token=taiga_auth_token,
                 config=config,
