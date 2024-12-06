@@ -372,9 +372,11 @@ def viewedit_blocks(
     elif item_type == "task":
         item = taigacon.tasks.get(resource_id=item_id)
         history: list = taigacon.history.task.get(resource_id=item_id)
-    elif item_type == "story":
+    elif item_type in ["story", "userstory"]:
         item = taigacon.user_stories.get(resource_id=item_id)
         history: list = taigacon.history.user_story.get(resource_id=item_id)
+    else:
+        raise ValueError(f"Unknown item type {item_type}")
 
     # Check if the item has an actual description
     if not item.description:
@@ -448,6 +450,29 @@ def viewedit_blocks(
     block_list = slack_formatters.inject_text(
         block_list=block_list, text=f"{item_type.capitalize()}: {item.subject}"
     )
+
+    # Add a promote button if the item is an issue
+    if item_type == "issue" and edit:
+        button = copy(blocks.button)
+        button["text"]["text"] = "Promote to story"
+        button["action_id"] = (
+            f"promote_issue-{item.project_extra_info['id']}-issue-{item.id}"
+        )
+        # If there are comments warn that they'll be removed
+        if comments:
+            button["confirm"] = {
+                "title": {"type": "plain_text", "text": "Promote to story"},
+                "text": {
+                    "type": "plain_text",
+                    "text": f"The {len(comments)} comment{'s' if len(comments)> 1 else ''} on this issue will be lost on promotion. Are you sure?",
+                },
+                "confirm": {"type": "plain_text", "text": "Promote"},
+                "deny": {"type": "plain_text", "text": "Cancel"},
+            }
+
+        block_list = slack_formatters.add_block(block_list, blocks.actions)
+        block_list[-1]["elements"].append(button)
+        block_list[-1].pop("block_id")
 
     # Add context of who created the item
     block_list = slack_formatters.add_block(block_list, blocks.context)

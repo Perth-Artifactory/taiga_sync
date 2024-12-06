@@ -248,11 +248,31 @@ def incoming():
             f"viewedit-{project_id}-{data['type']}-{data['data']['id']}"
         )
 
+        # Check if we should add a promote button
+        promote_button = None
+        if data["type"] == "issue" and data["action"] == "create":
+            promote_button = copy(blocks.button)
+            promote_button["text"]["text"] = "Promote to story"
+            promote_button["action_id"] = (
+                f"promote_issue-{project_id}-issue-{data['data']['id']}"
+            )
+            promote_button["confirm"] = {
+                "title": {"type": "plain_text", "text": "Promote to story"},
+                "text": {
+                    "type": "plain_text",
+                    "text": f"Any comments on this issue will be lost on promotion. Are you sure?",
+                },
+                "confirm": {"type": "plain_text", "text": "Promote"},
+                "deny": {"type": "plain_text", "text": "Cancel"},
+            }
+
         # Create an action block and add the buttons
         block_list = slack_formatters.add_block(block_list, blocks.actions)
         block_list[-1]["elements"].append(app_button)
         block_list[-1]["elements"].append(visit_button)
         block_list[-1]["elements"].append(watch_button)
+        if promote_button:
+            block_list[-1]["elements"].append(promote_button)
 
     # map recipients to slack IDs
     recipients = slack.map_recipients(
@@ -269,7 +289,6 @@ def incoming():
 
     else:
         # Check if we're announcing a comment
-        pprint(data)
         if (
             data["action"] == "change"
             and data.get("change", {"comment": None})["comment"]

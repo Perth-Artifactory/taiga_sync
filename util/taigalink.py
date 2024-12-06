@@ -1,10 +1,11 @@
 import logging
 import sys
-from pprint import pprint, pformat
+from pprint import pformat, pprint
+from typing import Literal
 
 import requests
 
-from util import tidyhq, slack
+from util import slack, tidyhq
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -282,6 +283,84 @@ def create_slack_issue(
     issue_info = issue
 
     return issue_info
+
+
+def create_story(
+    config: dict,
+    taiga_auth_token: str,
+    project_id: int,
+    subject: str,
+    assigned_to: int | None = None,
+    description: str | None = None,
+    due_date: str | None = None,
+    tags: list[str] | None = None,
+    watchers: list[int] | None = None,
+):
+    """Create a story on a Taiga project.
+
+    Returns the story ID and version if successful."""
+
+    data = {
+        "project": project_id,
+        "subject": subject,
+    }
+    if description:
+        data["description"] = description
+    if assigned_to:
+        data["assigned_to"] = assigned_to
+    if tags:
+        data["tags"] = tags
+
+    create_url = f"{config['taiga']['url']}/api/v1/userstories"
+    response = requests.post(
+        create_url,
+        headers={
+            "Authorization": f"Bearer {taiga_auth_token}",
+        },
+        json=data,
+    )
+    if response.status_code == 201:
+        logger.info(f"Created story {response.json()['id']} on project {project_id}")
+        story_id = response.json()["id"]
+
+        version = response.json()["version"]
+
+        # Add watchers if provided
+        if watchers:
+            current_watchers = []
+            for watcher in watchers:
+                added_watcher = watch(
+                    type_str="story",
+                    item_id=story_id,
+                    watchers=current_watchers,
+                    taiga_id=watcher,
+                    taiga_auth_token=taiga_auth_token,
+                    config=config,
+                    version=version,
+                )
+                if added_watcher:
+                    current_watchers.append(watcher)
+                    version += 1
+
+        # Add due date if provided
+        if due_date:
+            response = requests.patch(
+                create_url,
+                headers={"Authorization": f"Bearer {taiga_auth_token}"},
+                json={"due_date": due_date, "version": version},
+            )
+            if response.status_code == 200:
+                logger.info(f"Added due date to story {story_id}")
+                version = response.json()["version"]
+
+        return story_id, version
+
+    else:
+        logger.error(
+            f"Failed to create story on project {project_id}: {response.status_code}"
+        )
+        logger.error(response.json())
+        return False, None
 
 
 def item_mapper(
@@ -729,7 +808,7 @@ def watch(
     version: int,
 ):
     """Add a watcher to a story or issue."""
-    type_map = {"userstory": "userstories", "issue": "issues"}
+    type_map = {"userstory": "userstories", "story": "userstories", "issue": "issues"}
     if type_str not in type_map:
         logger.error(f"Type {type_str} not supported")
         return False
@@ -780,6 +859,7 @@ def attach_file(
     url: str | None = None,
     file_obj=None,
     filename: str | None = None,
+    description: str | None = None,
 ):
     """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
 
@@ -817,14 +897,20 @@ def attach_file(
     else:
         filename = "attached_file"
 
+    # Construct the data and add description if provided
+    data = {
+        "project": project_id,
+        "object_id": item_id,
+    }
+    if description:
+        data["description"] = description
+
     # Upload the file
+
     upload = requests.post(
         upload_url,
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
-        data={
-            "project": project_id,
-            "object_id": item_id,
-        },
+        data=data,
         files={"attached_file": (filename, file_obj, "application/octet-stream")},
     )
 
@@ -964,3 +1050,79 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     cache["projects"] = projects
 
     return cache
+
+
+def promote_issue(
+    config: dict, taiga_auth_token: str, issue_id
+) -> int | Literal[False]:
+    """Create a user story based on an issue and delete the issue.
+
+    Retains: subject, description, tags, assigned_to, watchers, attachments, due_date
+    Does not retain: comments, status, priority, severity, type"""
+
+    # Get the issue
+    issue = get_info(taiga_auth_token, config, issue_id=issue_id)
+
+    if not issue:
+        logger.error(f"Failed to get issue {issue_id}")
+        return False
+
+    issue_data = {
+        "subject": issue["subject"],
+        "description": issue["description"],
+        "due_date": issue["due_date"],
+        "tags": issue["tags"],
+        "assigned_to": issue["assigned_to"],
+        "watchers": issue["watchers"],
+    }
+
+    # Create the user story
+    story_id, version = create_story(
+        config,
+        taiga_auth_token,
+        issue["project"],
+        **issue_data,
+    )
+
+    # Attachments
+
+    # The attachments field doesn't seem to be reliably present even when there are attachments
+    # So we'll fetch the attachments separately
+
+    response = requests.get(
+        f"{config['taiga']['url']}/api/v1/issues/attachments",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"project": issue["project"], "object_id": issue_id},
+    )
+    issues = response.json()
+
+    if issues:
+        for attachment in issues:
+            pprint(attachment)
+            attach_file(
+                taiga_auth_token=taiga_auth_token,
+                config=config,
+                project_id=issue["project"],
+                item_type="story",
+                item_id=story_id,
+                url=attachment["url"],
+                filename=attachment["attached_file"].split("/")[-1],
+                description=attachment["description"],
+            )
+
+    # Delete the issue
+    response = requests.delete(
+        f"{config['taiga']['url']}/api/v1/issues/{issue_id}",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+    if response.status_code == 204:
+        return story_id
+    else:
+        logger.error(f"Failed to delete issue {issue_id}: {response.status_code}")
+        return False
+
+
+def check_project_membership(taiga_cache: dict, project_id: int, taiga_id: int) -> bool:
+    """Check if the user is a member of the project."""
+
+    return taiga_id in taiga_cache["boards"][project_id]["members"]

@@ -1427,6 +1427,97 @@ def complete_task(ack, body, client):
         logger.error(e.response["response_metadata"]["messages"])
 
 
+@app.action(re.compile(r"^promote_issue-.*"))
+def promote_issue(ack, body, client, respond):
+    """Promote an issue to a user story"""
+    start_time = time.time()
+    ack()
+    logger.info("Received promote issue action")
+
+    # Get the item details from the action ID
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
+
+    # Attempt to map the Slack user to a Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
+        app.client.chat_postEphemeral(
+            channel=body["channel"]["id"],
+            user=body["user"]["id"],
+            text="Sorry, I can't promote this issue to a user story as your Slack account is not linked to a Taiga account.\nIf you think this is an error please reach out to #it.",
+        )
+        return
+
+    # Check that the Taiga user is a member of the project
+    if not taigalink.check_project_membership(
+        taiga_cache=taiga_cache, project_id=project_id, taiga_id=taiga_id
+    ):
+        logger.error(f"Taiga user {taiga_id} is not a member of project {project_id}")
+        app.client.chat_postEphemeral(
+            channel=body["channel"]["id"],
+            user=body["user"]["id"],
+            text="Sorry, I can't promote this issue to a user story as you are not a member of the project it's attached to.\nIf you think this is an error please reach out to #it.",
+        )
+        return
+
+    # Promote the issue
+    story_id = taigalink.promote_issue(
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        issue_id=item_id,
+    )
+
+    if not story_id:
+        logger.error(f"Failed to promote issue {item_id}")
+
+    # Check if we're in a message or modal
+    if "view" in body:
+        # Update the view/edit modal
+        block_list = slack_home.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type="story",
+            item_id=story_id,
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
+
+        try:
+            client.views_update(
+                view_id=body["view"]["root_view_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit story"},
+                    "blocks": block_list,
+                    "private_metadata": body["view"]["private_metadata"],
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to push modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+
+    else:
+        if story_id:
+            respond(f"Issue promoted to user story by <@{body['user']['id']}>")
+
+        else:
+            # Send an ephemeral message
+            client.chat_postEphemeral(
+                channel=body["channel"]["id"],
+                user=body["user"]["id"],
+                text=f"Issue already promoted (or can't be found)",
+            )
+
+
 # The cron mode renders the app home for every user in the workspace
 if "--cron" in sys.argv:
     # Update homes for all slack users
