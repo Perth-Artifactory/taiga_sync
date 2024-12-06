@@ -786,6 +786,7 @@ def edit_info_blocks(
     item_type,
     taiga_cache: dict,
     new: bool = False,
+    description: str = "",
 ):
     """Return the blocks required for editing information about an item"""
 
@@ -861,7 +862,6 @@ def edit_info_blocks(
 
     if new:
         subject = ""
-        description = ""
         due_date = ""
         current_watchers = []
         current_assigned = None
@@ -1037,7 +1037,9 @@ def edit_info_blocks(
 
 
 def new_item_selector_blocks(taiga_id: int, taiga_cache: dict):
-    """Generate the blocks for a modal to select the type of item to create and on what project"""
+    """Generate the blocks for a modal to select the type of item to create and on what project
+
+    Will show an optional description field if passed "description" """
 
     # Get the user's projects
     user_projects = taiga_cache["users"][taiga_id]["projects"]

@@ -1434,6 +1434,76 @@ def create_item(ack, body, logger, client):
         logger.error(e.response["response_metadata"]["messages"])
 
 
+@app.shortcut("create-from-message")
+def create_from_message(ack, body):
+    """Bring up a modal that allows the user to select the item type and what project to create it in.
+
+    Adds the message text to the description field"""
+    ack()
+
+    # Retrieve message particulars
+    message = body["message"]["blocks"][0]["elements"][0]["elements"][0]["text"]
+    author_id = body["message"]["user"]
+    author_name = slack.name_mapper(slack_id=author_id, slack_app=app)
+
+    # Attempt to map the Slack user to a Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
+
+        app.client.chat_postEphemeral(
+            channel=body["channel"]["id"],
+            user=body["user"]["id"],
+            text="Sorry, I can't create a new item as your Slack account is not linked to a Taiga account.\nIf you think this is an error please reach out to #it.",
+        )
+        return
+
+    # Quote the message
+    description = ""
+    for line in message.split("\n"):
+        description += f"> {line}\n"
+
+    # Remove the last newline
+    description = description[:-1]
+
+    # Add the author to the message
+
+    # Figure out the number of characters required to add the author and truncate if required
+    byline = f"\n> \n> ~ {author_name} ({author_id}) on Slack"
+    if len(description) + len(byline) > 2980:
+        description = description[: 2990 - len(byline)]
+        description += "...message truncated"
+    description += byline
+
+    # Generate blocks
+    selector_blocks = slack_home.new_item_selector_blocks(
+        taiga_id=taiga_id, taiga_cache=taiga_cache
+    )
+
+    # Open the modal
+    try:
+        app.client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "new_item",
+                "title": {"type": "plain_text", "text": "Create a new item"},
+                "blocks": selector_blocks,
+                "private_metadata": description,
+                "submit": {"type": "plain_text", "text": "Next"},
+            },
+        )
+        logger.info(f"Opened new item select modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
 @app.view_submission("new_item")
 def new_item(ack, body, client):
     """Open a modal to create a new item"""
@@ -1446,6 +1516,11 @@ def new_item(ack, body, client):
         "selected_option"
     ]["value"]
 
+    # Check for private metadata
+    description = ""
+    if "private_metadata" in body["view"]:
+        description: str = body["view"]["private_metadata"]
+
     logging.info(f"Creating new {item_type} in project {project_id}")
 
     edit_blocks = slack_home.edit_info_blocks(
@@ -1455,6 +1530,7 @@ def new_item(ack, body, client):
         item_id="0",
         taiga_cache=taiga_cache,
         new=True,
+        description=description,
     )
 
     try:
