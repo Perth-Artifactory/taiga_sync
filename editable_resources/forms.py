@@ -397,6 +397,16 @@ clean = {
     "taiga_type": "Workshop cleanliness",
 }
 
+test = {
+    "title": "Test form",
+    "short_title": "Test form",
+    "description": "This form is used for testing, please ignore",
+    "questions": [{"text": "Nothing to see here!"}],
+    "members_only": False,
+    "action_name": "Test",
+    "taiga_project": "taiga",
+    "taiga_issue_title": "Test form",
+}
 
 # Set IDs
 
@@ -408,4 +418,5 @@ forms = {
     "infra": broken_infra,
     "locker": locker,
     "key": key,
+    "test": test,
 }
