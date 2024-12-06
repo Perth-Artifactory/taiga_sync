@@ -9,6 +9,7 @@ logger = logging.getLogger("slack_formatters")
 
 
 def due_item(item: dict, item_type: str, for_user: str):
+    """Converts a story or issue into a string for Slack highlighting the due date and status."""
     assigned_info = " (Watching)"
     if for_user in item.get("assigned_users", []):
         assigned_info = " (Assigned)"
