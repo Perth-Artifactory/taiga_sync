@@ -11,33 +11,11 @@ CRM-ish workflows tacked onto a kanban board innit
 * Some boards have a separate tab for **Issues** that we use primarily to track things reported from outside Taiga
 * Some boards have a separate tab for **Epics**. These are used to track a collection of user stories into a large cohesive project.
 
-## Issue syncing
+## Slack app
 
-Takes issues from a Slack channel and adds them to a project's issues. This typically requires a corresponding Slack workflow.
+`slack_app.py`
 
-### Usage
-
-`issue_sync.py`
-
-* `--testing` will process all messages regardless of whether they've been processed before.
-
-### Nomenclature
-
-* **Issues** are things reported from a Slack workflow
-* **User stories** are small scale projects
-* **Epics** are collections of small scale projects that make up larger infrastructure builds. Not all user stories belong to an epic and not every project needs one.
-* **Tasks** are individual things that can be done by a volunteer
-
-### Statuses
-
-| ID | Status           | Description                                                                                                                                      |
-|----|------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1  | Reported         | Things reported from outside the slack workflow, primarily used for volunteers to jot down things                                                |
-| 2  | Triaged          | User stories that have had priorities set from the Reported status or have been triaged from a reported issue                                    |
-| 3  | Investigating    | Some amount of experienced investigation is required and a path set out for progression                                                          |
-| 4  | Ready for action | Has tasks that are ready for people to complete                                                                                                  |
-| 5  | Resolving        | Moved from Ready for action once someone takes on the tasks that are ready for completion. Things that are being handled already should be here. |
-| 6  | Resolved         | Once the problem has been solved                                                                                                                 |
+Exposes many of Taiga's functions via a Slack interface.
 
 ## Attendee tracking
 
