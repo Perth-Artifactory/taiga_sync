@@ -987,7 +987,38 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "severities": {},
             "types": {},
             "priorities": {},
+            "private": project["is_private"],
         }
+
+        # Get the roles for the project
+        response = requests.get(
+            url=f"{config['taiga']['url']}/api/v1/roles",
+            headers={
+                "Authorization": f"Bearer {taiga_auth_token}",
+                "x-disable-pagination": "True",
+            },
+            params={"project": project["id"]},
+        )
+
+        roles = response.json()
+
+        lowest_role = {}
+        highest_role = {}
+
+        for role in roles:
+            if role["name"] == "Bot":
+                continue
+            if not lowest_role:
+                lowest_role = role
+            elif len(role["permissions"]) < len(lowest_role["permissions"]):
+                lowest_role = role
+            if not highest_role:
+                highest_role = role
+            elif len(role["permissions"]) > len(highest_role["permissions"]):
+                highest_role = role
+
+        boards[project["id"]]["lowest_role"] = lowest_role
+        boards[project["id"]]["highest_role"] = highest_role
 
         # Add the project to the project cache
         projects["by_name"][project["name"].lower()] = project["id"]
