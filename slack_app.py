@@ -595,6 +595,10 @@ def handle_viewedit_actions(ack, body):
     # Retrieve action details if applicable
     value_string = body["actions"][0]["action_id"]
 
+    # Backwards compatibility for old some old view buttons
+    if "userstory" in value_string:
+        value_string = value_string.replace("userstory", "story")
+
     # Sometimes we attach the view method to the action ID
     modal_method = "open"
     if value_string.count("-") == 4:
@@ -743,7 +747,7 @@ def handle_comment_addition(ack, body, logger):
     # Get the item direct from Taiga, this isn't cached since it changes so often
     if item_type == "task":
         item = taigacon.tasks.get(item_id)
-    elif item_type == "story":
+    elif item_type in ["story", "userstory"]:
         item = taigacon.user_stories.get(item_id)
     elif item_type == "issue":
         item = taigacon.issues.get(item_id)

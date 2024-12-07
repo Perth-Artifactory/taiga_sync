@@ -658,6 +658,7 @@ def viewedit_blocks(
     elif item_type in ["story", "userstory"]:
         item = taigacon.user_stories.get(resource_id=item_id)
         history: list = taigacon.history.user_story.get(resource_id=item_id)
+        item_type = "story"
     else:
         raise ValueError(f"Unknown item type {item_type}")
 

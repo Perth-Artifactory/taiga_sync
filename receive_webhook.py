@@ -138,6 +138,11 @@ def incoming():
 
     data = request.get_json()
 
+    if data["type"] == "userstory":
+        type_str = "story"
+    else:
+        type_str = data["type"]
+
     # We only perform actions in three scenarios:
     # 1. The webhook is for a new issue or user story
     new_thing = False
@@ -248,7 +253,7 @@ def incoming():
         app_button = copy(blocks.button)
         app_button["text"]["text"] = "View in app"
         app_button["action_id"] = (
-            f"viewedit-{project_id}-{data['type']}-{data['data']['id']}"
+            f"viewedit-{project_id}-{type_str}-{data['data']['id']}"
         )
 
         # Check if we should add a promote button
