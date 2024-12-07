@@ -705,8 +705,11 @@ def get_info(
     issue_id: int | None = None,
     item_type: str | None = None,
     item_id: int | None = None,
-):
-    """Get the info of a story, task or issue."""
+) -> dict | Literal[False]:
+    """Get the info of a story, task or issue.
+
+    Return the item as a dictionary or False if it fails.
+    """
 
     type_map = {
         "userstory": "userstories",

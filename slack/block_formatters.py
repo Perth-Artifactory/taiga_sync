@@ -245,18 +245,27 @@ def format_tasks_modal_blocks(
 
 def construct_reminder_section(reminders: dict) -> list:
     block_list = []
-    if reminders["story"] != []:
-        block_list = add_block(block_list, blocks.header)
-        block_list = inject_text(block_list, "Cards")
-        block_list = add_block(block_list, blocks.text)
-        block_list = inject_text(block_list, "\n".join(reminders["story"]))
-    if reminders["issue"] != []:
-        if block_list != []:
-            block_list = add_block(block_list, blocks.divider)
-        block_list = add_block(block_list, blocks.header)
-        block_list = inject_text(block_list, "Issues")
-        block_list = add_block(block_list, blocks.text)
-        block_list = inject_text(block_list, "\n".join(reminders["issue"]))
+
+    type_to_header = {"story": "User Stories", "task": "Tasks", "issue": "Issues"}
+
+    for item_type in reminders:
+        if item_type not in type_to_header:
+            raise ValueError(f"Invalid item type {item_type}")
+        if reminders[item_type] != []:
+            if block_list != []:
+                block_list = add_block(block_list, blocks.divider)
+            block_list = add_block(block_list, blocks.header)
+            block_list = inject_text(block_list, type_to_header[item_type])
+
+        for reminder in reminders[item_type]:
+            block_list = add_block(block_list, blocks.text)
+            block_list = inject_text(block_list, reminder["string"])
+            button = copy(blocks.button)
+            button["text"]["text"] = "View in app"
+            button["action_id"] = (
+                f"viewedit-{reminder['item']['project_extra_info']['id']}-{item_type}-{reminder['item']['id']}"
+            )
+            block_list[-1]["accessory"] = button
 
     return block_list
 
