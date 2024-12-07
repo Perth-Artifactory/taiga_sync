@@ -268,7 +268,7 @@ def incoming():
                 "title": {"type": "plain_text", "text": "Promote to story"},
                 "text": {
                     "type": "plain_text",
-                    "text": f"Any comments on this issue will be lost on promotion. Are you sure?",
+                    "text": f"Any comments on this issue will be mirrored to the new story as a single comment. Are you sure?",
                 },
                 "confirm": {"type": "plain_text", "text": "Promote"},
                 "deny": {"type": "plain_text", "text": "Cancel"},

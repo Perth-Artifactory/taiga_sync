@@ -735,29 +735,6 @@ def viewedit_blocks(
         block_list=block_list, text=f"{item_type.capitalize()}: {item.subject}"
     )
 
-    # Add a promote button if the item is an issue
-    if item_type == "issue" and edit:
-        button = copy(blocks.button)
-        button["text"]["text"] = "Promote to story"
-        button["action_id"] = (
-            f"promote_issue-{item.project_extra_info['id']}-issue-{item.id}"
-        )
-        # If there are comments warn that they'll be removed
-        if comments:
-            button["confirm"] = {
-                "title": {"type": "plain_text", "text": "Promote to story"},
-                "text": {
-                    "type": "plain_text",
-                    "text": f"The {len(comments)} comment{'s' if len(comments)> 1 else ''} on this issue will be lost on promotion. Are you sure?",
-                },
-                "confirm": {"type": "plain_text", "text": "Promote"},
-                "deny": {"type": "plain_text", "text": "Cancel"},
-            }
-
-        block_list = block_formatters.add_block(block_list, blocks.actions)
-        block_list[-1]["elements"].append(button)
-        block_list[-1].pop("block_id")
-
     # Add context of who created the item
     block_list = block_formatters.add_block(block_list, blocks.context)
     elements = []
@@ -775,6 +752,29 @@ def viewedit_blocks(
         }
     )
     block_list[-1]["elements"] = elements
+
+    # Add a promote button if the item is an issue
+    if item_type == "issue" and edit:
+        button = copy(blocks.button)
+        button["text"]["text"] = "Promote to story"
+        button["action_id"] = (
+            f"promote_issue-{item.project_extra_info['id']}-issue-{item.id}"
+        )
+        # If there are comments warn that they'll be removed
+        if comments:
+            button["confirm"] = {
+                "title": {"type": "plain_text", "text": "Promote to story"},
+                "text": {
+                    "type": "plain_text",
+                    "text": f"The {len(comments)} comment{'s' if len(comments)> 1 else ''} on this issue will be mirrored to the new story as a single message. Are you sure?",
+                },
+                "confirm": {"type": "plain_text", "text": "Promote"},
+                "deny": {"type": "plain_text", "text": "Cancel"},
+            }
+
+        block_list = block_formatters.add_block(block_list, blocks.actions)
+        block_list[-1]["elements"].append(button)
+        block_list[-1].pop("block_id")
 
     # Parent card if task
     if item_type == "task":

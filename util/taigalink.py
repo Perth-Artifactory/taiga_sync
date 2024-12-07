@@ -1,12 +1,13 @@
 import logging
+import re
 import sys
 from pprint import pformat, pprint
 from typing import Literal
 
 import requests
 
-from util import tidyhq
 from slack import misc as slack_misc
+from util import tidyhq
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -753,8 +754,13 @@ def add_comment(
     config: dict,
     version: int,
 ):
-    """Add a comment to a story or issue."""
-    type_map = {"userstory": "userstories", "issue": "issues"}
+    """Add a comment to a story, issue or task"""
+    type_map = {
+        "userstory": "userstories",
+        "story": "userstories",
+        "issue": "issues",
+        "task": "tasks",
+    }
     if type_str not in type_map:
         logger.error(f"Type {type_str} not supported")
         return False
@@ -1106,6 +1112,13 @@ def promote_issue(
         "watchers": issue["watchers"],
     }
 
+    # Get issue comments
+    response = requests.get(
+        f"{config['taiga']['url']}/api/v1/history/issue/{issue_id}",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+    comments = response.json()
+
     # Create the user story
     story_id, version = create_item(
         config,
@@ -1114,6 +1127,10 @@ def promote_issue(
         item_type="story",
         **issue_data,
     )
+
+    if not story_id or not version:
+        logger.error(f"Failed to create user story for issue {issue_id}")
+        return False
 
     # Attachments
 
@@ -1125,10 +1142,10 @@ def promote_issue(
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
         params={"project": issue["project"], "object_id": issue_id},
     )
-    issues = response.json()
+    attachments = response.json()
 
-    if issues:
-        for attachment in issues:
+    if attachments:
+        for attachment in attachments:
             attach_file(
                 taiga_auth_token=taiga_auth_token,
                 config=config,
@@ -1139,6 +1156,46 @@ def promote_issue(
                 filename=attachment["attached_file"].split("/")[-1],
                 description=attachment["description"],
             )
+
+    # Add comments to the story
+    if comments:
+        comment_strs = []
+        for current_comment in comments:
+            # Skip deleted comments
+            if current_comment["delete_comment_date"]:
+                continue
+
+            name: str = current_comment["user"]["name"]
+            comment: str = current_comment["comment"]
+
+            if "Posted from Slack by" in current_comment["comment"]:
+                match = re.match(
+                    r"Posted from Slack by (.*?): (.*)",
+                    current_comment["comment"],
+                )
+                if match:
+                    name = match.group(1)
+                    comment = match.group(2)
+            comment_formatted = comment.replace("\n", "\n> ")
+            comment_strs.append(f"> {name}: {comment_formatted}")
+
+        # Taiga comments are new-old but we want old-new
+        comment_strs.reverse()
+
+        comment_str = "\n".join(comment_strs)
+
+        # If there's more than one comment add an indication of order
+        if len(comments) > 1:
+            comment_str += "\n\nComments are sorted from oldest to newest."
+
+        add_comment(
+            type_str="story",
+            item_id=story_id,
+            comment=f"Comments mirrored from issue:\n{comment_str}",
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            version=version,
+        )
 
     # Delete the issue
     response = requests.delete(
@@ -1155,4 +1212,4 @@ def promote_issue(
 def check_project_membership(taiga_cache: dict, project_id: int, taiga_id: int) -> bool:
     """Check if the user is a member of the project."""
 
-    return taiga_id in taiga_cache["boards"][project_id]["members"]
+    return taiga_id in taiga_cache["boards"][int(project_id)]["members"]

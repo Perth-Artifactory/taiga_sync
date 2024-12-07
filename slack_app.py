@@ -1296,6 +1296,9 @@ def promote_issue(ack, body, client, respond):
 
     if not story_id:
         logger.error(f"Failed to promote issue {item_id}")
+        return
+
+    log_time(start_time, time.time(), response_logger, cause="Issue promotion")
 
     # Check if we're in a message or modal
     if "view" in body:
