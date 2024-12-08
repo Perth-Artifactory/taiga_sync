@@ -4,6 +4,7 @@ from pprint import pprint
 import requests
 
 import jsonschema
+import mistune
 
 from util import tidyhq
 from slack import block_formatters
@@ -12,7 +13,50 @@ from slack import block_formatters
 logger = logging.getLogger("slack.misc")
 
 
+class mrkdwnRenderer(mistune.HTMLRenderer):
+    def paragraph(self, text):
+        return text + "\n"
+
+    def heading(self, text, level):
+        return f"*{text}*\n"
+
+    def list(self, body, ordered, level, start=None):
+        return body
+
+    def list_item(self, text, level):
+        return f"• {text}\n"
+
+    def block_quote(self, text):
+        quoted_lines = [f"> {line}" for line in text.split("\n")[:-1]]
+        return "\n".join(quoted_lines) + "\n"
+
+    def codespan(self, text):
+        return f"`{text}`"
+
+    def link(self, link, title, text):
+        return f"<{link}|{title}>"
+
+    def strong(self, text):
+        return f"*{text}*"
+
+    def emphasis(self, text):
+        return f"_{text}_"
+
+
+mrkdwnconvert = mistune.create_markdown(renderer=mrkdwnRenderer())
+
+
+def convert_markdown(text: str) -> str:
+    """Convert normal markdown to slack markdown"""
+    text = text.replace("<br>", "\n")
+    result = mrkdwnconvert(text)
+    result = result.strip()
+    return result
+
+
 def validate(blocks, surface: str | None = "modal"):
+    if surface not in ["modal", "home", "message", "msg"]:
+        raise ValueError(f"Invalid surface type: {surface}")
     # We want our own logger for this function
     schemalogger = logging.getLogger("block-kit validator")
 
@@ -51,14 +95,6 @@ def check_for_empty_text(block, logger):
             if not check_for_empty_text(value, logger):
                 return False
     return True
-
-
-def convert_markdown(text: str) -> str:
-    """Convert normal markdown to slack markdown"""
-    # Convert bold
-    text = text.replace("**", "*")
-
-    return text
 
 
 def push_home(
