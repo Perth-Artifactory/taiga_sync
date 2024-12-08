@@ -31,7 +31,7 @@ def test_calculate_circle_emoji():
     """Test circle emoji calculation"""
 
     # Test limits
-    assert misc.calculate_circle_emoji(0, 100) == ":circle10:"
+    assert misc.calculate_circle_emoji(0, 100) == ":circle0:"
     assert misc.calculate_circle_emoji(100, 100) == ":circle100:"
 
     # Test a few round numbers
@@ -40,6 +40,7 @@ def test_calculate_circle_emoji():
     assert misc.calculate_circle_emoji(60, 100) == ":circle60:"
 
     # Test rounding down
+    assert misc.calculate_circle_emoji(1, 20) == ":circle0:"
     assert misc.calculate_circle_emoji(25, 100) == ":circle20:"
     assert misc.calculate_circle_emoji(67, 100) == ":circle60:"
 

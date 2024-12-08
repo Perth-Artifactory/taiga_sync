@@ -25,10 +25,6 @@ def calculate_circle_emoji(count: int | float, total: int | float) -> str:
     except ZeroDivisionError:
         raise ValueError("Total cannot be 0")
 
-    # We don't have a 0% right now
-    if percentage == 0:
-        percentage = 10
-
     if percentage > 100:
         percentage = 100
 
