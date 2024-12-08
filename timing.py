@@ -43,7 +43,7 @@ logger = logging.getLogger("timing")
 
 # Load config
 try:
-    with open("config.json") as f:
+    with open("config.json", "r") as f:
         config = json.load(f)
 except FileNotFoundError:
     setup_logger.error(
@@ -133,6 +133,10 @@ taiga_cache = taigalink.setup_cache(
 end_time = time.time()
 assert isinstance(taiga_cache, dict), f"taiga_cache: {taiga_cache}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
+
+# Write cache to file for debugging
+with open("taiga_cache.json", "w") as f:
+    json.dump(taiga_cache, f)
 
 ################## Placeholder for test functions ##################
 
