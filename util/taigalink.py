@@ -1,11 +1,13 @@
 import logging
+import re
 import sys
 from pprint import pformat, pprint
 from typing import Literal
 
 import requests
 
-from util import slack, tidyhq
+from slack import misc as slack_misc
+from util import tidyhq
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -703,8 +705,11 @@ def get_info(
     issue_id: int | None = None,
     item_type: str | None = None,
     item_id: int | None = None,
-):
-    """Get the info of a story, task or issue."""
+) -> dict | Literal[False]:
+    """Get the info of a story, task or issue.
+
+    Return the item as a dictionary or False if it fails.
+    """
 
     type_map = {
         "userstory": "userstories",
@@ -752,8 +757,13 @@ def add_comment(
     config: dict,
     version: int,
 ):
-    """Add a comment to a story or issue."""
-    type_map = {"userstory": "userstories", "issue": "issues"}
+    """Add a comment to a story, issue or task"""
+    type_map = {
+        "userstory": "userstories",
+        "story": "userstories",
+        "issue": "issues",
+        "task": "tasks",
+    }
     if type_str not in type_map:
         logger.error(f"Type {type_str} not supported")
         return False
@@ -781,10 +791,11 @@ def mark_complete(
     item_id: int | None = None,
     item_type: str | None = None,
     item: dict | None = None,
+    status_id: int | None = None,
 ) -> bool:
     """Mark an item as complete.
 
-    Can either pass the item directly or provide the ID and type.
+    Can either pass the item directly or provide the ID and type. If a status ID is provided it will be used instead of the default (first) closing status.
     """
 
     if not item:
@@ -806,12 +817,13 @@ def mark_complete(
     url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}/{item_id}"
 
     # Figure out what the closing status is
-    closing_status = taiga_cache["boards"][item["project"]]["closing_status"][item_type]
+    if not status_id:
+        status_id = taiga_cache["boards"][item["project"]]["closing_status"][item_type]
 
     response = requests.patch(
         url,
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
-        json={"status": closing_status, "version": item["version"]},
+        json={"status": status_id, "version": item["version"]},
     )
     if response.status_code == 200:
         return True
@@ -906,7 +918,7 @@ def attach_file(
         if not url:
             logger.error("No URL or file object provided")
             return False
-        file_obj = slack.download_file(url, config)
+        file_obj = slack_misc.download_file(url, config)
 
     if not file_obj:
         logger.error("Failed to download file")
@@ -973,11 +985,42 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "members": {},
             "slug": project["slug"],
             "statuses": {"story": {}, "task": {}, "issue": {}},
-            "closing_status": {"story": 0, "task": 0, "issue": 0},
+            "closing_statuses": {"story": [], "task": [], "issue": []},
             "severities": {},
             "types": {},
             "priorities": {},
+            "private": project["is_private"],
         }
+
+        # Get the roles for the project
+        response = requests.get(
+            url=f"{config['taiga']['url']}/api/v1/roles",
+            headers={
+                "Authorization": f"Bearer {taiga_auth_token}",
+                "x-disable-pagination": "True",
+            },
+            params={"project": project["id"]},
+        )
+
+        roles = response.json()
+
+        lowest_role = {}
+        highest_role = {}
+
+        for role in roles:
+            if role["name"] == "Bot":
+                continue
+            if not lowest_role:
+                lowest_role = role
+            elif len(role["permissions"]) < len(lowest_role["permissions"]):
+                lowest_role = role
+            if not highest_role:
+                highest_role = role
+            elif len(role["permissions"]) > len(highest_role["permissions"]):
+                highest_role = role
+
+        boards[project["id"]]["lowest_role"] = lowest_role
+        boards[project["id"]]["highest_role"] = highest_role
 
         # Add the project to the project cache
         projects["by_name"][project["name"].lower()] = project["id"]
@@ -1024,11 +1067,13 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             boards[status.project]["statuses"][status_type][
                 status.id
             ] = status.to_dict()
-            if (
-                status.is_closed
-                and boards[status.project]["closing_status"][status_type] == 0
-            ):
-                boards[status.project]["closing_status"][status_type] = status.id
+            if status.is_closed:
+                boards[status.project]["closing_statuses"][status_type].append(
+                    status.to_dict()
+                )
+                boards[status.project]["closing_statuses"][status_type][-1][
+                    "id"
+                ] = status.id
 
         # Sort the statuses by order
         for project in boards:
@@ -1037,6 +1082,11 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
                     boards[project]["statuses"][status_type].items(),
                     key=lambda item: item[1]["order"],
                 )
+            )
+        for project in boards:
+            boards[project]["closing_statuses"][status_type] = sorted(
+                boards[project]["closing_statuses"][status_type],
+                key=lambda item: item["order"],
             )
 
     # Get all severities
@@ -1105,6 +1155,13 @@ def promote_issue(
         "watchers": issue["watchers"],
     }
 
+    # Get issue comments
+    response = requests.get(
+        f"{config['taiga']['url']}/api/v1/history/issue/{issue_id}",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+    )
+    comments = response.json()
+
     # Create the user story
     story_id, version = create_item(
         config,
@@ -1113,6 +1170,10 @@ def promote_issue(
         item_type="story",
         **issue_data,
     )
+
+    if not story_id or not version:
+        logger.error(f"Failed to create user story for issue {issue_id}")
+        return False
 
     # Attachments
 
@@ -1124,10 +1185,10 @@ def promote_issue(
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
         params={"project": issue["project"], "object_id": issue_id},
     )
-    issues = response.json()
+    attachments = response.json()
 
-    if issues:
-        for attachment in issues:
+    if attachments:
+        for attachment in attachments:
             attach_file(
                 taiga_auth_token=taiga_auth_token,
                 config=config,
@@ -1138,6 +1199,46 @@ def promote_issue(
                 filename=attachment["attached_file"].split("/")[-1],
                 description=attachment["description"],
             )
+
+    # Add comments to the story
+    if comments:
+        comment_strs = []
+        for current_comment in comments:
+            # Skip deleted comments
+            if current_comment["delete_comment_date"]:
+                continue
+
+            name: str = current_comment["user"]["name"]
+            comment: str = current_comment["comment"]
+
+            if "Posted from Slack by" in current_comment["comment"]:
+                match = re.match(
+                    r"Posted from Slack by (.*?): (.*)",
+                    current_comment["comment"],
+                )
+                if match:
+                    name = match.group(1)
+                    comment = match.group(2)
+            comment_formatted = comment.replace("\n", "\n> ")
+            comment_strs.append(f"> {name}: {comment_formatted}")
+
+        # Taiga comments are new-old but we want old-new
+        comment_strs.reverse()
+
+        comment_str = "\n".join(comment_strs)
+
+        # If there's more than one comment add an indication of order
+        if len(comments) > 1:
+            comment_str += "\n\nComments are sorted from oldest to newest."
+
+        add_comment(
+            type_str="story",
+            item_id=story_id,
+            comment=f"Comments mirrored from issue:\n{comment_str}",
+            taiga_auth_token=taiga_auth_token,
+            config=config,
+            version=version,
+        )
 
     # Delete the issue
     response = requests.delete(
@@ -1154,4 +1255,4 @@ def promote_issue(
 def check_project_membership(taiga_cache: dict, project_id: int, taiga_id: int) -> bool:
     """Check if the user is a member of the project."""
 
-    return taiga_id in taiga_cache["boards"][project_id]["members"]
+    return taiga_id in taiga_cache["boards"][int(project_id)]["members"]

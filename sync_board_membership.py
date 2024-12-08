@@ -9,7 +9,8 @@ import time
 
 from taiga import TaigaAPI
 
-from util import slack, taigalink, tidyhq
+from util import tidyhq, taigalink
+from slack import misc as slack_misc
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -64,132 +65,109 @@ setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
 )
 
+# Set up Taiga cache
+taiga_cache = taigalink.setup_cache(
+    config=config, taiga_auth_token=taiga_auth_token, taigacon=taigacon
+)
+
 # Connect to Slack
 app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
-# Map Taiga users to Slack users
-url = f"{config['taiga']['url']}/api/v1/users"
-
-response = requests.get(url, headers={"Authorization": f"Bearer {taiga_auth_token}"})
-
-if response.status_code == 200:
-    taiga_users_raw = response.json()
-
-else:
-    setup_logger.error(f"Failed to get Taiga users: {response.status_code}")
-    sys.exit(1)
-
-setup_logger.info(f"Got {len(taiga_users_raw)} Taiga users")
-
-taiga_users = {}
-
-for taiga_user in taiga_users_raw:
-    logger.debug(f"Mapping Taiga user {taiga_user['id']} to Slack user")
-    slack_id = tidyhq.map_taiga_to_slack(
-        tidyhq_cache=tidyhq_cache, taiga_id=taiga_user["id"], config=config
-    )
-
-    if slack_id:
-        setup_logger.debug(
-            f"Mapped Taiga user {taiga_user['id']} to Slack user {slack_id}"
-        )
-        taiga_users[taiga_user["id"]] = {
-            "slack_id": slack_id,
-            "project_ids": [],
-            "project_names": [],
-        }
-    else:
-        setup_logger.info(f"No Slack user found for Taiga user {taiga_user['id']}")
-
-# Get all Taiga projects via the Taiga api
-project_map = {}
-url = f"{config['taiga']['url']}/api/v1/projects"
-response = requests.get(url, headers={"Authorization": f"Bearer {taiga_auth_token}"})
-
-if response.status_code != 200:
-    setup_logger.error(f"Failed to get Taiga projects: {response.status_code}")
-    sys.exit(1)
-
-for project in response.json():
-    project_map[project["id"]] = {"name": project["slug"]}
-    project_map[project["id"]]["private"] = project["is_private"]
-    setup_logger.debug(f"Checking project {project['id']}")
-    for member in project["members"]:
-        if member in taiga_users:
-            taiga_users[member]["project_ids"].append(project["id"])
-            taiga_users[member]["project_names"].append(project["slug"])
-
-
-taiga_slack_users = [
-    user_info["slack_id"]
-    for user_info in taiga_users.values()
-    if "slack_id" in user_info
-]
-
 # Check over slack channels and look for ones that have corresponding boards
-slack_channels = app.client.conversations_list()["channels"]
+slack_channels = app.client.conversations_list(
+    types="public_channel,private_channel", exclude_archived=True, limit=1000
+)["channels"]
+
+# Sort channels by name
+slack_channels = sorted(slack_channels, key=lambda x: x["name"])
+
 for channel in slack_channels:
-    logger.debug(f"Checking channel {channel['name']}")
-    if channel["name"] not in [
-        project_info["name"] for project_info in project_map.values()
-    ]:
+    if not channel["is_member"]:
+        logger.debug(f"We are not a member of channel {channel['name']}, skipping")
         continue
 
-    # Find the project ID that matches the channel name
-    project_id = None
-    for pid, project_info in project_map.items():
-        if project_info["name"] == channel["name"]:
-            project_id = pid
+    logger.debug(f"Checking channel {channel['name']}")
+    for c_project_id, c_channel_id in config["taiga-channel"].items():
+        if c_channel_id == channel["id"]:
+            print("------------------")
+            project_id = int(c_project_id)
+            logger.info(
+                f"Found channel #{channel['name']} in config. Maps to Taiga project {taiga_cache['boards'][project_id]['name']}"
+            )
             break
-
-    logger.info(
-        f"Found channel {channel['name']} with corresponding board ({project_id})"
-    )
+    else:
+        logger.debug(f"Channel {channel['name']} not in config")
+        continue
 
     # Get the channel's members
     channel_members = app.client.conversations_members(channel=channel["id"])["members"]
 
     # Check if any of the channel's members exist in taiga_users
-    for member in channel_members:
-        if member in taiga_slack_users:
-            member_name = slack.name_mapper(slack_id=member, slack_app=app)
-            logger.debug(
-                f"Found Taiga user {member_name} ({member}) in channel #{channel['name']}"
-            )
+    for slack_id in channel_members:
+        taiga_id = tidyhq.map_slack_to_taiga(
+            tidyhq_cache=tidyhq_cache, slack_id=slack_id, config=config
+        )
 
-            # Get the taiga ID from the slack ID
-            # This is computationally expensive but easier to understand
-            taiga_id = tidyhq.map_slack_to_taiga(
-                tidyhq_cache=tidyhq_cache, slack_id=member, config=config
-            )
-            logger.info(f"Taiga ID for user {member_name} ({member}) is {taiga_id}")
+        if not taiga_id:
+            logger.debug(f"No Taiga ID found for user {slack_id}")
+            continue
 
-            if not taiga_id:
-                logger.error(f"No Taiga ID found for user {member_name} ({member})")
-                continue
-
-            # Check if the user is a member of the project
-            if channel["name"] in taiga_users[taiga_id]["project_names"]:
-                logger.debug(
-                    f"User {member_name} ({member}) is a member of the project"
-                )
-                continue
-            logger.info(f"User {member_name} ({member}) is not a member of the project")
-            # Check if the board is private
-            if project_map[project_id]["private"]:
-                logger.info(f"Project {channel['name']} is private")
-
-                # Check if the channel is also private
-                if not channel["is_private"]:
-                    logger.info(f"Channel #{channel['name']} not private")
-                    continue
-
-                logger.info("Both the board and channel are private")
-
+        # Check if the slack user is a member of the project
+        if taiga_id in taiga_cache["boards"][project_id]["members"]:
             logger.info(
-                f"Adding user {member_name} ({member}) to project {channel['name']}"
+                f"User {slack_misc.name_mapper(slack_id=slack_id, slack_app=app)} ({slack_id}) is already a member of project: {taiga_cache['boards'][project_id]['name']}"
+            )
+            continue
+        else:
+            logger.info(
+                f"User {slack_misc.name_mapper(slack_id=slack_id, slack_app=app)} ({slack_id}) is not a member of project: {taiga_cache['boards'][project_id]['name']} and may need to be added"
             )
 
-            # Add the user to the project
-            # "Dry run" totally isn't just because I haven't written this part yet
-            logger.warning("This is a dry run. No changes have been made")
+        private = False
+        # Check if the board is private
+        if taiga_cache["boards"][project_id]["private"]:
+            logger.info(
+                f"Project {taiga_cache['boards'][project_id]['name']} is private"
+            )
+
+            # Check if the channel is also private
+            if not channel["is_private"]:
+                logger.info(f"Channel #{channel['name']} not private, will not add")
+                continue
+
+            logger.info("Both the board and channel are private, will add")
+            role_key = "highest_role"
+            private = True
+        else:
+            logger.info(
+                f"Project {taiga_cache['boards'][project_id]['name']} is public, will add"
+            )
+            role_key = "lowest_role"
+
+        logger.info(
+            f"Adding {slack_misc.name_mapper(slack_id=slack_id, slack_app=app)}/{taiga_cache['users'][taiga_id]['name']} to project {taiga_cache['boards'][project_id]['name']} (ID:{project_id})"
+        )
+
+        logger.info(
+            f"Adding as {'lowest' if not private else 'highest'} role in project ({taiga_cache['boards'][project_id][role_key]['name']})"
+        )
+
+        response = requests.post(
+            f"{config['taiga']['url']}/api/v1/memberships",
+            headers={
+                "Authorization": f"Bearer {taiga_auth_token}",
+                "Content-Type": "application/json",
+            },
+            data=json.dumps(
+                {
+                    "role": taiga_cache["boards"][project_id][role_key]["id"],
+                    "project": project_id,
+                    "username": taiga_cache["users"][taiga_id]["username"],
+                }
+            ),
+        )
+
+        if response.status_code == 201:
+            logger.info(
+                f"Added {slack_id}/{taiga_id} to {taiga_cache['boards'][project_id]['name']}"
+            )

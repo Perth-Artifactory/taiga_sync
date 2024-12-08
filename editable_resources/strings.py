@@ -1,7 +1,9 @@
-unrecognised = """Welcome to Taiga! Unfortunately I don't recognise you. It could be because:
-
-• You're not signed up for Taiga yet. <https://tasks.artifactory.org.au/register|Sign up here>.
-• Your email address in Taiga doesn't match the one you use for Slack (Reach out to #it if this is the case)"""
+unrecognised = (
+    """Welcome to Taiga! Unfortunately I don't recognise you. It could be because:"""
+)
+unrecognised_no_tidyhq = """• You do not have a TidyHQ account linked to your Slack account. If you hold a membership with us, please reach out to #it."""
+unrecognised_no_taiga = """• You're not signed up for Taiga yet. <https://tasks.artifactory.org.au/register|Sign up here>."""
+unrecognised_no_taiga_match = """• Your email address in Taiga doesn't match the one you use for TidyHQ. Reach out to #it if this is the case."""
 header = "Artifactory Issue Tracker"
 do_instead = (
     """Below are a list of items that are assigned to the whiteboard instead!"""

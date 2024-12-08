@@ -1,16 +1,18 @@
-import requests
-import logging
 import json
+import logging
 import sys
-from slack_bolt import App
-from datetime import datetime
-from pprint import pprint, pformat
 import time
+from copy import deepcopy as copy
 from datetime import datetime
+from pprint import pformat, pprint
 
+import requests
+from slack_bolt import App
 from taiga import TaigaAPI
 
-from util import slack, taigalink, tidyhq, slack_formatters, blocks
+from slack import block_formatters, blocks
+from slack import misc as slack_misc
+from util import taigalink, tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -69,170 +71,184 @@ setup_logger.info(
 # Connect to slack
 app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
+items = {}
 
-user_stories = taigacon.user_stories.list()
-issues = taigacon.issues.list()
 
-logger.info(f"Found {len(user_stories)} user stories and {len(issues)} issues")
+start_time = time.time()
+logger.info("Fetching stories from Taiga")
+items["story"] = taigacon.user_stories.list(status__is_closed=False)
+logger.info(f"Got {len(items['story'])} stories")
+logger.info(f"Time taken to fetch stories: {(time.time() - start_time) * 1000:.2f} ms")
 
-assignees = {"unassigned": {"story": [], "issue": []}}
+start_time = time.time()
+logger.info("Fetching issues from Taiga")
+items["issue"] = taigacon.issues.list(status__is_closed=False)
+logger.info(f"Got {len(items['issue'])} issues")
+logger.info(f"Time taken to fetch issues: {(time.time() - start_time) * 1000:.2f} ms")
 
-for item in user_stories:
-    if item.is_closed:
-        continue
-    assigned_to = getattr(item, "assigned_to", "unassigned")
-    watchers = item.watchers
-    # Remove the assignee from the watchers if they are there
-    if assigned_to in watchers:
-        watchers.remove(assigned_to)
-    if not assigned_to:
-        assigned_to = "unassigned"
-    if item.due_date:
-        if assigned_to not in assignees:
-            assignees[assigned_to] = {
-                "story": [],
-                "issue": [],
-            }
-        info = taigalink.get_info(
-            taiga_auth_token=taiga_auth_token, config=config, story_id=item.id
-        )
-        assignees[assigned_to]["story"].append(info)
-        logger.info(f"{item.subject} is assigned to {assigned_to}")
-        for watcher in watchers:
-            if watcher not in assignees:
-                assignees[watcher] = {
+start_time = time.time()
+logger.info("Fetching tasks from Taiga")
+items["task"] = taigacon.tasks.list(status__is_closed=False)
+logger.info(f"Got {len(items['task'])} tasks")
+logger.info(f"Time taken to fetch tasks: {(time.time() - start_time) * 1000:.2f} ms")
+
+
+for item_type in items:
+    print(f"{item_type}: {len(items[item_type])} items")
+
+assignees = {"unassigned": {"story": [], "issue": [], "task": []}}
+
+for item_type in items:
+    for item in items[item_type]:
+        assigned_to = getattr(item, "assigned_to", "unassigned")
+        watchers = item.watchers
+        # Remove the assignee from the watchers if they are there
+        if assigned_to in watchers:
+            watchers.remove(assigned_to)
+        if not assigned_to:
+            assigned_to = "unassigned"
+        if item.due_date:
+            if assigned_to not in assignees:
+                assignees[assigned_to] = {
                     "story": [],
                     "issue": [],
+                    "task": [],
                 }
-            assignees[watcher]["story"].append(info)
-            logger.info(f"{item.subject} is watched by {watcher}")
-
-for item in issues:
-    if item.is_closed:
-        continue
-    assigned_to = getattr(item, "assigned_to", "unassigned")
-    if not assigned_to:
-        assigned_to = "unassigned"
-    if item.due_date:
-        if assigned_to not in assignees:
-            assignees[assigned_to] = {
-                "story": [],
-                "issue": [],
-            }
-        info = taigalink.get_info(
-            taiga_auth_token=taiga_auth_token, config=config, issue_id=item.id
-        )
-        assignees[assigned_to]["issue"].append(info)
-        logger.debug(f"{item.subject} is assigned to {assigned_to}")
+            info = taigalink.get_info(
+                taiga_auth_token=taiga_auth_token,
+                config=config,
+                item_id=item.id,
+                item_type=item_type,
+            )
+            assignees[assigned_to][item_type].append(copy(info))
+            logger.info(f"{item.subject} ({item_type}) is assigned to {assigned_to}")
+            for watcher in watchers:
+                if watcher not in assignees:
+                    assignees[watcher] = {
+                        "story": [],
+                        "issue": [],
+                        "task": [],
+                    }
+                assignees[watcher][item_type].append(copy(info))
+                logger.info(f"{item.subject} is watched by {watcher}")
 
 weekly = {}
 daily = {}
 
-# TODO: Make this not repeat
-
 for assignee in assignees:
     root_assignee = assignee
-    weekly[assignee] = {"story": [], "issue": []}
-    daily[assignee] = {"story": [], "issue": []}
+    weekly[assignee] = {"story": [], "issue": [], "task": []}
+    daily[assignee] = {"story": [], "issue": [], "task": []}
 
-    for item in assignees[assignee]["story"]:
-        if assignee == "unassigned":
-            # Translate to the appropriate slack channel
-            assignee = config["taiga-channel"][str(item["project_extra_info"]["id"])]
-            if assignee not in weekly:
-                weekly[assignee] = {"story": [], "issue": []}
-                daily[assignee] = {"story": [], "issue": []}
+    for item_type in assignees[assignee]:
+        assignee = root_assignee
+        for item in assignees[assignee][item_type]:
+            if assignee == "unassigned":
+                # Translate to the appropriate slack channel
+                assignee = config["taiga-channel"][
+                    str(item["project_extra_info"]["id"])
+                ]
+                if assignee not in weekly:
+                    weekly[assignee] = {"story": [], "issue": [], "task": []}
+                    daily[assignee] = {"story": [], "issue": [], "task": []}
 
-        string = slack_formatters.due_item(
-            item=item, item_type="story", for_user=assignee
-        )
-        due_date = datetime.strptime(item["due_date"], "%Y-%m-%d")
-        days = (due_date - datetime.now()).days
-        # Look for things that are due in exactly 7 days
-        if days == 6:
-            daily[assignee]["story"].append(string)
+            if item["due_date"] is None:
+                pprint(item)
+                print(f"root_assignee: {root_assignee}")
+                print(f"assignee: {assignee}")
+                print(f"item_type: {item_type}")
+                sys.exit()
 
-        # Look for things that are due in at most 14 days
-        if days <= 14:
-            weekly[assignee]["story"].append(string)
+            due_date = datetime.strptime(item["due_date"], "%Y-%m-%d")
+            days = (due_date - datetime.now()).days
+            # Turn negative days into X days ago
+            if days < 0:
+                days_str = f"{abs(days)} days ago"
+            else:
+                days_str = f"in {days} days"
+            string = f"{item['subject']} ({item['status_extra_info']['name']}) • due {days_str} in {item['project_extra_info']['name']}"
 
-    # Sort stories by days until due
-    daily[assignee]["story"].sort(key=lambda x: x.split()[1])
-    weekly[assignee]["story"].sort(key=lambda x: x.split()[1])
+            data = {"string": string, "days": days, "item": item, "item_type": "story"}
+
+            # Look for things that are due in exactly 7 days or today
+            if days in (0, 6):
+                daily[assignee][item_type].append(data)
+
+            # Look for things that are due in at most 14 days
+            if days <= 14:
+                weekly[assignee][item_type].append(data)
+
+        # Sort items by days until due
+        daily[assignee][item_type].sort(key=lambda x: x["days"])
+        weekly[assignee][item_type].sort(key=lambda x: x["days"])
 
     assignee = root_assignee
 
-    for item in assignees[assignee]["issue"]:
-        if assignee == "unassigned":
-            # Translate to the appropriate slack channel
-            assignee = config["taiga-channel"][str(item["project_extra_info"]["id"])]
-            if assignee not in weekly:
-                weekly[assignee] = {"story": [], "issue": []}
-                daily[assignee] = {"story": [], "issue": []}
-        string = slack_formatters.due_item(
-            item=item, item_type="issue", for_user=assignee
-        )
-        due_date = datetime.strptime(item["due_date"], "%Y-%m-%d")
-        days = (due_date - datetime.now()).days
-        # Look for things that are due in exactly 7 days
-        if days == 6:
-            daily[assignee]["issue"].append(string)
-
-        # Look for things that are due in at most 14 days
-        if days <= 14:
-            weekly[assignee]["issue"].append(string)
-
-    # Sort issues by days until due
-    daily[assignee]["issue"].sort(key=lambda x: x.split()[1])
-    weekly[assignee]["issue"].sort(key=lambda x: x.split()[1])
-
-working = None
+working_items = []
 
 if "--weekly" in sys.argv:
-    working = weekly
-    message = "These are the items due in the next 14 days that you are watching or assigned to:"
+    working_items.append(
+        {
+            "items": weekly,
+            "message": "These are the items due in the next 14 days that you are watching or assigned to:",
+            "footer": "We send these reminders out every Wednesday to give you an idea of what's coming up.",
+        }
+    )
 
 
 if "--daily" in sys.argv:
-    working = daily
-    message = "These are the items due in 7 days that you are watching or assigned to:"
+    working_items.append(
+        {
+            "items": daily,
+            "message": "These are the items due either today or *one week* from today that you are watching or assigned to:",
+            "footer": "We send these reminders out on the day the item is due or exactly one week out.",
+        }
+    )
 
-if not working:
+if not working_items:
     logger.error("No working mode specified. Use --weekly or --daily")
     pprint(daily)
     print("\n" * 3)
     pprint(weekly)
     sys.exit()
 
-for assignee in working:
-    block_list = []
-    block_list = slack_formatters.add_block(block_list, blocks.text)
-    block_list = slack_formatters.inject_text(block_list, message)
-    reminder_blocks = slack_formatters.construct_reminder_section(weekly[assignee])
-    if not reminder_blocks:
-        continue
-    assignee = str(assignee)
-    if assignee.startswith("C"):
-        app.client.chat_postMessage(
-            channel=assignee,
-            blocks=block_list + reminder_blocks,
-            text="Weekly reminders",
-            unfurl_links=False,
-            unfurl_media=False,
-        )
-    else:
-        # Translate from Taiga ID to slack ID
-        slack_id = tidyhq.map_taiga_to_slack(
-            tidyhq_cache=tidyhq_cache, taiga_id=assignee, config=config
-        )
-        if not slack_id:
-            logger.error(f"No slack ID found for Taiga user {assignee}")
+for current in working_items:
+    working = current["items"]
+    message = current["message"]
+    for assignee in working:
+        block_list = []
+        block_list = block_formatters.add_block(block_list, blocks.text)
+        block_list = block_formatters.inject_text(block_list, message)
+        reminder_blocks = block_formatters.construct_reminder_section(working[assignee])
+        if not reminder_blocks:
             continue
-        slack.send_dm(
-            slack_id=slack_id,
-            message="Upcoming due items on Taiga",
-            slack_app=app,
-            blocks=reminder_blocks,
-            unfurl_links=False,
-            unfurl_media=False,
-        )
+        assignee = str(assignee)
+
+        footer_blocks = []
+        footer_blocks = block_formatters.add_block(footer_blocks, blocks.context)
+        footer_blocks = block_formatters.inject_text(footer_blocks, current["footer"])
+
+        if assignee.startswith("C"):
+            app.client.chat_postMessage(
+                channel=assignee,
+                blocks=block_list + reminder_blocks,
+                text="Upcoming due items on Taiga",
+                unfurl_links=False,
+                unfurl_media=False,
+            )
+        else:
+            # Translate from Taiga ID to slack ID
+            slack_id = tidyhq.map_taiga_to_slack(
+                tidyhq_cache=tidyhq_cache, taiga_id=assignee, config=config
+            )
+            if not slack_id:
+                logger.error(f"No slack ID found for Taiga user {assignee}")
+                continue
+            slack_misc.send_dm(
+                slack_id=slack_id,
+                message="Upcoming due items on Taiga",
+                slack_app=app,
+                blocks=block_list + reminder_blocks,
+                unfurl_links=False,
+                unfurl_media=False,
+            )

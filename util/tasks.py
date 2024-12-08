@@ -1,11 +1,8 @@
 import logging
-import sys
 from datetime import datetime
 from pprint import pprint
 
-import requests
-
-from util import taigalink, tidyhq, training, misc
+from util import misc, taigalink, tidyhq, training
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
