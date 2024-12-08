@@ -170,8 +170,8 @@ for assignee in assignees:
 
             data = {"string": string, "days": days, "item": item, "item_type": "story"}
 
-            # Look for things that are due in exactly 7 days
-            if days == 6:
+            # Look for things that are due in exactly 7 days or today
+            if days in (0, 6):
                 daily[assignee][item_type].append(data)
 
             # Look for things that are due in at most 14 days
@@ -191,6 +191,7 @@ if "--weekly" in sys.argv:
         {
             "items": weekly,
             "message": "These are the items due in the next 14 days that you are watching or assigned to:",
+            "footer": "We send these reminders out every Wednesday to give you an idea of what's coming up.",
         }
     )
 
@@ -199,7 +200,8 @@ if "--daily" in sys.argv:
     working_items.append(
         {
             "items": daily,
-            "message": "These are the items due *one week* from today that you are watching or assigned to:",
+            "message": "These are the items due either today or *one week* from today that you are watching or assigned to:",
+            "footer": "We send these reminders out on the day the item is due or exactly one week out.",
         }
     )
 
@@ -221,6 +223,10 @@ for current in working_items:
         if not reminder_blocks:
             continue
         assignee = str(assignee)
+
+        footer_blocks = []
+        footer_blocks = block_formatters.add_block(footer_blocks, blocks.context)
+        footer_blocks = block_formatters.inject_text(footer_blocks, current["footer"])
 
         if assignee.startswith("C"):
             app.client.chat_postMessage(
