@@ -175,7 +175,7 @@ def format_attachments(attachments) -> list[dict]:
 
 
 def format_tasks_modal_blocks(
-    task_list: list, config: dict, taiga_auth_token: str, edit=True
+    task_list: list, config: dict, taiga_auth_token: str, taiga_cache: dict, edit=True
 ) -> list[dict]:
     """Format a list of tasks into the blocks required for a modal view"""
     block_list = []
@@ -222,14 +222,30 @@ def format_tasks_modal_blocks(
         if edit:
             # Set up buttons
             button_list = []
-            # If the task is not closed, add a mark complete button
+            # If the task is not closed, add close buttons for each closing status
             if not task["is_closed"]:
-                button = copy(blocks.button)
-                button["text"]["text"] = "Mark Complete"
-                button["action_id"] = (
-                    f"complete-{task['project_extra_info']['id']}-task-{task['id']}"
-                )
-                button_list.append(button)
+                closing_statuses = taiga_cache["boards"][task["project"]][
+                    "closing_statuses"
+                ]["task"]
+                for status in closing_statuses:
+                    button = copy(blocks.button)
+                    button["text"]["text"] = f"Close as {status['name']}"
+                    button["action_id"] = (
+                        f"close_task-{task['project']}-task-{task['id']}-{status['id']}"
+                    )
+                    button["confirm"] = {
+                        "title": {"type": "plain_text", "text": "Close task"},
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"Are you sure you want to mark this task as {status['name']}?",
+                        },
+                        "confirm": {
+                            "type": "plain_text",
+                            "text": f"Mark as {status['name']}",
+                        },
+                        "deny": {"type": "plain_text", "text": "Cancel"},
+                    }
+                    button_list.append(button)
 
             # If we only have one button we can attach it to the text block
             if len(button_list) == 1:
@@ -1193,6 +1209,35 @@ def edit_info_blocks(
             "text": {"type": "plain_text", "text": current_status[item.status]},
             "value": str(item.status),
         }
+        # Add closing options if the status is open
+        if not item.is_closed:
+            closing_statuses = taiga_cache["boards"][item.project]["closing_statuses"][
+                item_type
+            ]
+            button_list = []
+            for status in closing_statuses:
+                button = copy(blocks.button)
+                button["text"]["text"] = f"Close as {status['name']}"
+                button["action_id"] = (
+                    f"close_task-{item.project}-{item_type}-{item.id}-{status['id']}"
+                )
+                button["confirm"] = {
+                    "title": {"type": "plain_text", "text": f"Close {item_type}"},
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"Are you sure you want to mark this {item_type} as {status['name']}?",
+                    },
+                    "confirm": {
+                        "type": "plain_text",
+                        "text": f"Mark as {status['name']}",
+                    },
+                    "deny": {"type": "plain_text", "text": "Cancel"},
+                }
+                button_list.append(button)
+
+            block_list = block_formatters.add_block(block_list, blocks.actions)
+            block_list[-1]["elements"] = button_list
+            block_list[-1].pop("block_id")
 
     if item_type == "issue":
         # Type

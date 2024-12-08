@@ -791,10 +791,11 @@ def mark_complete(
     item_id: int | None = None,
     item_type: str | None = None,
     item: dict | None = None,
+    status_id: int | None = None,
 ) -> bool:
     """Mark an item as complete.
 
-    Can either pass the item directly or provide the ID and type.
+    Can either pass the item directly or provide the ID and type. If a status ID is provided it will be used instead of the default (first) closing status.
     """
 
     if not item:
@@ -816,12 +817,13 @@ def mark_complete(
     url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}/{item_id}"
 
     # Figure out what the closing status is
-    closing_status = taiga_cache["boards"][item["project"]]["closing_status"][item_type]
+    if not status_id:
+        status_id = taiga_cache["boards"][item["project"]]["closing_status"][item_type]
 
     response = requests.patch(
         url,
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
-        json={"status": closing_status, "version": item["version"]},
+        json={"status": status_id, "version": item["version"]},
     )
     if response.status_code == 200:
         return True
@@ -983,7 +985,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             "members": {},
             "slug": project["slug"],
             "statuses": {"story": {}, "task": {}, "issue": {}},
-            "closing_status": {"story": 0, "task": 0, "issue": 0},
+            "closing_statuses": {"story": [], "task": [], "issue": []},
             "severities": {},
             "types": {},
             "priorities": {},
@@ -1065,11 +1067,13 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
             boards[status.project]["statuses"][status_type][
                 status.id
             ] = status.to_dict()
-            if (
-                status.is_closed
-                and boards[status.project]["closing_status"][status_type] == 0
-            ):
-                boards[status.project]["closing_status"][status_type] = status.id
+            if status.is_closed:
+                boards[status.project]["closing_statuses"][status_type].append(
+                    status.to_dict()
+                )
+                boards[status.project]["closing_statuses"][status_type][-1][
+                    "id"
+                ] = status.id
 
         # Sort the statuses by order
         for project in boards:
@@ -1078,6 +1082,11 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
                     boards[project]["statuses"][status_type].items(),
                     key=lambda item: item[1]["order"],
                 )
+            )
+        for project in boards:
+            boards[project]["closing_statuses"][status_type] = sorted(
+                boards[project]["closing_statuses"][status_type],
+                key=lambda item: item["order"],
             )
 
     # Get all severities

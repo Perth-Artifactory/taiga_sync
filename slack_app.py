@@ -884,7 +884,11 @@ def view_tasks(ack, body, logger):
         edit = True
 
     block_list = block_formatters.format_tasks_modal_blocks(
-        task_list=tasks, config=config, taiga_auth_token=taiga_auth_token, edit=edit
+        task_list=tasks,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        edit=edit,
+        taiga_cache=taiga_cache,
     )
 
     log_time(start_time, time.time(), response_logger, cause="Task retrieval")
@@ -1153,7 +1157,9 @@ def complete_task(ack, body, client):
     ack()
 
     # Get the item details from the action ID
-    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
+    project_id, item_type, item_id, status_id = body["actions"][0]["action_id"].split(
+        "-"
+    )[1:]
 
     # Get the item from Taiga
     item = taigalink.get_info(
@@ -1172,6 +1178,7 @@ def complete_task(ack, body, client):
         item_id=item_id,
         item_type=item_type,
         item=item,
+        status_id=status_id,
         taiga_cache=taiga_cache,
     )
 
@@ -1190,7 +1197,10 @@ def complete_task(ack, body, client):
 
         # Regenerate the task view modal
         block_list = block_formatters.format_tasks_modal_blocks(
-            task_list=tasks, config=config, taiga_auth_token=taiga_auth_token
+            task_list=tasks,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            taiga_cache=taiga_cache,
         )
 
         log_time(
