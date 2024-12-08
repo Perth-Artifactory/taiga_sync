@@ -5,3 +5,7 @@ phonenumbers
 flask
 waitress
 jsonschema
+mistune==2.0.5
+pytest
+pytest-cov
+pytest-mock

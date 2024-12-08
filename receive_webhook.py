@@ -3,7 +3,9 @@ import hmac
 import json
 import logging
 import os
+import platform
 import re
+import subprocess
 import sys
 import time
 import uuid
@@ -11,7 +13,6 @@ from copy import deepcopy as copy
 from pprint import pprint
 
 import requests
-import platform
 from flask import Flask, request
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -20,9 +21,11 @@ from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
 from waitress import serve
 from werkzeug.middleware.proxy_fix import ProxyFix
-import subprocess
-from util import blocks, slack, slack_formatters, taigalink, tidyhq
+
 from editable_resources import strings
+from slack import blocks, block_formatters
+from slack import misc as slack_misc
+from util import taigalink, tidyhq
 
 
 def verify_signature(key, data, signature):
@@ -135,6 +138,11 @@ def incoming():
 
     data = request.get_json()
 
+    if data["type"] == "userstory":
+        type_str = "story"
+    else:
+        type_str = data["type"]
+
     # We only perform actions in three scenarios:
     # 1. The webhook is for a new issue or user story
     new_thing = False
@@ -215,8 +223,8 @@ def incoming():
     )
 
     block_list = []
-    block_list = slack_formatters.add_block(block_list, blocks.text)
-    block_list = slack_formatters.inject_text(block_list, message)
+    block_list = block_formatters.add_block(block_list, blocks.text)
+    block_list = block_formatters.inject_text(block_list, message)
 
     # Check if there's a url to attach
     # This is also where we add a watch button
@@ -245,7 +253,7 @@ def incoming():
         app_button = copy(blocks.button)
         app_button["text"]["text"] = "View in app"
         app_button["action_id"] = (
-            f"viewedit-{project_id}-{data['type']}-{data['data']['id']}"
+            f"viewedit-{project_id}-{type_str}-{data['data']['id']}"
         )
 
         # Check if we should add a promote button
@@ -260,14 +268,14 @@ def incoming():
                 "title": {"type": "plain_text", "text": "Promote to story"},
                 "text": {
                     "type": "plain_text",
-                    "text": f"Any comments on this issue will be lost on promotion. Are you sure?",
+                    "text": f"Any comments on this issue will be mirrored to the new story as a single comment. Are you sure?",
                 },
                 "confirm": {"type": "plain_text", "text": "Promote"},
                 "deny": {"type": "plain_text", "text": "Cancel"},
             }
 
         # Create an action block and add the buttons
-        block_list = slack_formatters.add_block(block_list, blocks.actions)
+        block_list = block_formatters.add_block(block_list, blocks.actions)
         block_list[-1]["elements"].append(app_button)
         block_list[-1]["elements"].append(visit_button)
         block_list[-1]["elements"].append(watch_button)
@@ -275,7 +283,7 @@ def incoming():
             block_list[-1]["elements"].append(promote_button)
 
     # map recipients to slack IDs
-    recipients = slack.map_recipients(
+    recipients = slack_misc.map_recipients(
         list_of_recipients=send_to, tidyhq_cache=tidyhq_cache, config=config
     )
 
@@ -309,10 +317,10 @@ def incoming():
         # Get the Slack user's details
         user = slack_app.client.users_info(user=from_slack_id)
         sender_image = user["user"]["profile"]["image_72"]
-        sender_name = f"{slack.name_mapper(slack_id=from_slack_id, slack_app=slack_app).split(' ')[0]} | Taiga"
+        sender_name = f"{slack_misc.name_mapper(slack_id=from_slack_id, slack_app=slack_app).split(' ')[0]} | Taiga"
 
     for user in recipients["user"]:
-        slack.send_dm(
+        slack_misc.send_dm(
             slack_id=user,
             message=message,
             slack_app=slack_app,
