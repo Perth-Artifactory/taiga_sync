@@ -51,6 +51,8 @@ def convert_markdown(text: str) -> str:
     text = text.replace("<br>", "\n")
     result = mrkdwnconvert(text)
     result = result.strip()
+    # Remove <p> tags
+    result = result.replace("<p>", "").replace("</p>", "")
     return result
 
 
