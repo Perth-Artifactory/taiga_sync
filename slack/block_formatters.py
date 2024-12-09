@@ -826,14 +826,6 @@ def viewedit_blocks(
     # Info fields
     block_list[-1]["fields"] = []
 
-    if item_type == "task":
-        block_list[-1]["fields"].append(
-            {
-                "type": "mrkdwn",
-                "text": f"*Parent card:* {item.user_story_extra_info['subject']}",
-            }
-        )
-
     block_list[-1]["fields"].append(
         {
             "type": "mrkdwn",
