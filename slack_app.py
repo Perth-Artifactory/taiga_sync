@@ -326,7 +326,7 @@ def handle_form_open_button(ack, body, client):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "form_submission",
+                "callback_id": f"form_submission-{form_name}",
                 "title": {"type": "plain_text", "text": form_title},
                 "blocks": block_list,
                 "close": {
@@ -337,7 +337,6 @@ def handle_form_open_button(ack, body, client):
                     "type": "plain_text",
                     "text": form["action_name"],
                 },
-                "private_metadata": form_name,
             },
         )
     except SlackApiError as e:
@@ -345,23 +344,30 @@ def handle_form_open_button(ack, body, client):
         logger.error(f"Failed to push modal: {e.response['error']}")
 
 
-@app.view("form_submission")
+@app.view(re.compile(r"^form_submission-.*"))
 def handle_form_submissions(ack, body, logger):
     """Process form submissions"""
     start_time = time.time()
+
+    # Get form name
+    form_name = body["view"]["callback_id"].split("-")[-1]
+
     description, files = slack_forms.form_submission_to_description(
         submission=body, slack_app=app
     )
     project_id, taiga_type_id, taiga_severity_id = (
         slack_forms.form_submission_to_metadata(
-            submission=body, taigacon=taigacon, taiga_cache=taiga_cache
+            submission=body,
+            taigacon=taigacon,
+            taiga_cache=taiga_cache,
+            form_name=form_name,
         )
     )
 
     # Reload forms from file
     importlib.reload(forms)
 
-    form = forms.forms[body["view"]["private_metadata"]]
+    form = forms.forms[form_name]
 
     if "taiga_type" in form and project_id:
         if taiga_type_id:
@@ -658,7 +664,6 @@ def handle_viewedit_actions(ack, body):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
-                    "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -681,7 +686,6 @@ def handle_viewedit_actions(ack, body):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
-                    "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -705,7 +709,6 @@ def handle_viewedit_actions(ack, body):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": view_title},
                     "blocks": block_list,
-                    "private_metadata": value_string,
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -720,7 +723,7 @@ def handle_viewedit_actions(ack, body):
 
 
 # Comment
-@app.action("submit_comment")
+@app.action(re.compile(r"^submit_comment-.*"))
 def handle_comment_addition(ack, body, logger):
     """Handle comment additions"""
     start_time = time.time()
@@ -739,8 +742,8 @@ def handle_comment_addition(ack, body, logger):
         logger.info("Comment is empty, ignoring")
         return
 
-    # Get the item details from the private metadata
-    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+    # Get the item details from the action id
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
     # Post the comment to Taiga
     print(f"Posting comment {comment} to {item_type} {item_id} in project {project_id}")
@@ -815,7 +818,6 @@ def handle_comment_addition(ack, body, logger):
                 "callback_id": "finished_editing",
                 "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
             },
@@ -826,10 +828,13 @@ def handle_comment_addition(ack, body, logger):
         logger.error(e.response["response_metadata"]["messages"])
 
 
-@app.action("home-attach_files")
+@app.action(re.compile(r"^home_attach_files-.*"))
 def attach_files_modal(ack, body):
     """Open a modal to submit files for later attachment"""
     ack()
+
+    # Get the item details from the action id
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
     block_list = []
     # Create upload field
@@ -844,10 +849,9 @@ def attach_files_modal(ack, body):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "submit_files",
+                "callback_id": f"submit_files-{project_id}-{item_type}-{item_id}",
                 "title": {"type": "plain_text", "text": "Upload files"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Attach"},
             },
         )
@@ -905,7 +909,6 @@ def view_tasks(ack, body, logger):
                 "title": {"type": "plain_text", "text": "View Tasks"},
                 "close": {"type": "plain_text", "text": "Back"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
             },
         )
         logger.info(f"Pushed tasks modal for user story {story_id}")
@@ -915,7 +918,7 @@ def view_tasks(ack, body, logger):
         logger.error(e.response["response_metadata"]["messages"])
 
 
-@app.view("submit_files")
+@app.view(re.compile(r"^submit_files-.*"))
 def attach_files(ack, body):
     """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
     start_time = time.time()
@@ -925,8 +928,8 @@ def attach_files(ack, body):
     if not files:
         return
 
-    # Get the item details from the private metadata
-    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+    # Get the item details from the action id
+    project_id, item_type, item_id = body["view"]["callback_id"].split("-")[1:]
 
     # Upload the files to Taiga
     for file in files:
@@ -972,7 +975,6 @@ def attach_files(ack, body):
                 "callback_id": "finished_editing",
                 "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
             },
@@ -981,14 +983,14 @@ def attach_files(ack, body):
         logger.error(f"Failed to push modal: {e.response['error']}")
 
 
-@app.action("edit_info")
+@app.action(re.compile(r"^edit_info-.*"))
 def send_info_modal(ack, body, logger):
     """Open a modal to edit the details of an item"""
     start_time = time.time()
     ack()
 
-    # Get the item details from the private metadata
-    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+    # Get the item details from the action id
+    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
     block_list = block_formatters.edit_info_blocks(
         taigacon=taigacon,
@@ -1007,10 +1009,9 @@ def send_info_modal(ack, body, logger):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "edited_info",
+                "callback_id": f"edited_info-{project_id}-{item_type}-{item_id}",
                 "title": {"type": "plain_text", "text": f"Edit {item_type}"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Update"},
                 "close": {"type": "plain_text", "text": "Cancel"},
             },
@@ -1020,14 +1021,14 @@ def send_info_modal(ack, body, logger):
         logger.error(e.response["response_metadata"]["messages"])
 
 
-@app.view("edited_info")
+@app.view(re.compile(r"^edited_info-.*"))
 def edit_info(ack, body, logger):
     """Update the details of an item"""
     start_time = time.time()
     ack()
 
-    # Get the item details from the private metadata
-    project_id, item_type, item_id = body["view"]["private_metadata"].split("-")[1:]
+    # Get the item details from callback id
+    project_id, item_type, item_id = body["view"]["callback_id"].split("-")[1:]
 
     # Get the item from Taiga, this isn't cached since it changes so often
     if item_type == "task":
@@ -1138,6 +1139,36 @@ def edit_info(ack, body, logger):
                     fields=["priority"], priority=int(priority), version=item.version
                 )
 
+    # Update view/edit modal
+    block_list = block_formatters.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+        taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+    )
+
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                "blocks": block_list,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+        logger.info(
+            f"Updated view/edit modal for {item_type} {item_id} for {body['user']['id']}"
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
     log_time(
         start_time,
         time.time(),
@@ -1223,7 +1254,6 @@ def complete_item(ack, body, client):
                     "title": {"type": "plain_text", "text": "View Tasks"},
                     "close": {"type": "plain_text", "text": "Back"},
                     "blocks": block_list,
-                    "private_metadata": body["view"]["private_metadata"],
                 },
             )
             logger.info(
@@ -1261,10 +1291,9 @@ def complete_item(ack, body, client):
                 view_id=body["view"]["id"],
                 view={
                     "type": "modal",
-                    "callback_id": "edited_info",
+                    "callback_id": f"edited_info-{project_id}-{item_type}-{item_id}",
                     "title": {"type": "plain_text", "text": f"Edit {item_type}"},
                     "blocks": block_list,
-                    "private_metadata": body["view"]["private_metadata"],
                     "submit": {"type": "plain_text", "text": "Update"},
                     "close": {"type": "plain_text", "text": "Cancel"},
                 },
@@ -1295,7 +1324,6 @@ def complete_item(ack, body, client):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
                     "blocks": block_list,
-                    "private_metadata": body["view"]["private_metadata"],
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -1324,7 +1352,6 @@ def complete_item(ack, body, client):
                 "callback_id": "finished_editing",
                 "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
             },
@@ -1406,7 +1433,6 @@ def promote_issue(ack, body, client, respond):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": f"View/edit story"},
                     "blocks": block_list,
-                    "private_metadata": body["view"]["private_metadata"],
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -1465,11 +1491,10 @@ def view_attachments(ack, body, logger):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "view_attachments",
+                "callback_id": f"view_attachments-{project_id}-{item_type}-{item_id}",
                 "title": {"type": "plain_text", "text": "View Attachments"},
                 "close": {"type": "plain_text", "text": "Back"},
                 "blocks": block_list,
-                "private_metadata": body["view"]["private_metadata"],
             },
         )
         logger.info(
@@ -1510,7 +1535,6 @@ def create_item(ack, body, logger, client):
                 "callback_id": "new_item",
                 "title": {"type": "plain_text", "text": "Create a new item"},
                 "blocks": selector_blocks,
-                "private_metadata": body["view"]["private_metadata"],
                 "submit": {"type": "plain_text", "text": "Next"},
             },
         )
@@ -1569,7 +1593,7 @@ def create_from_message(ack, body):
 
     # Generate blocks
     selector_blocks = block_formatters.new_item_selector_blocks(
-        taiga_id=taiga_id, taiga_cache=taiga_cache
+        taiga_id=taiga_id, taiga_cache=taiga_cache, description=description
     )
 
     # Open the modal
@@ -1581,7 +1605,6 @@ def create_from_message(ack, body):
                 "callback_id": "new_item",
                 "title": {"type": "plain_text", "text": "Create a new item"},
                 "blocks": selector_blocks,
-                "private_metadata": description,
                 "submit": {"type": "plain_text", "text": "Next"},
             },
         )
@@ -1602,11 +1625,14 @@ def new_item(ack, body, client):
     item_type = body["view"]["state"]["values"]["item_type"]["item_type"][
         "selected_option"
     ]["value"]
+    if "description" in body["view"]["state"]["values"]:
+        description = body["view"]["state"]["values"]["description"]["description"][
+            "value"
+        ]
 
     # Check for private metadata
     description = ""
-    if "private_metadata" in body["view"]:
-        description: str = body["view"]["private_metadata"]
+    # TODO: Get description from not the private metadata
 
     logging.info(f"Creating new {item_type} in project {project_id}")
 
@@ -1625,10 +1651,9 @@ def new_item(ack, body, client):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "write_item",
+                "callback_id": f"write_item-{project_id}-{item_type}-0",
                 "title": {"type": "plain_text", "text": f"Create new {item_type}"},
                 "blocks": edit_blocks,
-                "private_metadata": f"{project_id}-{item_type}-0",
                 "submit": {"type": "plain_text", "text": f"Create {item_type}"},
                 "close": {"type": "plain_text", "text": "Cancel"},
             },
@@ -1639,14 +1664,14 @@ def new_item(ack, body, client):
         logger.error(e.response["response_metadata"]["messages"])
 
 
-@app.view_submission("write_item")
+@app.view_submission(re.compile(r"^write_item-.*"))
 def write_item(ack, body, client):
     """Write the new item to Taiga"""
     start_time = time.time()
     ack()
 
-    # Get the project_id and item type from the private metadata
-    project_id, item_type, story_id = body["view"]["private_metadata"].split("-")
+    # Get the project_id and item type from the callback id
+    project_id, item_type, story_id = body["view"]["callback_id"].split("-")[1:]
 
     new_item_details = {}
 
@@ -1730,7 +1755,6 @@ def write_item(ack, body, client):
                     "callback_id": "finished_editing",
                     "title": {"type": "plain_text", "text": f"View/edit story"},
                     "blocks": block_list,
-                    "private_metadata": body["view"]["private_metadata"],
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
                 },
@@ -1877,10 +1901,9 @@ def create_task(ack, body):
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
-                "callback_id": "write_item",
+                "callback_id": f"write_item-{project_id}-{item_type}-{story_id}",
                 "title": {"type": "plain_text", "text": f"Create new {item_type}"},
                 "blocks": edit_blocks,
-                "private_metadata": f"{project_id}-{item_type}-{story_id}",
                 "submit": {"type": "plain_text", "text": f"Create {item_type}"},
                 "close": {"type": "plain_text", "text": "Cancel"},
             },
@@ -1915,23 +1938,128 @@ if "--cron" in sys.argv:
 
     x = 1
 
-    for user in users:
-        user_id = user["id"]
-        slack_misc.push_home(
-            user_id=user_id,
-            config=config,
-            tidyhq_cache=tidyhq_cache,
-            taiga_cache=taiga_cache,
-            taiga_auth_token=taiga_auth_token,
-            slack_app=app,
-            private_metadata=json.dumps(const.base_filter),
-        )
+    home_no_tidyhq = None
+    home_no_taiga = None
 
-        logger.info(
-            f"Updated home for {user_id} - {slack_misc.name_mapper(slack_id=user_id, slack_app=app)} ({x}/{len(users)})"
+    updates = {}
+
+    def gen_home(user_id: str, x: int, home_no_taiga: list, home_no_tidyhq: list):
+        taiga_id = tidyhq.map_slack_to_taiga(
+            tidyhq_cache=tidyhq_cache,
+            config=config,
+            slack_id=user_id,
         )
-        x += 1
-    logger.info(f"All homes updated ({x})")
+        tidyhq_id = tidyhq.map_slack_to_tidyhq(
+            tidyhq_cache=tidyhq_cache, config=config, slack_id=user_id
+        )
+        if taiga_id:
+            block_list = block_formatters.app_home(
+                user_id=user_id,
+                config=config,
+                tidyhq_cache=tidyhq_cache,
+                taiga_cache=taiga_cache,
+                taiga_auth_token=taiga_auth_token,
+                private_metadata=json.dumps(const.base_filter),
+            )
+            block_list = copy(block_list)
+            logger.info(
+                f"{x}/{len(users)} {user_id}: Generating individual home for Taiga user"
+            )
+        elif tidyhq_id:
+            if not home_no_taiga:
+                home_no_taiga = block_formatters.app_home(
+                    user_id=user_id,
+                    config=config,
+                    tidyhq_cache=tidyhq_cache,
+                    taiga_cache=taiga_cache,
+                    taiga_auth_token=taiga_auth_token,
+                    private_metadata=json.dumps(const.base_filter),
+                )
+            block_list = home_no_taiga
+            logger.info(
+                f"{x}/{len(users)} {user_id}: Generating generalised home for TidyHQ user"
+            )
+        else:
+            if not home_no_tidyhq:
+                home_no_tidyhq = block_formatters.app_home(
+                    user_id=user_id,
+                    config=config,
+                    tidyhq_cache=tidyhq_cache,
+                    taiga_cache=taiga_cache,
+                    taiga_auth_token=taiga_auth_token,
+                    private_metadata=json.dumps(const.base_filter),
+                )
+            block_list = home_no_tidyhq
+            logger.info(
+                f"{x}/{len(users)} {user_id}: Generating generalised home for non-TidyHQ user"
+            )
+        return user_id, block_list
+
+    x = 1
+    user_id, home_no_taiga = gen_home(users[0]["id"], x, [], [])
+    user_id, home_no_tidyhq = gen_home(users[2]["id"], x, [], [])
+
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    with ThreadPoolExecutor(max_workers=30) as executor:
+        futures = []
+        for user in users:
+            user_id = user["id"]
+            futures.append(
+                executor.submit(
+                    gen_home,
+                    user_id=user_id,
+                    x=x,
+                    home_no_taiga=home_no_taiga,
+                    home_no_tidyhq=home_no_tidyhq,
+                )
+            )
+            x += 1
+
+        for future in as_completed(futures):
+            try:
+                user_id, block_list = future.result()
+                updates[user_id] = block_list
+                logger.info(f"Generated app home for {user_id}")
+            except Exception as e:
+                logger.error(f"Error updating home: {e}")
+
+    x = 1
+
+    input("Ready for next step...")
+
+    threads = []
+
+    private_metadata = json.dumps(const.base_filter)
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        for user_id in updates:
+            print(len(updates[user_id]))
+            futures.append(
+                executor.submit(
+                    slack_misc.push_home,
+                    config=config,
+                    tidyhq_cache=tidyhq_cache,
+                    taiga_cache=taiga_cache,
+                    taiga_auth_token=taiga_auth_token,
+                    slack_app=app,
+                    block_list=updates[user_id],
+                    user_id=user_id,
+                    private_metadata=private_metadata,
+                )
+            )
+
+        for future in as_completed(futures):
+            try:
+                future.result()
+                x += 1
+                logger.info(f"Updated home for {user_id} ({x}/{len(users)})")
+            except Exception as e:
+                logger.error(f"Error updating home: {e}")
+
+    logger.info(f"All homes updated ({x-1})")
     sys.exit(0)
 
 

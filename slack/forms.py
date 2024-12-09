@@ -124,7 +124,7 @@ def form_submission_to_description(
 
 
 def form_submission_to_metadata(
-    submission: dict, taigacon, taiga_cache: dict
+    submission: dict, taigacon, taiga_cache: dict, form_name: str
 ) -> tuple[int, int | None, int | None]:
     """Extracts the Taiga project ID and mapped type/severity if applicable.
 
@@ -134,9 +134,7 @@ def form_submission_to_metadata(
     # Reload forms from file
     importlib.reload(forms)
 
-    # Retrieve the original form
-    form_id = submission["view"]["private_metadata"]
-    form = forms.forms[form_id]
+    form = forms.forms[form_name]
 
     # Check if the form had a question marked as a taiga type map
     taiga_type_question = False

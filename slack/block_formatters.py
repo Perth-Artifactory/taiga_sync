@@ -894,7 +894,7 @@ def viewedit_blocks(
     if edit:
         button = copy(blocks.button)
         button["text"]["text"] = "Edit"
-        button["action_id"] = f"edit_info"
+        button["action_id"] = f"edit_info-{project_id}-{item_type}-{item_id}"
         block_list[-1]["accessory"] = button
 
     # Tasks
@@ -1019,7 +1019,7 @@ def viewedit_blocks(
     if edit:
         button = copy(blocks.button)
         button["text"]["text"] = "Attach files"
-        button["action_id"] = "home-attach_files"
+        button["action_id"] = f"home_attach_files-{project_id}-{item_type}-{item_id}"
         buttons.append(button)
 
     # Add view images button if there's at least one image
@@ -1093,7 +1093,9 @@ def viewedit_blocks(
     block_list = block_formatters.add_block(block_list, blocks.actions)
     block_list[-1]["elements"].append(copy(blocks.button))
     block_list[-1]["elements"][0]["text"]["text"] = "Comment"
-    block_list[-1]["elements"][0]["action_id"] = "submit_comment"
+    block_list[-1]["elements"][0][
+        "action_id"
+    ] = f"submit_comment-{project_id}-{item_type}-{item_id}"
 
     return block_list
 
@@ -1384,7 +1386,9 @@ def edit_info_blocks(
     return block_list
 
 
-def new_item_selector_blocks(taiga_id: int, taiga_cache: dict):
+def new_item_selector_blocks(
+    taiga_id: int, taiga_cache: dict, description: str | None = None
+):
     """Generate the blocks for a modal to select the type of item to create and on what project
 
     Will show an optional description field if passed "description" """
@@ -1426,6 +1430,16 @@ def new_item_selector_blocks(taiga_id: int, taiga_cache: dict):
     block_list[-1]["element"]["action_id"] = "item_type"
     block_list[-1]["block_id"] = "item_type"
     block_list[-1]["element"]["placeholder"]["text"] = "Select an item type"
+
+    if description:
+        # Create a description field
+        block_list = block_formatters.add_block(block_list, blocks.text_question)
+        block_list[-1]["label"]["text"] = "Description"
+        block_list[-1]["element"]["multiline"] = True
+        block_list[-1]["element"]["action_id"] = "description"
+        block_list[-1]["block_id"] = "description"
+        block_list[-1]["optional"] = True
+        block_list[-1]["element"]["initial_value"] = description
 
     return block_list
 

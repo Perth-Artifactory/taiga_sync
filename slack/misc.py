@@ -108,17 +108,22 @@ def push_home(
     taiga_auth_token: str,
     slack_app,
     private_metadata: str | None = None,
+    block_list: list | None = None,
 ):
-    """Push the app home view to a specified user."""
+    """Push the app home view to a specified user.
+
+    Pass in a block_list to avoid regenerating the home view.
+    """
     # Generate the app home view
-    block_list = block_formatters.app_home(
-        user_id=user_id,
-        config=config,
-        tidyhq_cache=tidyhq_cache,
-        taiga_cache=taiga_cache,
-        taiga_auth_token=taiga_auth_token,
-        private_metadata=private_metadata,
-    )
+    if block_list is None:
+        block_list = block_formatters.app_home(
+            user_id=user_id,
+            config=config,
+            tidyhq_cache=tidyhq_cache,
+            taiga_cache=taiga_cache,
+            taiga_auth_token=taiga_auth_token,
+            private_metadata=private_metadata,
+        )
 
     view = {
         "type": "home",
