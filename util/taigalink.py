@@ -303,6 +303,7 @@ def create_item(
     type: int | None = None,
     priority: int | None = None,
     severity: int | None = None,
+    user_story: int | None = None,
 ):
     """Create an item on a Taiga project.
 
@@ -311,6 +312,7 @@ def create_item(
     type_map = {
         "story": "userstories",
         "issue": "issues",
+        "task": "tasks",
     }
 
     if item_type not in type_map:
@@ -336,6 +338,8 @@ def create_item(
         data["severity"] = severity
     if status:
         data["status"] = status
+    if user_story:
+        data["user_story"] = user_story
 
     create_url = f"{config['taiga']['url']}/api/v1/{type_map[item_type]}"
     response = requests.post(

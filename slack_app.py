@@ -1628,7 +1628,7 @@ def new_item(ack, body, client):
                 "callback_id": "write_item",
                 "title": {"type": "plain_text", "text": f"Create new {item_type}"},
                 "blocks": edit_blocks,
-                "private_metadata": f"{project_id}-{item_type}",
+                "private_metadata": f"{project_id}-{item_type}-0",
                 "submit": {"type": "plain_text", "text": f"Create {item_type}"},
                 "close": {"type": "plain_text", "text": "Cancel"},
             },
@@ -1646,9 +1646,12 @@ def write_item(ack, body, client):
     ack()
 
     # Get the project_id and item type from the private metadata
-    project_id, item_type = body["view"]["private_metadata"].split("-")
+    project_id, item_type, story_id = body["view"]["private_metadata"].split("-")
 
     new_item_details = {}
+
+    if story_id != "0":
+        new_item_details["user_story"] = int(story_id)
 
     for field in body["view"]["state"]["values"]:
         data = body["view"]["state"]["values"][field][field]
@@ -1659,15 +1662,18 @@ def write_item(ack, body, client):
             new_item_details["subject"] = data["value"]
 
         elif field == "description":
-            if data["value"].strip() != "":
-                new_item_details["description"] = data["value"]
+            if data["value"]:
+                if data["value"].strip() != "":
+                    new_item_details["description"] = data["value"]
 
         elif field == "due_date":
-            new_item_details["due_date"] = data["selected_date"]
+            if data["selected_date"]:
+                new_item_details["due_date"] = data["selected_date"]
 
         elif field == "assigned_to":
-            assigned = data["selected_option"]["value"]
-            new_item_details["assigned_to"] = int(assigned)
+            if data["selected_option"]:
+                assigned = data["selected_option"]["value"]
+                new_item_details["assigned_to"] = int(assigned)
 
         elif field == "watchers":
             new_item_details["watchers"] = [
@@ -1703,6 +1709,35 @@ def write_item(ack, body, client):
     if not item_id:
         logger.error(f"Failed to create new {item_type}")
         return
+
+    if body["view"]["title"]["text"] == "Create new task":
+        # Regenerate the story view/edit modal as tasks are only created from there
+        block_list = block_formatters.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type="story",
+            item_id=story_id,
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
+
+        try:
+            client.views_update(
+                view_id=body["view"]["root_view_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit story"},
+                    "blocks": block_list,
+                    "private_metadata": body["view"]["private_metadata"],
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to push modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
 
     # This process typically takes longer than the 3s we have to respond to the view submission
     # So we can't open the view/edit modal
@@ -1816,6 +1851,44 @@ def clear_filter(ack, body):
         private_metadata=json.dumps(const.base_filter),
     )
     logger.info(f"Cleared filters for {body['user']['id']}")
+
+
+@app.action(re.compile(r"^create_task-.*"))
+def create_task(ack, body):
+    """Create a task"""
+    ack()
+
+    project_id, story_id = body["actions"][0]["action_id"].split("-")[1:]
+    item_type = "task"
+
+    logging.info(f"Creating new task in project for {story_id}")
+
+    edit_blocks = block_formatters.edit_info_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id="0",
+        taiga_cache=taiga_cache,
+        new=True,
+    )
+
+    try:
+        client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "write_item",
+                "title": {"type": "plain_text", "text": f"Create new {item_type}"},
+                "blocks": edit_blocks,
+                "private_metadata": f"{project_id}-{item_type}-{story_id}",
+                "submit": {"type": "plain_text", "text": f"Create {item_type}"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Opened new item creation modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 # The cron mode renders the app home for every user in the workspace and resets filters

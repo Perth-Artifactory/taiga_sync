@@ -954,6 +954,30 @@ def viewedit_blocks(
             button["action_id"] = f"view_tasks-{item_id}"
             block_list[-1]["elements"].append(button)
 
+            # Add a button to create a new task
+            if edit:
+                button = copy(blocks.button)
+                button["text"]["text"] = "Create new task"
+                button["action_id"] = f"create_task-{project_id}-{item_id}"
+                block_list[-1]["elements"].append(button)
+        else:
+            block_list = block_formatters.add_block(block_list, blocks.divider)
+            block_list = block_formatters.add_block(block_list, blocks.header)
+            block_list = block_formatters.inject_text(
+                block_list=block_list, text="Tasks"
+            )
+            block_list = block_formatters.add_block(block_list, blocks.text)
+            block_list = block_formatters.inject_text(
+                block_list=block_list, text="<No tasks attached>"
+            )
+            if edit:
+                block_list = block_formatters.add_block(block_list, blocks.actions)
+                block_list[-1].pop("block_id")
+                button = copy(blocks.button)
+                button["text"]["text"] = "Create new task"
+                button["action_id"] = f"create_task-{project_id}-{item_id}"
+                block_list[-1]["elements"].append(button)
+
     # Files
     block_list = block_formatters.add_block(block_list, blocks.divider)
     block_list = block_formatters.add_block(block_list, blocks.header)
