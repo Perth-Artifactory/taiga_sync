@@ -19,7 +19,7 @@ from editable_resources import forms, strings
 from slack import blocks, block_formatters
 from slack import misc as slack_misc
 from slack import forms as slack_forms
-from util import taigalink, tidyhq
+from util import taigalink, tidyhq, const
 
 
 def log_time(
@@ -575,6 +575,7 @@ def handle_app_home_opened_events(body, client, logger):
         user_id=user_id,
         config=config,
         tidyhq_cache=tidyhq_cache,
+        taiga_cache=taiga_cache,
         taiga_auth_token=taiga_auth_token,
         slack_app=app,
     )
@@ -870,6 +871,7 @@ def view_tasks(ack, body, logger):
         taiga_auth_token=taiga_auth_token,
         exclude_done=False,
         story_id=story_id,
+        filters={},
     )
 
     # Attempt to identify the user
@@ -1151,8 +1153,8 @@ def finished_editing(ack, body):
 
 
 @app.action(re.compile(r"^complete-.*"))
-def complete_task(ack, body, client):
-    """Mark a task a complete"""
+def complete_item(ack, body, client):
+    """Mark an item as complete"""
     start_time = time.time()
     ack()
 
@@ -1186,13 +1188,14 @@ def complete_task(ack, body, client):
         logger.error(f"Failed to mark {item_type} {item_id} as complete")
         return
 
-    if item_type == "task":
+    if item_type == "task" and body["view"]["title"]["text"] == "View Tasks":
         # Get the tasks for the modal
         tasks = taigalink.get_tasks(
             config=config,
             taiga_auth_token=taiga_auth_token,
             exclude_done=False,
             story_id=item["user_story"],
+            filters={},
         )
 
         # Regenerate the task view modal
@@ -1230,16 +1233,88 @@ def complete_task(ack, body, client):
             logger.error(f"Failed to push modal: {e.response['error']}")
             logger.error(e.response["response_metadata"]["messages"])
 
-    # Update the view/edit modal
-    block_list = block_formatters.viewedit_blocks(
-        taigacon=taigacon,
-        project_id=project_id,
-        item_type="story",
-        item_id=item["user_story"],
-        taiga_cache=taiga_cache,
-        config=config,
-        taiga_auth_token=taiga_auth_token,
-    )
+        # Update the view/edit modal
+        block_list = block_formatters.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type="story",
+            item_id=item["user_story"],
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
+
+    elif body["view"]["title"]["text"].startswith("Edit"):
+        # We're in the edit modal
+
+        # Regenerate the edit modal
+        block_list = block_formatters.edit_info_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            taiga_cache=taiga_cache,
+        )
+
+        try:
+            client.views_update(
+                view_id=body["view"]["id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "edited_info",
+                    "title": {"type": "plain_text", "text": f"Edit {item_type}"},
+                    "blocks": block_list,
+                    "private_metadata": body["view"]["private_metadata"],
+                    "submit": {"type": "plain_text", "text": "Update"},
+                    "close": {"type": "plain_text", "text": "Cancel"},
+                },
+            )
+            logger.info(
+                f"Edit modal for {item_type} {item_id} in project {project_id} updated for {body['user']['id']}"
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to push modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+
+        # Update the root view/edit modal
+        block_list = block_formatters.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
+
+        try:
+            client.views_update(
+                view_id=body["view"]["root_view_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "finished_editing",
+                    "title": {"type": "plain_text", "text": f"View/edit {item_type}"},
+                    "blocks": block_list,
+                    "private_metadata": body["view"]["private_metadata"],
+                    "submit": {"type": "plain_text", "text": "Finish"},
+                    "clear_on_close": True,
+                },
+            )
+        except SlackApiError as e:
+            logger.error(f"Failed to push modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+
+    else:
+        # Update the view/edit modal
+        block_list = block_formatters.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
 
     try:
         client.views_update(
@@ -1354,7 +1429,7 @@ def promote_issue(ack, body, client, respond):
 
 
 @app.action(re.compile(r"^view_attachments-.*"))
-def handle_some_action(ack, body, logger):
+def view_attachments(ack, body, logger):
     ack()
     start_time = time.time()
 
@@ -1653,7 +1728,97 @@ def write_item(ack, body, client):
     )
 
 
-# The cron mode renders the app home for every user in the workspace
+@app.action("filter_home_modal")
+def filter_home_modal(ack, body):
+    """Open a modal to filter the home view"""
+    ack()
+    # Get Taiga ID
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    blocks = block_formatters.home_filters(
+        taiga_id=taiga_id,
+        taiga_cache=taiga_cache,
+        current_state=body["view"]["private_metadata"],
+    )
+
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "filter_home",
+                "title": {"type": "plain_text", "text": "Filter items"},
+                "blocks": blocks,
+                "private_metadata": body["view"]["private_metadata"],
+                "submit": {"type": "plain_text", "text": "Filter"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Opened home filter modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view_submission("filter_home")
+def filter_home(ack, body):
+    """Regenerate the app home with filters applied"""
+    ack()
+
+    # Get Taiga ID
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    # Get the current filters
+    filters = body["view"]["state"]["values"]
+
+    logger.info(f"Regenerating home for {body['user']['id']} with filters")
+
+    # Regenerate app home
+    slack_misc.push_home(
+        user_id=body["user"]["id"],
+        config=config,
+        tidyhq_cache=tidyhq_cache,
+        taiga_cache=taiga_cache,
+        taiga_auth_token=taiga_auth_token,
+        slack_app=app,
+        private_metadata=json.dumps(filters),
+    )
+
+
+@app.action("clear_filter")
+def clear_filter(ack, body):
+    """Clear the filters from the app home"""
+    ack()
+
+    # Get Taiga ID
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    # Regenerate app home
+    slack_misc.push_home(
+        user_id=body["user"]["id"],
+        config=config,
+        tidyhq_cache=tidyhq_cache,
+        taiga_cache=taiga_cache,
+        taiga_auth_token=taiga_auth_token,
+        slack_app=app,
+        private_metadata=json.dumps(const.base_filter),
+    )
+    logger.info(f"Cleared filters for {body['user']['id']}")
+
+
+# The cron mode renders the app home for every user in the workspace and resets filters
 if "--cron" in sys.argv:
     # Update homes for all slack users
     logger.info("Updating homes for all users")
@@ -1683,8 +1848,10 @@ if "--cron" in sys.argv:
             user_id=user_id,
             config=config,
             tidyhq_cache=tidyhq_cache,
+            taiga_cache=taiga_cache,
             taiga_auth_token=taiga_auth_token,
             slack_app=app,
+            private_metadata=json.dumps(const.base_filter),
         )
 
         logger.info(

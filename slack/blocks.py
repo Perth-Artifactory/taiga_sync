@@ -134,3 +134,9 @@ base_input = {
     "element": {},
     "label": {"type": "plain_text", "text": "", "emoji": True},
 }
+
+input = {
+    "type": "input",
+    "element": {},
+    "label": {"type": "plain_text", "text": "", "emoji": True},
+}

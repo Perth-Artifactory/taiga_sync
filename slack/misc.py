@@ -11,6 +11,7 @@ from slack import block_formatters
 
 # Set up logging
 logger = logging.getLogger("slack.misc")
+logger.setLevel(logging.INFO)
 
 
 class mrkdwnRenderer(mistune.HTMLRenderer):
@@ -100,7 +101,13 @@ def check_for_empty_text(block, logger):
 
 
 def push_home(
-    user_id: str, config: dict, tidyhq_cache: dict, taiga_auth_token: str, slack_app
+    user_id: str,
+    config: dict,
+    tidyhq_cache: dict,
+    taiga_cache: dict,
+    taiga_auth_token: str,
+    slack_app,
+    private_metadata: str | None = None,
 ):
     """Push the app home view to a specified user."""
     # Generate the app home view
@@ -108,21 +115,26 @@ def push_home(
         user_id=user_id,
         config=config,
         tidyhq_cache=tidyhq_cache,
+        taiga_cache=taiga_cache,
         taiga_auth_token=taiga_auth_token,
+        private_metadata=private_metadata,
     )
 
+    view = {
+        "type": "home",
+        "blocks": block_list,
+    }
+
+    if private_metadata:
+        view["private_metadata"] = private_metadata
+
     try:
-        slack_app.client.views_publish(
-            user_id=user_id,
-            view={
-                "type": "home",
-                "blocks": block_list,
-            },
-        )
+        slack_app.client.views_publish(user_id=user_id, view=view)
         logger.info(f"Set app home for {user_id} ")
         return True
     except Exception as e:
         logger.error(f"Failed to push home view: {e}")
+        pprint(block_list)
         return False
 
 

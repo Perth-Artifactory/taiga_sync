@@ -14,9 +14,9 @@ footer = (
     + version
 )
 explainer = """This page can be used to track tasks you're assigned to across all projects in our issue tracker."""
-no_tasks = """You don't have any tasks assigned to you at the moment."""
-no_stories = """You don't have any cards assigned to you at the moment."""
-no_issues = """You don't have any issues assigned to you at the moment."""
+no_tasks = """No tasks to display, try adjusting your filters"""
+no_stories = """No stories to display, try adjusting your filters"""
+no_issues = """No issues to display, try adjusting your filters"""
 trimmed = """Unfortunately I can only show you the first {items} items. If you need to see more, please visit the <https://tasks.artifactory.org.au|issue tracker> directly."""
 compressed = "(Some formatting has also been removed/compressed)"
 form_submission_success = "Your form has been submitted successfully: {form_name}"

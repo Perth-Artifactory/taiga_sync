@@ -15,7 +15,7 @@ import taiga
 from editable_resources import strings
 from slack import blocks, block_formatters
 from slack import misc as slack_misc
-from util import taigalink, tidyhq, misc
+from util import taigalink, tidyhq, misc, const
 
 # Set up logging
 logger = logging.getLogger("slack.block_formatters")
@@ -231,7 +231,7 @@ def format_tasks_modal_blocks(
                     button = copy(blocks.button)
                     button["text"]["text"] = f"Close as {status['name']}"
                     button["action_id"] = (
-                        f"close_task-{task['project']}-task-{task['id']}-{status['id']}"
+                        f"complete-{task['project']}-task-{task['id']}-{status['id']}"
                     )
                     button["confirm"] = {
                         "title": {"type": "plain_text", "text": "Close task"},
@@ -310,7 +310,7 @@ def add_block(block_list: list, block: dict | list) -> list[dict]:
         block_list.append(block)
 
     if len(block_list) > 100:
-        raise ValueError("Block list too long")
+        logger.info(f"Block list too long {len(block_list)}/100")
 
     return block_list
 
@@ -912,12 +912,13 @@ def viewedit_blocks(
             taiga_auth_token=taiga_auth_token,
             exclude_done=False,
             story_id=item_id,
+            filters={},
         )
         if tasks:
             block_list = block_formatters.add_block(block_list, blocks.divider)
             block_list = block_formatters.add_block(block_list, blocks.header)
             block_list = block_formatters.inject_text(
-                block_list=block_list, text="Attached Tasks"
+                block_list=block_list, text="Attached open tasks"
             )
 
             closed = 0
@@ -1219,7 +1220,7 @@ def edit_info_blocks(
                 button = copy(blocks.button)
                 button["text"]["text"] = f"Close as {status['name']}"
                 button["action_id"] = (
-                    f"close_task-{item.project}-{item_type}-{item.id}-{status['id']}"
+                    f"complete-{item.project}-{item_type}-{item.id}-{status['id']}"
                 )
                 button["confirm"] = {
                     "title": {"type": "plain_text", "text": f"Close {item_type}"},
@@ -1417,7 +1418,9 @@ def app_home(
     user_id: str,
     config: dict,
     tidyhq_cache: dict,
+    taiga_cache: dict,
     taiga_auth_token: str,
+    private_metadata: str | None,
     provided_user_stories: list = [],
     provided_issues: list = [],
     provided_tasks: list = [],
@@ -1435,13 +1438,23 @@ def app_home(
         slack_id=user_id,
     )
 
+    filters = {}
+    raw_filters = ""
+    if private_metadata:
+        raw_filters = json.loads(private_metadata)
+        # Clean up the filters for use
+        for key in raw_filters:
+            filters[key] = []
+            for option in raw_filters[key][key]["selected_options"]:
+                filters[key].append(option["value"])
+
     block_list = []
     block_list = block_formatters.add_block(block_list, blocks.header)
     block_list = block_formatters.inject_text(
         block_list=block_list, text=strings.header
     )
 
-    # Add a "submit form" button
+    # Add submit form
     block_list = block_formatters.add_block(block_list, blocks.actions)
     block_list[-1].pop("block_id")
     block_list[-1]["elements"].append(copy(blocks.button))
@@ -1450,6 +1463,18 @@ def app_home(
 
     if not taiga_id:
         logger.info(f"User {user_id} does not have a Taiga account")
+
+        # Add filter button
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][-1]["text"]["text"] = "Filter"
+        block_list[-1]["elements"][-1]["action_id"] = "filter_home_modal"
+
+        # Add clear filter button if the filter is not the default
+        if raw_filters != const.base_filter:
+            block_list[-1]["elements"].append(copy(blocks.button))
+            block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
+            block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
+
         taiga_id = config["taiga"]["guest_user"]
 
         # Construct blocks
@@ -1482,6 +1507,18 @@ def app_home(
         block_list[-1]["elements"][-1]["text"]["text"] = "Create an item"
         block_list[-1]["elements"][-1]["action_id"] = "create_item"
 
+        # Add filter button
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][-1]["text"]["text"] = "Filter"
+        block_list[-1]["elements"][-1]["action_id"] = "filter_home_modal"
+
+        # Add clear filter button if the filter is not the default
+        if raw_filters != const.base_filter:
+            block_list[-1]["elements"].append(copy(blocks.button))
+            block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
+            block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
+            block_list[-1]["elements"][-1]["style"] = "danger"
+
         # Construct blocks
         block_list = block_formatters.add_block(block_list, blocks.text)
         block_list = block_formatters.inject_text(
@@ -1499,9 +1536,7 @@ def app_home(
     ##########
 
     block_list = block_formatters.add_block(block_list, blocks.header)
-    block_list = block_formatters.inject_text(
-        block_list=block_list, text="Assigned Cards"
-    )
+    block_list = block_formatters.inject_text(block_list=block_list, text="Stories")
 
     if provided_user_stories:
         user_stories = provided_user_stories
@@ -1512,6 +1547,7 @@ def app_home(
             config=config,
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
+            filters=filters,
         )
 
     if len(user_stories) == 0:
@@ -1536,9 +1572,11 @@ def app_home(
                             user_id=user_id,
                             config=config,
                             tidyhq_cache=tidyhq_cache,
+                            taiga_cache=taiga_cache,
                             taiga_auth_token=taiga_auth_token,
                             provided_user_stories=user_stories,
                             compress=True,
+                            private_metadata=private_metadata,
                         )
                     at_block_limit = True
                     break
@@ -1564,9 +1602,7 @@ def app_home(
     ##########
 
     block_list = block_formatters.add_block(block_list, blocks.header)
-    block_list = block_formatters.inject_text(
-        block_list=block_list, text="Assigned Issues"
-    )
+    block_list = block_formatters.inject_text(block_list=block_list, text="Issues")
 
     if provided_issues:
         user_issues = provided_issues
@@ -1577,6 +1613,7 @@ def app_home(
             config=config,
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
+            filters=filters,
         )
 
     if len(user_issues) == 0:
@@ -1601,10 +1638,12 @@ def app_home(
                             user_id=user_id,
                             config=config,
                             tidyhq_cache=tidyhq_cache,
+                            taiga_cache=taiga_cache,
                             taiga_auth_token=taiga_auth_token,
                             provided_user_stories=user_stories,
                             provided_issues=user_issues,
                             compress=True,
+                            private_metadata=private_metadata,
                         )
                     at_block_limit = True
                     break
@@ -1630,9 +1669,7 @@ def app_home(
     ##########
 
     block_list = block_formatters.add_block(block_list, blocks.header)
-    block_list = block_formatters.inject_text(
-        block_list=block_list, text="Assigned Tasks"
-    )
+    block_list = block_formatters.inject_text(block_list=block_list, text="Tasks")
 
     if provided_tasks:
         tasks = provided_tasks
@@ -1643,6 +1680,7 @@ def app_home(
             config=config,
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
+            filters=filters,
         )
 
     if len(tasks) == 0:
@@ -1668,11 +1706,13 @@ def app_home(
                             user_id=user_id,
                             config=config,
                             tidyhq_cache=tidyhq_cache,
+                            taiga_cache=taiga_cache,
                             taiga_auth_token=taiga_auth_token,
                             provided_user_stories=user_stories,
                             provided_issues=user_issues,
                             provided_tasks=tasks,
                             compress=True,
+                            private_metadata=private_metadata,
                         )
                     at_block_limit = True
                     break
@@ -1695,6 +1735,13 @@ def app_home(
 
         # Remove the last divider
         block_list.pop()
+
+    popped = 0
+    while len(block_list) > 97:
+        block_list = block_formatters.compress_blocks(block_list=block_list)
+        block_list.pop()
+        popped += 1
+    logger.info(f"Popped {popped} blocks")
 
     if at_block_limit:
         block_list = block_formatters.add_block(block_list, blocks.divider)
@@ -1727,5 +1774,143 @@ def app_home(
             branch=branch_name, commit=commit_hash, platform=platform_name
         ),
     )
+
+    return block_list
+
+
+def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict):
+    """Generate the blocks for the app home filter modal"""
+
+    # Convert the current state string from json to a dict
+    current_state_dict = {}
+    if current_state:
+        current_state_dict = json.loads(current_state)
+
+    block_list = []
+
+    project_dropdown = copy(blocks.multi_static_dropdown)
+    project_dropdown["element"]["placeholder"][
+        "text"
+    ] = "Select projects that you want to see"
+    project_dropdown["label"]["text"] = "By Project"
+    project_dropdown["element"]["action_id"] = "project_filter"
+    project_dropdown["block_id"] = "project_filter"
+    project_dropdown["element"]["options"] = []
+
+    # Add project options
+    if taiga_id:
+        user_projects: list = taiga_cache["users"][taiga_id]["projects"]
+        for project_id in user_projects:
+            project_dropdown["element"]["options"].append(
+                {
+                    "text": {
+                        "type": "plain_text",
+                        "text": taiga_cache["boards"][project_id]["name"],
+                    },
+                    "value": str(project_id),
+                }
+            )
+    else:
+        # Add all public projects
+        for project_id in taiga_cache["boards"]:
+            if not taiga_cache["boards"][project_id]["private"]:
+                project_dropdown["element"]["options"].append(
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": taiga_cache["boards"][project_id]["name"],
+                        },
+                        "value": str(project_id),
+                    }
+                )
+    # Sort the options
+    project_dropdown["element"]["options"] = sorted(
+        project_dropdown["element"]["options"], key=lambda x: x["text"]["text"]
+    )
+    # Add an option for all projects
+    project_dropdown["element"]["options"].insert(
+        0,
+        {
+            "text": {"type": "plain_text", "text": "All projects"},
+            "value": "all",
+        },
+    )
+
+    # Set initial options based on current state
+    if "project_filter" in current_state_dict:
+        project_dropdown["element"]["initial_options"] = current_state_dict[
+            "project_filter"
+        ]["project_filter"]["selected_options"]
+        if project_dropdown["element"]["initial_options"] == []:
+            project_dropdown["element"].pop("initial_options")
+
+    block_list.append(project_dropdown)
+
+    # Add checkboxes to filter by watched/assigned status
+    related_dropdown = copy(blocks.checkboxes)
+    related_dropdown["label"]["text"] = "Filter to only:"
+    related_dropdown["element"]["action_id"] = "related_filter"
+    related_dropdown["block_id"] = "related_filter"
+    related_dropdown["optional"] = True
+    related_dropdown["element"]["options"] = [
+        {"text": {"type": "plain_text", "text": "Watched"}, "value": "watched"},
+        {"text": {"type": "plain_text", "text": "Assigned"}, "value": "assigned"},
+    ]
+
+    # Set initial options based on current state
+    if "related_filter" in current_state_dict:
+        related_dropdown["element"]["initial_options"] = current_state_dict[
+            "related_filter"
+        ]["related_filter"]["selected_options"]
+
+        if related_dropdown["element"]["initial_options"] == []:
+            related_dropdown["element"].pop("initial_options")
+
+    block_list.append(related_dropdown)
+
+    # Add checkboxes to filter by item type
+    type_dropdown = copy(blocks.checkboxes)
+    type_dropdown["label"]["text"] = "Filter to only:"
+    type_dropdown["element"]["action_id"] = "type_filter"
+    type_dropdown["block_id"] = "type_filter"
+    type_dropdown["optional"] = True
+    type_dropdown["element"]["options"] = [
+        {"text": {"type": "plain_text", "text": "User Stories"}, "value": "story"},
+        {"text": {"type": "plain_text", "text": "Issues"}, "value": "issue"},
+        {"text": {"type": "plain_text", "text": "Tasks"}, "value": "task"},
+    ]
+
+    # Set initial options based on current state
+    if "type_filter" in current_state_dict:
+        type_dropdown["element"]["initial_options"] = current_state_dict["type_filter"][
+            "type_filter"
+        ]["selected_options"]
+
+        if type_dropdown["element"]["initial_options"] == []:
+            type_dropdown["element"].pop("initial_options")
+
+    block_list.append(type_dropdown)
+
+    # Add checkboxes to filter by open/closed
+    closed_dropdown = copy(blocks.checkboxes)
+    closed_dropdown["label"]["text"] = "Filter to only:"
+    closed_dropdown["element"]["action_id"] = "closed_filter"
+    closed_dropdown["block_id"] = "closed_filter"
+    closed_dropdown["optional"] = True
+    closed_dropdown["element"]["options"] = [
+        {"text": {"type": "plain_text", "text": "Open"}, "value": "open"},
+        {"text": {"type": "plain_text", "text": "Closed"}, "value": "closed"},
+    ]
+
+    # Set initial options based on current state
+    if "closed_filter" in current_state_dict:
+        closed_dropdown["element"]["initial_options"] = current_state_dict[
+            "closed_filter"
+        ]["closed_filter"]["selected_options"]
+
+        if closed_dropdown["element"]["initial_options"] == []:
+            closed_dropdown["element"].pop("initial_options")
+
+    block_list.append(closed_dropdown)
 
     return block_list

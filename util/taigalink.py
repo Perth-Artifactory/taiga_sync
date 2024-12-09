@@ -3,6 +3,7 @@ import re
 import sys
 from pprint import pformat, pprint
 from typing import Literal
+from copy import deepcopy as copy
 
 import requests
 
@@ -516,75 +517,230 @@ def id_to_order(story_statuses: dict, status_id: int) -> int:
 def get_tasks(
     config: dict,
     taiga_auth_token: str,
+    filters: dict,
     exclude_done: bool = False,
     taiga_id: int | None = None,
     story_id: int | None = None,
 ):
-    """Get all tasks assigned to a user or story.
+    """Get tasks assigned to a user or story.
 
     User will take precedence over story if both are provided.
     Pass exclude_done=True to exclude tasks that have a closed status.
+    Pass filters to filter tasks by project, status, etc.
     """
 
+    params = {}
+
     if taiga_id:
-        params = {"assigned_to": taiga_id}
+        params["assigned_to"] = taiga_id
     elif story_id:
-        params = {"user_story": story_id}
+        params["user_story"] = story_id
 
     if exclude_done:
         params["status__is_closed"] = False
 
+    # Check for filters
+    projects = ["all"]
+    related = ["all"]
+    if filters:
+        if filters.get("type_filter", ["junk"]) == []:
+            filters.pop("type_filter")
+        # Check if tasks are an allowed type (defaults to yes if filter category not present)
+        if "task" not in filters.get("type_filter", ["task"]):
+            return []
+        if filters.get("project_filter"):
+            projects = filters["project_filter"]
+            if "all" in projects:
+                projects = ["all"]
+
+        if filters.get("status_filter", []) == ["closed"]:
+            params["status__is_closed"] = True
+        elif filters.get("status_filter", []) == ["open"]:
+            params["status__is_closed"] = False
+        elif filters.get("status_filter", ["junk"]) == []:
+            if "status__is_closed" in params:
+                del params["status__is_closed"]
+
+        if filters.get("related_filter"):
+            related = filters["related_filter"]
+            if related == []:
+                related = ["all"]
+
     url = f"{config['taiga']['url']}/api/v1/tasks"
-    response = requests.get(
-        url,
-        headers={
-            "Authorization": f"Bearer {taiga_auth_token}",
-            "x-disable-pagination": "True",
-        },
-        params=params,
-    )
-    tasks = response.json()
+    tasks = []
+    for project_id in projects:
+        for relation in related:
+            current_params = copy(params)
+            if project_id != "all":
+                current_params["project"] = int(project_id)
+            if relation == "watched":
+                current_params["watchers"] = taiga_id
+            elif relation == "assigned":
+                current_params["assigned_to"] = taiga_id
+            elif relation == "all":
+                if "assigned_to" in current_params:
+                    del current_params["assigned_to"]
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {taiga_auth_token}",
+                    "x-disable-pagination": "True",
+                },
+                params=current_params,
+            )
+            for task in response.json():
+                if task not in tasks:
+                    tasks.append(task)
 
     return tasks
 
 
 def get_stories(
-    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+    taiga_id: int,
+    config: dict,
+    taiga_auth_token: str,
+    filters: dict,
+    exclude_done: bool = False,
 ):
-    """Get all stories assigned to a user."""
+    """Get stories assigned to a user (default)
+
+    Pass filters to filter stories by project, status, etc.
+    """
+
+    params = {}
+
+    if taiga_id:
+        params["assigned_to"] = taiga_id
+
+    if exclude_done:
+        params["status__is_closed"] = False
+
+    # Check for filters
+    projects = ["all"]
+    related = ["all"]
+    if filters:
+        if filters.get("type_filter", ["junk"]) == []:
+            filters.pop("type_filter")
+        # Check if tasks are an allowed type (defaults to yes if filter category not present)
+        if "story" not in filters.get("type_filter", ["story"]):
+            return []
+        if filters.get("project_filter"):
+            projects = filters["project_filter"]
+            if "all" in projects:
+                projects = ["all"]
+
+        if filters.get("status_filter", []) == ["closed"]:
+            params["status__is_closed"] = True
+        elif filters.get("status_filter", []) == ["open"]:
+            params["status__is_closed"] = False
+        elif filters.get("status_filter", ["junk"]) == []:
+            if "status__is_closed" in params:
+                del params["status__is_closed"]
+
+        if filters.get("related_filter"):
+            related = filters["related_filter"]
+            if related == []:
+                related = ["all"]
 
     url = f"{config['taiga']['url']}/api/v1/userstories"
-    response = requests.get(
-        url,
-        headers={
-            "Authorization": f"Bearer {taiga_auth_token}",
-            "x-disable-pagination": "True",
-        },
-        params={"assigned_to": taiga_id},
-    )
-    stories = response.json()
-    if exclude_done:
-        stories = [story for story in stories if not story["is_closed"]]
+    stories = []
+    for project_id in projects:
+        for relation in related:
+            current_params = copy(params)
+            if project_id != "all":
+                current_params["project"] = int(project_id)
+            if relation == "watched":
+                current_params["watchers"] = taiga_id
+            elif relation == "assigned":
+                current_params["assigned_to"] = taiga_id
+            elif relation == "all":
+                if "assigned_to" in current_params:
+                    del current_params["assigned_to"]
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {taiga_auth_token}",
+                    "x-disable-pagination": "True",
+                },
+                params=current_params,
+            )
+            for story in response.json():
+                if story not in stories:
+                    stories.append(story)
+
     return stories
 
 
 def get_issues(
-    taiga_id: int, config: dict, taiga_auth_token: str, exclude_done: bool = False
+    taiga_id: int,
+    config: dict,
+    taiga_auth_token: str,
+    filters: dict,
+    exclude_done: bool = False,
 ):
-    """Get all issues assigned to a user."""
+    """Get issues assigned to a user (default)
+
+    Pass filters to filter issues by project, status, etc.
+    """
+
+    params = {}
+
+    if taiga_id:
+        params["assigned_to"] = taiga_id
+
+    if exclude_done:
+        params["status__is_closed"] = False
+
+    # Check for filters
+    projects = ["all"]
+    related = ["all"]
+    if filters:
+        if filters.get("type_filter", ["junk"]) == []:
+            filters.pop("type_filter")
+        # Check if tasks are an allowed type (defaults to yes if filter category not present)
+        if "issue" not in filters.get("type_filter", ["issue"]):
+            return []
+        if filters.get("project_filter"):
+            projects = filters["project_filter"]
+            if "all" in projects:
+                projects = ["all"]
+
+        if filters.get("status_filter", []) == ["closed"]:
+            params["status__is_closed"] = True
+        elif filters.get("status_filter", []) == ["open"]:
+            params["status__is_closed"] = False
+        elif filters.get("status_filter", ["junk"]) == []:
+            if "status__is_closed" in params:
+                del params["status__is_closed"]
+
+        if filters.get("related_filter"):
+            related = filters["related_filter"]
+            if related == []:
+                related = ["all"]
 
     url = f"{config['taiga']['url']}/api/v1/issues"
-    response = requests.get(
-        url,
-        headers={
-            "Authorization": f"Bearer {taiga_auth_token}",
-            "x-disable-pagination": "True",
-        },
-        params={"assigned_to": taiga_id},
-    )
-    issues = response.json()
-    if exclude_done:
-        issues = [issue for issue in issues if not issue["is_closed"]]
+    issues = []
+    for project_id in projects:
+        for relation in related:
+            current_params = copy(params)
+            if project_id != "all":
+                current_params["project"] = int(project_id)
+            if relation == "watched":
+                current_params["watchers"] = taiga_id
+            elif relation == "assigned":
+                current_params["assigned_to"] = taiga_id
+            response = requests.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {taiga_auth_token}",
+                    "x-disable-pagination": "True",
+                },
+                params=current_params,
+            )
+            for issue in response.json():
+                if issue not in issues:
+                    issues.append(issue)
+
     return issues
 
 
