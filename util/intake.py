@@ -1,5 +1,7 @@
 import logging
 
+import taiga
+
 from util import taigalink, tidyhq
 
 logger = logging.getLogger(__name__)
@@ -7,7 +9,11 @@ logger.setLevel(logging.ERROR)
 
 
 def pull_tidyhq(
-    config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
+    config: dict,
+    tidyhq_cache: dict,
+    taigacon: taiga.TaigaAPI,
+    taiga_auth_token: str,
+    project_id: str,
 ) -> int:
     """Return a list of TidyHQ contact IDs that do not have cards but should.
 

@@ -1,7 +1,8 @@
 import json
 import logging
-import sys
 from pprint import pprint
+
+import taiga
 
 from util import taigalink, tidyhq
 
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
 
 
-def sync_templates(taigacon, project_id: str) -> int:
+def sync_templates(taigacon: taiga.TaigaAPI, project_id: str) -> int:
     """Copy tasks from template stories to user stories."""
     made_changes: int = 0
 
@@ -97,7 +98,7 @@ def sync_templates(taigacon, project_id: str) -> int:
 
 
 def progress_stories(
-    taigacon,
+    taigacon: taiga.TaigaAPI,
     project_id: str,
     taiga_auth_token: str,
     config: dict,
@@ -145,7 +146,11 @@ def progress_stories(
 
 
 def progress_on_tidyhq(
-    taigacon, project_id: str, taiga_auth_token: str, config: dict, story_statuses: dict
+    taigacon: taiga.TaigaAPI,
+    project_id: str,
+    taiga_auth_token: str,
+    config: dict,
+    story_statuses: dict,
 ) -> int:
     """Progress stories from column 2 to column 3 when a TidyHQ ID is set."""
     made_changes: int = 0
@@ -184,7 +189,7 @@ def progress_on_tidyhq(
 
 
 def progress_on_membership(
-    taigacon,
+    taigacon: taiga.TaigaAPI,
     project_id: str,
     taiga_auth_token: str,
     config: dict,
@@ -242,7 +247,11 @@ def progress_on_membership(
 
 
 def add_useful_fields(
-    project_id: str, taigacon, taiga_auth_token: str, config: dict, tidyhq_cache: dict
+    project_id: str,
+    taigacon: taiga.TaigaAPI,
+    taiga_auth_token: str,
+    config: dict,
+    tidyhq_cache: dict,
 ):
     """Add useful fields to stories.
 

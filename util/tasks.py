@@ -2,6 +2,8 @@ import logging
 from datetime import datetime
 from pprint import pprint
 
+import taiga
+
 from util import misc, taigalink, tidyhq, training
 
 logger = logging.getLogger(__name__)
@@ -423,7 +425,7 @@ def has_key(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
 
 
 def check_all_tasks(
-    taigacon,
+    taigacon: taiga.TaigaAPI,
     taiga_auth_token: str,
     config: dict,
     tidyhq_cache: dict,

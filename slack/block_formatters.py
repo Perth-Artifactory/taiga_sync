@@ -11,6 +11,7 @@ import re
 import jsonschema
 
 import taiga
+import taiga.models
 
 from editable_resources import strings
 from slack import blocks, block_formatters
@@ -21,10 +22,12 @@ from util import taigalink, tidyhq, misc, const
 logger = logging.getLogger("slack.block_formatters")
 
 
-def format_stories(story_list, compressed=False):
+def format_stories(
+    story_list: list, compressed: bool = False
+) -> tuple[str, str, list[dict]]:
     """Format a list of stories into a header, a newline formatted string and a list of blocks"""
-    project_slug = story_list[0]["project_extra_info"]["slug"]
-    header = story_list[0]["project_extra_info"]["name"]
+    project_slug: str = story_list[0]["project_extra_info"]["slug"]
+    header: str = story_list[0]["project_extra_info"]["name"]
     header_str = (
         f"<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{header}>"
     )
@@ -35,8 +38,8 @@ def format_stories(story_list, compressed=False):
         story_url = (
             f"https://tasks.artifactory.org.au/project/{project_slug}/us/{story['ref']}"
         )
-        story_name = story["subject"]
-        story_status = story["status_extra_info"]["name"]
+        story_name: str = story["subject"]
+        story_status: str = story["status_extra_info"]["name"]
         story_formatted = f"• <{story_url}|{story_name}> ({story_status})"
         story_strs.append(story_formatted)
 
@@ -61,10 +64,14 @@ def format_stories(story_list, compressed=False):
     return header_str, out_str, story_blocks
 
 
-def format_issues(issue_list, compressed=False):
+def format_issues(
+    issue_list: list, compressed: bool = False
+) -> tuple[str, str, list[dict]]:
+    """Format a list of issues into a header, a newline formatted string and a list of blocks"""
+
     # Get the user story info
-    project_slug = issue_list[0]["project_extra_info"]["slug"]
-    project_name = issue_list[0]["project_extra_info"]["name"]
+    project_slug: str = issue_list[0]["project_extra_info"]["slug"]
+    project_name: str = issue_list[0]["project_extra_info"]["name"]
 
     issue_strs = []
     issue_blocks = []
@@ -96,12 +103,14 @@ def format_issues(issue_list, compressed=False):
     return project_name, out_str, issue_blocks
 
 
-def format_tasks(task_list, compressed=False):
+def format_tasks(task_list: list, compressed=False) -> tuple[str, str, list[dict]]:
+    """Format a list of tasks into a header, a newline formatted string and a list of blocks"""
+
     # Get the user story info
-    project_slug = task_list[0]["project_extra_info"]["slug"]
-    project_name = task_list[0]["project_extra_info"]["name"]
-    story_ref = task_list[0]["user_story_extra_info"]["ref"]
-    story_subject = task_list[0]["user_story_extra_info"]["subject"]
+    project_slug: str = task_list[0]["project_extra_info"]["slug"]
+    project_name: str = task_list[0]["project_extra_info"]["name"]
+    story_ref: str = task_list[0]["user_story_extra_info"]["ref"]
+    story_subject: str = task_list[0]["user_story_extra_info"]["subject"]
     user_story_str = f"<https://tasks.artifactory.org.au/project/{project_slug}/us/{story_ref}|{story_subject}> (<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{project_name}>)"
 
     task_strs = []
@@ -135,7 +144,7 @@ def format_tasks(task_list, compressed=False):
     return user_story_str, out_str, task_blocks
 
 
-def format_attachments(attachments) -> list[dict]:
+def format_attachments(attachments: list) -> list[dict]:
     """Format a list of taiga attachments into a list of blocks including image blocks as appropriate."""
     block_list = []
     for attachment in attachments:
@@ -175,7 +184,9 @@ def format_attachments(attachments) -> list[dict]:
 
 
 def format_tasks_modal_blocks(
-    task_list: list, config: dict, taiga_auth_token: str, taiga_cache: dict, edit=True
+    task_list: list,
+    taiga_cache: dict,
+    edit: bool = True,
 ) -> list[dict]:
     """Format a list of tasks into the blocks required for a modal view"""
     block_list = []
@@ -260,6 +271,8 @@ def format_tasks_modal_blocks(
 
 
 def construct_reminder_section(reminders: dict) -> list:
+    """Construct a section of blocks for reminders"""
+
     block_list = []
 
     type_to_header = {"story": "User Stories", "task": "Tasks", "issue": "Issues"}
@@ -287,6 +300,11 @@ def construct_reminder_section(reminders: dict) -> list:
 
 
 def inject_text(block_list: list, text: str) -> list[dict]:
+    """Injects text into the last block in the block list and returns the updated list.
+
+    Is aware of most block types and should inject in the appropriate place
+    """
+
     block_list = copy(block_list)
     if block_list[-1]["type"] in ["section", "header", "button"]:
         block_list[-1]["text"]["text"] = text
@@ -301,7 +319,10 @@ def inject_text(block_list: list, text: str) -> list[dict]:
 
 
 def add_block(block_list: list, block: dict | list) -> list[dict]:
-    """Adds a block to the block list and returns the updated list."""
+    """Adds a block to the block list and returns the updated list.
+
+    Performs a deep copy to avoid modifying anything in the original list.
+    """
     block = copy(block)
     block_list = copy(block_list)
     if type(block) == list:
@@ -315,7 +336,9 @@ def add_block(block_list: list, block: dict | list) -> list[dict]:
     return block_list
 
 
-def compress_blocks(block_list) -> list:
+def compress_blocks(block_list: list[dict]) -> list:
+    """Compresses a list of blocks by removing dividers"""
+
     compressed_blocks = []
 
     # Remove dividers
@@ -327,7 +350,7 @@ def compress_blocks(block_list) -> list:
     return compressed_blocks
 
 
-def render_form_list(form_list: dict, member=False) -> list[dict]:
+def render_form_list(form_list: dict, member: bool = False) -> list[dict]:
     """Takes a list of forms and renders them as a list of blocks"""
     block_list = []
     block_list = block_formatters.add_block(block_list, blocks.text)
@@ -383,16 +406,16 @@ def render_form_list(form_list: dict, member=False) -> list[dict]:
 
 def questions_to_blocks(
     questions: list[dict],
-    taigacon,
+    taigacon: taiga.client.TaigaAPI,
     taiga_cache: dict,
     taiga_project: str | None = None,
-    taiga_project_id: int | str | None = None,
+    taiga_project_id: int | str | None = None,  # type: ignore
 ) -> list[dict]:
     """Convert a list of questions to a list of blocks"""
     block_list = []
 
     if taiga_project and not taiga_project_id:
-        taiga_project_id = taiga_cache["projects"]["by_name_with_extra"].get(
+        taiga_project_id: int = taiga_cache["projects"]["by_name_with_extra"].get(
             taiga_project.lower()
         )
 
@@ -642,7 +665,7 @@ def questions_to_blocks(
     return block_list
 
 
-def text_to_options(options: list[str]):
+def text_to_options(options: list[str]) -> list[dict]:
     """Convert a list of strings to a list of option dictionaries"""
     if len(options) > 10:
         logger.warning(f"Too many options ({len(options)}). Truncating to 10")
@@ -665,12 +688,12 @@ def text_to_options(options: list[str]):
 def viewedit_blocks(
     taigacon: taiga.client.TaigaAPI,
     project_id: int | str,
-    item_id,
-    item_type,
+    item_id: int | str,
+    item_type: str,
     taiga_cache: dict,
     config: dict,
     taiga_auth_token: str,
-    edit=True,
+    edit: bool = True,
 ):
     """Generate the blocks for a modal for viewing and editing an item"""
 
@@ -1103,8 +1126,8 @@ def viewedit_blocks(
 def edit_info_blocks(
     taigacon: taiga.client.TaigaAPI,
     project_id: int | str,
-    item_id,
-    item_type,
+    item_id: int | str,
+    item_type: int | str,
     taiga_cache: dict,
     new: bool = False,
     description: str = "",
@@ -1388,7 +1411,7 @@ def edit_info_blocks(
 
 def new_item_selector_blocks(
     taiga_id: int, taiga_cache: dict, description: str | None = None
-):
+) -> list[dict]:
     """Generate the blocks for a modal to select the type of item to create and on what project
 
     Will show an optional description field if passed "description" """
@@ -1454,7 +1477,7 @@ def app_home(
     provided_user_stories: list = [],
     provided_issues: list = [],
     provided_tasks: list = [],
-    compress=False,
+    compress: bool = False,
 ) -> list:
     """Generate the blocks for the app home view for a specified user and return it as a list of blocks."""
     # Check if the user has a Taiga account
@@ -1808,7 +1831,7 @@ def app_home(
     return block_list
 
 
-def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict):
+def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict) -> list:
     """Generate the blocks for the app home filter modal"""
 
     # Convert the current state string from json to a dict

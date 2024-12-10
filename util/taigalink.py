@@ -1,11 +1,12 @@
 import logging
 import re
 import sys
+from copy import deepcopy as copy
 from pprint import pformat, pprint
 from typing import Literal
-from copy import deepcopy as copy
 
 import requests
+import taiga
 
 from slack import misc as slack_misc
 from util import tidyhq
@@ -99,7 +100,11 @@ def update_task(
 
 
 def progress_story(
-    story_id: str, taigacon, taiga_auth_token: str, config: dict, story_statuses: dict
+    story_id: str,
+    taigacon: taiga.TaigaAPI,
+    taiga_auth_token: str,
+    config: dict,
+    story_statuses: dict,
 ) -> bool:
     """Increment the story status by 1. Does not check for the existence of a next status."""
     # Get the current status of the story
@@ -149,7 +154,6 @@ def set_custom_field(
     config: dict, taiga_auth_token: str, story_id: int, field_id: int, value: str
 ) -> bool:
     """Set a custom field for a specific story."""
-    update_url = f"{config['taiga']['url']}/api/v1/userstories/{story_id}"
 
     # Fetch custom fields of the story
     custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story_id}"
@@ -208,7 +212,7 @@ def base_create_issue(
     priority_id: str | int | None = None,
     severity_id: str | int | None = None,
     tags: list = [],
-):
+) -> dict | Literal[False]:
     """Create an issue on a Taiga project. Does no mapping and supports IDs only
 
     Fields that accept None can still be passed None (unlike the API directly)"""
@@ -254,7 +258,6 @@ def create_slack_issue(
     project_ids: dict,
     taiga_auth_token: str,
     config: dict,
-    slack_team_id: str,
 ):
     # Construct the by line. by_slack is a slack user object
     # The by-line should be a deep slack link to the user
@@ -262,7 +265,6 @@ def create_slack_issue(
         "real_name", by_slack["user"]["profile"]["display_name"]
     )
     slack_id = by_slack["user"]["id"]
-    deep_link = f"slack://user?team={slack_team_id}&id={by_slack['id']}"
     by = f"{name_str} ({slack_id})"
 
     description = f"{description}\n\nAdded to Taiga by: {by}"
@@ -304,7 +306,7 @@ def create_item(
     priority: int | None = None,
     severity: int | None = None,
     user_story: int | None = None,
-):
+) -> tuple[str, str] | tuple[Literal[False], None]:
     """Create an item on a Taiga project.
 
     Returns the item ID and version if successful."""
@@ -523,9 +525,9 @@ def get_tasks(
     taiga_auth_token: str,
     filters: dict,
     exclude_done: bool = False,
-    taiga_id: int | None = None,
-    story_id: int | None = None,
-):
+    taiga_id: int | str | None = None,
+    story_id: int | str | None = None,
+) -> list[dict]:
     """Get tasks assigned to a user or story.
 
     User will take precedence over story if both are provided.
@@ -605,7 +607,7 @@ def get_stories(
     taiga_auth_token: str,
     filters: dict,
     exclude_done: bool = False,
-):
+) -> list[dict]:
     """Get stories assigned to a user (default)
 
     Pass filters to filter stories by project, status, etc.
@@ -681,7 +683,7 @@ def get_issues(
     taiga_auth_token: str,
     filters: dict,
     exclude_done: bool = False,
-):
+) -> list[dict]:
     """Get issues assigned to a user (default)
 
     Pass filters to filter issues by project, status, etc.
@@ -748,8 +750,8 @@ def get_issues(
     return issues
 
 
-def sort_tasks_by_user_story(tasks):
-    """Sort tasks by user story."""
+def sort_tasks_by_user_story(tasks: list[dict]) -> dict:
+    """Index tasks by user story."""
     user_stories = {}
     for task in tasks:
         if task["user_story"] not in user_stories:
@@ -758,8 +760,8 @@ def sort_tasks_by_user_story(tasks):
     return user_stories
 
 
-def sort_by_project(items):
-    """Sort items by project."""
+def sort_by_project(items: list) -> dict:
+    """Index items by project."""
     projects = {}
     for item in items:
         if item["project"] not in projects:
@@ -911,12 +913,12 @@ def get_info(
 
 def add_comment(
     type_str: str,
-    item_id: int,
+    item_id: int | str,
     comment: str,
     taiga_auth_token: str,
     config: dict,
-    version: int,
-):
+    version: int | str,
+) -> bool:
     """Add a comment to a story, issue or task"""
     type_map = {
         "userstory": "userstories",
@@ -948,10 +950,10 @@ def mark_complete(
     config: dict,
     taiga_auth_token: str,
     taiga_cache: dict,
-    item_id: int | None = None,
+    item_id: int | str | None = None,
     item_type: str | None = None,
     item: dict | None = None,
-    status_id: int | None = None,
+    status_id: int | str | None = None,
 ) -> bool:
     """Mark an item as complete.
 
@@ -1008,7 +1010,7 @@ def watch(
     taiga_auth_token: str,
     config: dict,
     version: int,
-):
+) -> bool:
     """Add a watcher to a story or issue."""
     type_map = {"userstory": "userstories", "story": "userstories", "issue": "issues"}
     if type_str not in type_map:
@@ -1033,7 +1035,8 @@ def watch(
 
 def validate_form_options(
     project_id: int, option_type: str, options: list, taigacon, taiga_cache: dict
-):
+) -> bool:
+    """Validate that the options provided are valid for the given project and option type."""
     valid_options = []
 
     if option_type == "severity":
@@ -1062,10 +1065,10 @@ def attach_file(
     file_obj=None,
     filename: str | None = None,
     description: str | None = None,
-):
+) -> bool:
     """Attach a file to a Taiga item. If a URL is provided it will be downloaded and attached. File object can be provided directly.
 
-    Supports: issues"""
+    Supports: issues, tasks, userstories"""
 
     # Map types to url segments
     url_segments = {"issue": "issues", "task": "tasks", "story": "userstories"}
@@ -1411,7 +1414,7 @@ def promote_issue(
         headers={"Authorization": f"Bearer {taiga_auth_token}"},
     )
     if response.status_code == 204:
-        return story_id
+        return int(story_id)
     else:
         logger.error(f"Failed to delete issue {issue_id}: {response.status_code}")
         return False

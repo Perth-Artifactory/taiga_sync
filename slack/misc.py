@@ -8,6 +8,7 @@ import mistune
 
 from util import tidyhq
 from slack import block_formatters
+import slack_bolt as bolt
 
 # Set up logging
 logger = logging.getLogger("slack.misc")
@@ -57,7 +58,9 @@ def convert_markdown(text: str) -> str:
     return result
 
 
-def validate(blocks, surface: str | None = "modal"):
+def validate(blocks: list, surface: str | None = "modal") -> bool:
+    """Validate whether a block list is valid for a given surface type"""
+
     if surface not in ["modal", "home", "message", "msg"]:
         raise ValueError(f"Invalid surface type: {surface}")
     # We want our own logger for this function
@@ -89,7 +92,11 @@ def validate(blocks, surface: str | None = "modal"):
     return True
 
 
-def check_for_empty_text(block, logger):
+def check_for_empty_text(block: dict, logger: logging.Logger) -> bool:
+    """Recursively search for all fields called "text" and ensure they don't have an empty string
+
+    Slack blocks with empty text fields will be kicked back with an error and this isn't caught by the schema used in validate()
+    """
     for key, value in block.items():
         if key == "text" and value == "":
             logger.error(f"Empty text field found in block {block}")
@@ -106,7 +113,7 @@ def push_home(
     tidyhq_cache: dict,
     taiga_cache: dict,
     taiga_auth_token: str,
-    slack_app,
+    slack_app: bolt.App,
     private_metadata: str | None = None,
     block_list: list | None = None,
 ):
@@ -143,7 +150,7 @@ def push_home(
         return False
 
 
-def name_mapper(slack_id: str, slack_app) -> str:
+def name_mapper(slack_id: str, slack_app: bolt.App) -> str:
     """
     Returns the slack name(s) of a user given their ID
     """
@@ -178,7 +185,7 @@ def name_mapper(slack_id: str, slack_app) -> str:
 def send_dm(
     slack_id: str,
     message: str,
-    slack_app,
+    slack_app: bolt.App,
     blocks: list = [],
     unfurl_links: bool = False,
     unfurl_media: bool = False,
@@ -246,7 +253,9 @@ def map_recipients(list_of_recipients: list, tidyhq_cache: dict, config: dict) -
     return recipients
 
 
-def download_file(url, config):
+def download_file(url: str, config: dict) -> bytes:
+    """Download a file from Slack using our token as authentication"""
+
     file_data = requests.get(
         url=url,
         headers={"Authorization": f'Bearer {config["slack"]["bot_token"]}'},
@@ -254,7 +263,7 @@ def download_file(url, config):
     return file_data.content
 
 
-def loading_button(body):
+def loading_button(body: dict) -> dict:
     """Takes the body of a view_submission and returns a constructed view with the appropriate button updated with a loading button"""
 
     patching_block = body["actions"][0]

@@ -474,7 +474,8 @@ def set_custom_field(
     config: dict,
     field_id: str | None = None,
     field_map_name: str | None = None,
-):
+) -> bool:
+    """Set the value of a custom field for a contact within TidyHQ."""
     if field_map_name and not field_id:
         field_id = config["tidyhq"]["ids"].get(field_map_name, None)
 
@@ -569,16 +570,16 @@ def format_contact(contact: dict) -> str:
     return f'{contact.get("first_name","Unknown").capitalize()} {contact.get("last_name","Unknown").capitalize()}{n}{s}'
 
 
-def return_most_recent_membership(memberships):
+def return_most_recent_membership(memberships: list) -> dict:
     """Return the most recent membership from a list of memberships."""
     memberships.sort(key=lambda x: x["end_date"], reverse=True)
     return memberships[0]
 
 
-def get_membership_type(contact_id, tidyhq_cache):
+def get_membership_type(contact_id: str, tidyhq_cache: dict) -> str | None:
     """Returns the type of membership held by a contact.
 
-    One of : "None", "Expired", "Concession", "Full", "Visitor", "Sponsor"
+    One of: "None", "Expired", "Concession", "Full", "Visitor", "Sponsor"
     """
     memberships = get_memberships_for_contact(contact_id, tidyhq_cache)
     if not memberships:

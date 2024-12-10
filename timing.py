@@ -181,7 +181,9 @@ block_list = block_formatters.app_home(
     user_id="UXXX",
     config=config,
     tidyhq_cache=tidyhq_cache,
+    taiga_cache=taiga_cache,
     taiga_auth_token=taiga_auth_token,
+    private_metadata="",
 )
 end_time = time.time()
 assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
@@ -195,7 +197,9 @@ block_list = block_formatters.app_home(
     user_id="U06PX5QRKRQ",
     config=config,
     tidyhq_cache=tidyhq_cache,
+    taiga_cache=taiga_cache,
     taiga_auth_token=taiga_auth_token,
+    private_metadata="",
 )
 end_time = time.time()
 assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
@@ -209,7 +213,9 @@ block_list = block_formatters.app_home(
     user_id="UC6T4U150",
     config=config,
     tidyhq_cache=tidyhq_cache,
+    taiga_cache=taiga_cache,
     taiga_auth_token=taiga_auth_token,
+    private_metadata="",
 )
 end_time = time.time()
 assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"

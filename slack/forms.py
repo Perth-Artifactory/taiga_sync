@@ -2,15 +2,18 @@ import importlib
 import logging
 from pprint import pprint
 
+import slack_bolt as bolt
+
 from editable_resources import forms
 from util import misc
+import taiga
 
 # Set up logging
 logger = logging.getLogger("slack.forms")
 
 
 def form_submission_to_description(
-    submission: dict, slack_app
+    submission: dict, slack_app: bolt.App
 ) -> tuple[str, list[str]]:
     """Convert a form submission to a string description and list of files to download"""
     description = ""
@@ -124,7 +127,7 @@ def form_submission_to_description(
 
 
 def form_submission_to_metadata(
-    submission: dict, taigacon, taiga_cache: dict, form_name: str
+    submission: dict, taigacon: taiga.TaigaAPI, taiga_cache: dict, form_name: str
 ) -> tuple[int, int | None, int | None]:
     """Extracts the Taiga project ID and mapped type/severity if applicable.
 
