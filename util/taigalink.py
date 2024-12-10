@@ -969,7 +969,12 @@ def mark_complete(
         logger.error(f"Failed to get info for {item_type} {item_id}")
         return False
 
-    type_map = {"task": "tasks", "issue": "issues", "userstory": "userstories"}
+    type_map = {
+        "task": "tasks",
+        "issue": "issues",
+        "userstory": "userstories",
+        "story": "userstories",
+    }
     if item_type not in type_map:
         logger.error(f"Type {item_type} not supported")
         return False

@@ -724,10 +724,20 @@ def handle_viewedit_actions(ack, body):
 
 # Comment
 @app.action(re.compile(r"^submit_comment-.*"))
-def handle_comment_addition(ack, body, logger):
+def handle_comment_addition(ack, body, client):
     """Handle comment additions"""
     start_time = time.time()
     ack()
+
+    # Give immediate feedback
+    view = slack_misc.loading_button(body)
+
+    try:
+        client.views_update(view_id=body["view"]["id"], view=view)
+        logger.info("Temporary loading button pushed")
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
     user_id = body["user"]["id"]
 
@@ -1188,6 +1198,16 @@ def complete_item(ack, body, client):
     """Mark an item as complete"""
     start_time = time.time()
     ack()
+
+    # Give immediate feedback
+    view = slack_misc.loading_button(body)
+
+    try:
+        client.views_update(view_id=body["view"]["id"], view=view)
+        logger.info("Temporary loading button pushed")
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
     # Get the item details from the action ID
     project_id, item_type, item_id, status_id = body["actions"][0]["action_id"].split(

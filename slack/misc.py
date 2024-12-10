@@ -252,3 +252,36 @@ def download_file(url, config):
         headers={"Authorization": f'Bearer {config["slack"]["bot_token"]}'},
     )
     return file_data.content
+
+
+def loading_button(body):
+    """Takes the body of a view_submission and returns a constructed view with the appropriate button updated with a loading button"""
+    pprint(body)
+
+    patching_block = body["actions"][0]
+
+    new_blocks = []
+
+    for block in body["view"]["blocks"]:
+        if block["block_id"] == patching_block["block_id"]:
+            for element in block["elements"]:
+                if element["action_id"] == patching_block["action_id"]:
+                    element["text"]["text"] += " :spinthinking:"
+            new_blocks.append(block)
+        else:
+            new_blocks.append(block)
+
+    view = {
+        "type": "modal",
+        "callback_id": body["view"]["callback_id"],
+        "title": body["view"]["title"],
+        "blocks": new_blocks,
+        "clear_on_close": True,
+    }
+
+    if body["view"].get("submit"):
+        view["submit"] = body["view"]["submit"]
+    if body["view"].get("close"):
+        view["close"] = body["view"]["close"]
+
+    return view
