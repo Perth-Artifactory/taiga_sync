@@ -19,7 +19,7 @@ from editable_resources import forms, strings
 from slack import blocks, block_formatters
 from slack import misc as slack_misc
 from slack import forms as slack_forms
-from util import taigalink, tidyhq, const
+from util import taigalink, tidyhq, const, taiga_links
 
 
 def log_time(
@@ -155,6 +155,58 @@ def handle_message(ack):
     ack()
 
 
+# Event listener for links being shared within slack
+@app.event("link_shared")
+def handle_link_shared_events(body):
+
+    # This isn't ready to go yet
+    return
+
+    # Ignore links shared in the composer
+    if body["event"]["channel"] == "COMPOSER":
+        return
+
+    # Get the link details
+    links = body["event"]["links"]
+
+    link_info = {}
+
+    for link in links:
+        url = link["url"]
+        project_id, item_type, item_id = taiga_links.get_info_from_url(
+            url=url,
+            taiga_auth_token=taiga_auth_token,
+            taiga_cache=taiga_cache,
+            config=config,
+        )
+
+        if not project_id:
+            link_info[url] = "Root URL, skipping"
+        elif not item_id:
+            link_info[url] = f"{item_type} view on project: {project_id}"
+        else:
+            link_info[url] = f"{item_type} {item_id} in project {project_id}"
+
+    # Construct test blocks
+    final_info = {}
+    for url, info in link_info.items():
+        block = copy(blocks.text)
+        block = block_formatters.inject_text(block, info)
+        final_info[url] = {"blocks": block}
+
+    pprint(final_info)
+
+    try:
+        app.client.chat_unfurl(
+            source=body["event"]["source"],
+            unfurl_id=body["event"]["unfurl_id"],
+            unfurls=final_info,
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to unfurl links: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
 @app.action("submit_form")
@@ -167,8 +219,6 @@ def handle_form_command(ack, client, body):
 
     # Reload forms from file
     importlib.reload(forms)
-
-    global tidyhq_cache
 
     artifactory_member = False
 
@@ -187,58 +237,17 @@ def handle_form_command(ack, client, body):
         if membership_type in ["Concession", "Full", "Sponsor"]:
             artifactory_member = True
 
-    # If they're not an AF member refresh the cache and try again
-    refreshed_cache = False
-    if not artifactory_member:
-        refreshed_cache = True
-        tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
-        tidyhq_id = tidyhq.map_slack_to_tidyhq(
-            tidyhq_cache=tidyhq_cache,
-            config=config,
-            slack_id=user["id"],
-        )
-        if tidyhq_id:
-            # Get the type of membership held
-            membership_type = tidyhq.get_membership_type(
-                contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
-            )
-            if membership_type in ["Concession", "Full", "Sponsor"]:
-                artifactory_member = True
-
     # Render the blocks for the form selection modal
     block_list = block_formatters.render_form_list(
         form_list=forms.forms, member=artifactory_member
     )
 
-    if refreshed_cache:
-        log_time(
-            start_time,
-            time.time(),
-            response_logger,
-            cause="TidyHQ cache refresh after not matching user, form selection modal generation",
-        )
-    else:
-        log_time(
-            start_time,
-            time.time(),
-            response_logger,
-            cause="Form selection modal generation",
-        )
-
-    if refreshed_cache:
-        log_time(
-            start_time,
-            time.time(),
-            response_logger,
-            cause="TidyHQ cache refresh after not matching user, form selection modal generation",
-        )
-    else:
-        log_time(
-            start_time,
-            time.time(),
-            response_logger,
-            cause="Form selection modal generation",
-        )
+    log_time(
+        start_time,
+        time.time(),
+        response_logger,
+        cause="Form selection modal generation",
+    )
 
     # Open the modal
     try:
