@@ -47,31 +47,6 @@ def log_time(
             logger.info(f"Likely due to: {cause}")
 
 
-def extract_issue_particulars(message) -> tuple[None, None] | tuple[str, str]:
-    # Discard everything before the bot is mentioned, including the mention itself
-    try:
-        message = message[message.index(">") + 1 :]
-    except ValueError:
-        # This just means the bot wasn't mentioned in the message (e.g. a direct message or command)
-        pass
-
-    # The board name should be the first word after the bot mention
-    try:
-        board = message.split()[0].strip().lower()
-    except IndexError:
-        logger.error("No board name found in message")
-        return None, None
-
-    # The description should be everything after the board name
-    try:
-        description = message[len(board) + 1 :].strip()
-    except IndexError:
-        logger.error("No description found in message")
-        return None, None
-
-    return board, description
-
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 # Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug
@@ -175,7 +150,7 @@ def ignore_app_mention(ack):
 
 # Event listener for direct messages to the bot
 @app.event("message")
-def handle_message(event, say, client, ack):
+def handle_message(ack):
     """Ignore messages sent to the bot"""
     ack()
 
@@ -183,7 +158,7 @@ def handle_message(event, say, client, ack):
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
 @app.action("submit_form")
-def handle_form_command(ack, respond, command, client, body):
+def handle_form_command(ack, client, body):
     """Load the form selection modal"""
     start_time = time.time()
     logger.info(f"Received form selection shortcut or button")
@@ -460,7 +435,7 @@ def ignore_form_submitted(ack):
 
 
 @app.action(re.compile(r"^twatch.*"))
-def watch_button(ack, body, respond):
+def watch_button(ack, body):
     """Watch items on Taiga via a button
 
     Watch button values are a dict with:
@@ -871,7 +846,7 @@ def attach_files_modal(ack, body):
 
 
 @app.action(re.compile(r"^view_tasks-.*"))
-def view_tasks(ack, body, logger):
+def view_tasks(ack, body):
     """Push a modal to view tasks attached to a specific user story"""
     start_time = time.time()
     ack()
@@ -901,8 +876,6 @@ def view_tasks(ack, body, logger):
 
     block_list = block_formatters.format_tasks_modal_blocks(
         task_list=tasks,
-        config=config,
-        taiga_auth_token=taiga_auth_token,
         edit=edit,
         taiga_cache=taiga_cache,
     )
@@ -994,7 +967,7 @@ def attach_files(ack, body):
 
 
 @app.action(re.compile(r"^edit_info-.*"))
-def send_info_modal(ack, body, logger):
+def send_info_modal(ack, body):
     """Open a modal to edit the details of an item"""
     start_time = time.time()
     ack()
@@ -1032,7 +1005,7 @@ def send_info_modal(ack, body, logger):
 
 
 @app.view(re.compile(r"^edited_info-.*"))
-def edit_info(ack, body, logger):
+def edit_info(ack, body):
     """Update the details of an item"""
     start_time = time.time()
     ack()
@@ -1188,7 +1161,7 @@ def edit_info(ack, body, logger):
 
 
 @app.view("finished_editing")
-def finished_editing(ack, body):
+def finished_editing(ack):
     """Acknowledge the view submission"""
     ack()
 
@@ -1252,8 +1225,6 @@ def complete_item(ack, body, client):
         # Regenerate the task view modal
         block_list = block_formatters.format_tasks_modal_blocks(
             task_list=tasks,
-            config=config,
-            taiga_auth_token=taiga_auth_token,
             taiga_cache=taiga_cache,
         )
 
@@ -1475,7 +1446,7 @@ def promote_issue(ack, body, client, respond):
 
 
 @app.action(re.compile(r"^view_attachments-.*"))
-def view_attachments(ack, body, logger):
+def view_attachments(ack, body):
     ack()
     start_time = time.time()
 
@@ -1527,7 +1498,7 @@ def view_attachments(ack, body, logger):
 
 
 @app.action("create_item")
-def create_item(ack, body, logger, client):
+def create_item(ack, body, client):
     """Bring up a modal that allows the user to select the item type and what project to create it in"""
     ack()
 
@@ -1876,13 +1847,6 @@ def filter_home(ack, body):
 def clear_filter(ack, body):
     """Clear the filters from the app home"""
     ack()
-
-    # Get Taiga ID
-    taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq_cache,
-        config=config,
-        slack_id=body["user"]["id"],
-    )
 
     # Regenerate app home
     slack_misc.push_home(
