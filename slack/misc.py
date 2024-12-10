@@ -256,7 +256,6 @@ def download_file(url, config):
 
 def loading_button(body):
     """Takes the body of a view_submission and returns a constructed view with the appropriate button updated with a loading button"""
-    pprint(body)
 
     patching_block = body["actions"][0]
 
