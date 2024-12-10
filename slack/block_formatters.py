@@ -1553,7 +1553,9 @@ def app_home(
 
     else:
         # We recognise the user
-        logger.info(f"User {user_id} has a Taiga account - {taiga_id}")
+        logger.info(
+            f"User {user_id} has a Taiga account - {taigalink.name_mapper(taiga_id, taiga_cache)}"
+        )
 
         # Add create button
         block_list[-1]["elements"].append(copy(blocks.button))

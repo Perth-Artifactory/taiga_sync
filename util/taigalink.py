@@ -1424,3 +1424,16 @@ def check_project_membership(taiga_cache: dict, project_id: int, taiga_id: int) 
     """Check if the user is a member of the project."""
 
     return taiga_id in taiga_cache["boards"][int(project_id)]["members"]
+
+
+def name_mapper(taiga_id: int | str | None, taiga_cache: dict) -> str:
+    """Map a Taiga ID to a name."""
+    if not taiga_id:
+        return "Taiga/?"
+    try:
+        return taiga_cache["users"][int(taiga_id)]["name"]
+    except KeyError:
+        logger.error(f"User {taiga_id} not found")
+        return f"Taiga/{taiga_id}"
+    except ValueError:
+        return f"Taiga/{taiga_id}"

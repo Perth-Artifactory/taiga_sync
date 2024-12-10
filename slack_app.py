@@ -644,7 +644,7 @@ def handle_viewedit_actions(ack, body):
                 },
             )
             logger.info(
-                f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']} ({taiga_id})"
+                f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']} ({taigalink.name_mapper(taiga_id, taiga_cache)})"
             )
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
@@ -1382,7 +1382,9 @@ def promote_issue(ack, body, client, respond):
     if not taigalink.check_project_membership(
         taiga_cache=taiga_cache, project_id=project_id, taiga_id=taiga_id
     ):
-        logger.error(f"Taiga user {taiga_id} is not a member of project {project_id}")
+        logger.error(
+            f"Taiga user {taigalink.name_mapper(taiga_id, taiga_cache)} is not a member of project {project_id}"
+        )
         app.client.chat_postEphemeral(
             channel=body["channel"]["id"],
             user=body["user"]["id"],
@@ -1947,7 +1949,7 @@ if "--cron" in sys.argv:
             )
             block_list = copy(block_list)
             logger.info(
-                f"{x}/{len(users)} {user_id}: Generating individual home for Taiga user"
+                f"{x}/{len(users)} {user_id}: Generating individual home for Taiga user - {taigalink.name_mapper(taiga_id, taiga_cache)}"
             )
         elif tidyhq_id:
             if not home_no_taiga:
