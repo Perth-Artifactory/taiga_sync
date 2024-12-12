@@ -857,10 +857,18 @@ def viewedit_blocks(
     )
 
     if item.assigned_to:
+        # Check if the item has a assigned_users attribute
+        if hasattr(item, "assigned_users") and getattr(item, "assigned_users") != []:
+            assigned_to_str = ", ".join(
+                [taiga_cache["users"][user]["name"] for user in item.assigned_users]
+            )
+        else:
+            assigned_to_str = item.assigned_to_extra_info["full_name_display"]
+
         block_list[-1]["fields"].append(
             {
                 "type": "mrkdwn",
-                "text": f"*Assigned to:* {item.assigned_to_extra_info['full_name_display']}",
+                "text": f"*Assigned to:* {assigned_to_str}",
             }
         )
 
