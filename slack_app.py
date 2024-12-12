@@ -9,6 +9,7 @@ from copy import deepcopy as copy
 from pprint import pprint
 
 import requests
+from datetime import datetime
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
@@ -118,6 +119,8 @@ app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 # Get the ID for our team via the API
 auth_test = app.client.auth_test()
 slack_team_id: str = auth_test["team_id"]
+slack_bot_id = auth_test["bot_id"]
+slack_app_id = "A081HR32FKK"
 
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
@@ -159,17 +162,15 @@ def handle_message(ack):
 @app.event("link_shared")
 def handle_link_shared_events(body):
 
-    # This isn't ready to go yet
-    return
-
     # Ignore links shared in the composer
-    if body["event"]["channel"] == "COMPOSER":
-        return
+    # if body["event"]["channel"] == "COMPOSER":
+    #    return
 
     # Get the link details
     links = body["event"]["links"]
 
     link_info = {}
+    final_info = {}
 
     for link in links:
         url = link["url"]
@@ -180,19 +181,203 @@ def handle_link_shared_events(body):
             config=config,
         )
 
+        # Typically root URL
         if not project_id:
-            link_info[url] = "Root URL, skipping"
-        elif not item_id:
-            link_info[url] = f"{item_type} view on project: {project_id}"
-        else:
-            link_info[url] = f"{item_type} {item_id} in project {project_id}"
+            final_info[url] = {
+                "preview": {
+                    "title": {
+                        "type": "plain_text",
+                        "text": "Taiga | Artifactory Issue Tracker",
+                    }
+                }
+            }
+            final_info[url]["blocks"] = block_formatters.inject_text(
+                copy(blocks.text),
+                "This service is used to track issues related to the Artifactory.",
+            )
+            continue
 
-    # Construct test blocks
-    final_info = {}
-    for url, info in link_info.items():
-        block = copy(blocks.text)
-        block = block_formatters.inject_text(block, info)
-        final_info[url] = {"blocks": block}
+        project_id = int(project_id)  # type: ignore
+
+        if not taiga_links.safe_to_send(
+            config=config,
+            project_id=project_id,
+            slack_id=body["event"]["user"],
+            channel_id=body["event"]["channel"],
+            taiga_cache=taiga_cache,
+            tidyhq_cache=tidyhq_cache,
+        ):
+            continue
+
+        if item_type:
+            # Convert the item type to a nice version
+            item_types = {
+                "us": "story",
+                "task": "task",
+                "issue": "issue",
+                "kanban": "story",
+                "issues": "issue",
+                "epics": "epic",
+            }
+            if item_type == "us":
+                item_type = "story"
+
+        if not item_id:
+            item_type_plural: str = item_types.get(item_type)  # type: ignore
+            if item_type_plural[-1] == "y":
+                item_type_plural = item_type_plural[:-1] + "ies"
+            elif item_type_plural[-1] == "s":
+                pass
+            else:
+                item_type_plural += "s"
+            final_info[url] = {
+                "preview": {
+                    "title": {
+                        "type": "plain_text",
+                        "text": f"Issue Tracker | {taiga_cache['boards'][project_id]['name']} {item_type_plural}",
+                    }
+                }
+            }
+            final_info[url]["blocks"] = block_formatters.inject_text(
+                copy(blocks.text),
+                f"{taiga_cache['boards'][project_id]['name']} {item_type_plural}",
+            )
+            # Add accesory link button
+            button = copy(blocks.button)
+            button["text"]["text"] = "View in app"
+            button["action_id"] = f"tlink-{project_id}-{item_type}"
+            button["url"] = (
+                f"slack://app?team={slack_team_id}&id={slack_app_id}&tab=home"
+            )
+            final_info[url]["blocks"][-1]["accessory"] = button
+        else:
+            # Get the item details
+            item = taigalink.get_info(
+                taiga_auth_token=taiga_auth_token,
+                config=config,
+                item_id=item_id,
+                item_type=item_type,
+            )
+            if not item:
+                continue
+
+            final_info[url] = {
+                "preview": {
+                    "title": {
+                        "type": "plain_text",
+                        "text": item["subject"],
+                    }
+                }
+            }
+            block_list = block_formatters.add_block([], blocks.text)
+            block_list = block_formatters.inject_text(
+                block_list,
+                f"{taiga_cache['boards'][project_id]['name']} {item_type} | {item['subject']}",  # type: ignore
+            )
+            if item.get("description"):
+                block_list[-1]["text"]["text"] += f"\n\n{item['description']}"
+
+            # Add accesory link button
+            button = copy(blocks.button)
+            button["text"]["text"] = "View in app"
+            button["action_id"] = f"viewedit-{project_id}-{item_type}-{item_id}"
+            block_list[-1]["accessory"] = button
+            final_info[url]["blocks"] = block_list
+
+            # Info fields
+            block_list[-1]["fields"] = []
+
+            block_list[-1]["fields"].append(
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Status:* {item['status_extra_info']['name']}",
+                }
+            )
+
+            if item["assigned_to"]:
+                # Check if the item has a assigned_users attribute
+                if item.get("assigned_users", []) != []:
+                    assigned_to_str = ", ".join(
+                        [
+                            taiga_cache["users"][user]["name"]
+                            for user in item["assigned_users"]
+                        ]
+                    )
+                else:
+                    assigned_to_str = item["assigned_to_extra_info"][
+                        "full_name_display"
+                    ]
+
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Assigned to:* {assigned_to_str}",
+                    }
+                )
+
+            if item.get("watchers"):
+                watcher_strs = []
+                for watcher in item["watchers"]:
+                    watcher_strs.append(taiga_cache["users"][watcher]["name"])
+                if "Giant Robot" in watcher_strs:
+                    watcher_strs.remove("Giant Robot")
+
+                if watcher_strs:
+                    block_list[-1]["fields"].append(
+                        {
+                            "type": "mrkdwn",
+                            "text": f"*Watchers:* {', '.join(watcher_strs)}",
+                        }
+                    )
+
+            if item.get("due_date"):
+                due_datetime = datetime.strptime(item["due_date"], "%Y-%m-%d")
+                days_until = (due_datetime - datetime.now()).days
+
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Due:* {item['due_date']} ({days_until} days)",
+                    }
+                )
+
+            if item.get("tags"):
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Tags:* {', '.join([f'`{tag[0]}`' for tag in item['tags']])}",
+                    }
+                )
+
+            # Issues have some extra fields
+            if item_type == "issue":
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Type:* {taiga_cache['boards'][project_id]['types'][item['type']]['name']}",
+                    }
+                )
+
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Severity:* {taiga_cache['boards'][project_id]['severities'][item['severity']]['name']}",
+                    }
+                )
+
+                block_list[-1]["fields"].append(
+                    {
+                        "type": "mrkdwn",
+                        "text": f"*Priority:* {taiga_cache['boards'][project_id]['priorities'][item['priority']]['name']}",
+                    }
+                )
+
+    # Add the icon url to every unfurl url that includes a preview section
+    for url, info in final_info.items():
+        if "preview" in info:
+            final_info[url]["preview"][
+                "image_url"
+            ] = "https://replicate.delivery/pbxt/JF3foGR90vm9BXSEXNaYkaeVKHYbJPinmpbMFvRtlDpH4MMk/out-0-1.png"
 
     pprint(final_info)
 
@@ -612,10 +797,16 @@ def handle_viewedit_actions(ack, body):
         logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
         view_title = f"View {item_type}"
         edit = False
+    elif taiga_id not in taiga_cache["boards"][int(project_id)]["members"]:
+        logger.error(f"User {taiga_id} is not a member of project {project_id}")
+        view_title = f"View {item_type}"
+        edit = False
 
     else:
         view_title = f"View/edit {item_type}"
         edit = True
+
+    # Confirm the user is allowed to view the item
 
     # Generate the blocks for the view/edit modal
     block_list = block_formatters.viewedit_blocks(
@@ -880,7 +1071,7 @@ def view_tasks(ack, body):
     )
 
     edit = False
-    if taiga_id:
+    if taiga_id and taiga_id in taiga_cache["boards"][tasks[0]["project"]]["members"]:
         edit = True
 
     block_list = block_formatters.format_tasks_modal_blocks(

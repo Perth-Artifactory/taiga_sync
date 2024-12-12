@@ -703,7 +703,7 @@ def viewedit_blocks(
     elif item_type == "task":
         item = taigacon.tasks.get(resource_id=item_id)
         history: list = taigacon.history.task.get(resource_id=item_id)
-    elif item_type in ["story", "userstory"]:
+    elif item_type in ["story", "userstory", "us"]:
         item = taigacon.user_stories.get(resource_id=item_id)
         history: list = taigacon.history.user_story.get(resource_id=item_id)
         item_type = "story"
