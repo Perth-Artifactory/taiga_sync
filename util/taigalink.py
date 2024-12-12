@@ -876,6 +876,7 @@ def get_info(
     type_map = {
         "userstory": "userstories",
         "story": "userstories",
+        "us": "userstories",
         "issue": "issues",
         "task": "tasks",
     }
@@ -923,6 +924,7 @@ def add_comment(
     type_map = {
         "userstory": "userstories",
         "story": "userstories",
+        "us": "userstories",
         "issue": "issues",
         "task": "tasks",
     }
