@@ -1,6 +1,9 @@
-import requests
 import logging
 from pprint import pprint
+
+import requests
+
+from util import tidyhq
 
 logger = logging.getLogger(__name__)
 
@@ -67,3 +70,40 @@ def get_info_from_url(url: str, taiga_auth_token: str, taiga_cache: dict, config
     item_id = list(info.values())[0]
 
     return project_id, item_type, item_id
+
+
+def safe_to_send(
+    config: dict,
+    project_id: int,
+    slack_id: str,
+    channel_id: str,
+    taiga_cache: dict,
+    tidyhq_cache: dict,
+) -> bool:
+    """Check if it's safe to provide information about a Taiga item in a specified context."""
+
+    # Check if the board in question is public
+    # It's always okay to send information about public board regardless of the context
+    if not taiga_cache["boards"][project_id]["private"]:
+        return True
+
+    # Check if the context channel is the linked notification channel for the board in question
+    # The notification channel can be assumed to be safe
+    if config["taiga-channel"].get(str(project_id)) == channel_id:
+        return True
+
+    # Map the slack user to a taiga user
+    tagia_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache, slack_id=slack_id, config=config
+    )
+
+    # If the user isn't a taiga member it's not safe
+    if not tagia_id:
+        return False
+
+    # If the user is a member of the board in question we trust them to only
+    # share information in appropriate places
+    if tagia_id in taiga_cache["boards"][project_id]["members"]:
+        return True
+
+    return False
