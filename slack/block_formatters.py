@@ -1056,7 +1056,7 @@ def viewedit_blocks(
     # Add view images button if there's at least one image
     if images_attached:
         button = copy(blocks.button)
-        button["text"]["text"] = f"View image attachments inline ({images_attached})"
+        button["text"]["text"] = f"View images ({images_attached})"
         button["action_id"] = f"view_attachments-{project_id}-{item_type}-{item_id}"
         buttons.append(button)
 
