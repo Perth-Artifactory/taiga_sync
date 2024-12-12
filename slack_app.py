@@ -143,6 +143,12 @@ for channel in channels:
     except SlackApiError as e:
         logger.error(f"Failed to join channel {channel['name']}: {e.response['error']}")
 
+# Function naming scheme
+# ignore_ - Acknowledge the event but do nothing
+# handle_ - Acknowledge the event and do something
+# modal_ - Open a modal
+# submodal_ - Open a submodal
+
 
 # Event listener for messages that mention the bot
 @app.event("app_mention")
@@ -153,18 +159,14 @@ def ignore_app_mention(ack):
 
 # Event listener for direct messages to the bot
 @app.event("message")
-def handle_message(ack):
+def ignore_message(ack):
     """Ignore messages sent to the bot"""
     ack()
 
 
 # Event listener for links being shared within slack
 @app.event("link_shared")
-def handle_link_shared_events(body):
-
-    # Ignore links shared in the composer
-    # if body["event"]["channel"] == "COMPOSER":
-    #    return
+def handle_link_unfurls(body):
 
     # Get the link details
     links = body["event"]["links"]
@@ -395,7 +397,7 @@ def handle_link_shared_events(body):
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
 @app.action("submit_form")
-def handle_form_command(ack, client, body):
+def modal_form_selector(ack, client, body):
     """Load the form selection modal"""
     start_time = time.time()
     logger.info(f"Received form selection shortcut or button")
@@ -458,7 +460,7 @@ def ignore_link_button_presses(ack):
 
 
 @app.action(re.compile(r"^form-open-.*"))
-def handle_form_open_button(ack, body, client):
+def submodal_specific_form(ack, body, client):
     """Open the selected form in a modal"""
     start_time = time.time()
     ack()
@@ -629,7 +631,7 @@ def ignore_form_submitted(ack):
 
 
 @app.action(re.compile(r"^twatch.*"))
-def watch_button(ack, body):
+def handle_watch_button(ack, body):
     """Watch items on Taiga via a button
 
     Watch button values are a dict with:
@@ -729,7 +731,7 @@ def watch_button(ack, body):
 
 
 @app.event("reaction_added")
-def handle_reaction_added_events(ack):
+def ignore_reaction_added_events(ack):
     """Dummy function to ignore emoji reactions to messages"""
     ack()
 
@@ -764,7 +766,7 @@ def handle_app_home_opened_events(body, client, logger):
 
 
 @app.action(re.compile(r"^viewedit-.*"))
-def handle_viewedit_actions(ack, body):
+def modal_viewedit(ack, body):
     """Listen for view in app and view/edit actions"""
     start_time = time.time()
 
@@ -1014,7 +1016,7 @@ def handle_comment_addition(ack, body, client):
 
 
 @app.action(re.compile(r"^home_attach_files-.*"))
-def attach_files_modal(ack, body):
+def submodal_attach_files(ack, body):
     """Open a modal to submit files for later attachment"""
     ack()
 
@@ -1046,7 +1048,7 @@ def attach_files_modal(ack, body):
 
 
 @app.action(re.compile(r"^view_tasks-.*"))
-def view_tasks(ack, body):
+def submodal_tasks(ack, body):
     """Push a modal to view tasks attached to a specific user story"""
     start_time = time.time()
     ack()
@@ -1102,7 +1104,7 @@ def view_tasks(ack, body):
 
 
 @app.view(re.compile(r"^submit_files-.*"))
-def attach_files(ack, body):
+def handle_submitted_files(ack, body):
     """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
     start_time = time.time()
     ack()
@@ -1167,7 +1169,7 @@ def attach_files(ack, body):
 
 
 @app.action(re.compile(r"^edit_info-.*"))
-def send_info_modal(ack, body):
+def submodal_edit_info(ack, body):
     """Open a modal to edit the details of an item"""
     start_time = time.time()
     ack()
@@ -1205,7 +1207,7 @@ def send_info_modal(ack, body):
 
 
 @app.view(re.compile(r"^edited_info-.*"))
-def edit_info(ack, body):
+def handle_edited_info(ack, body):
     """Update the details of an item"""
     start_time = time.time()
     ack()
@@ -1361,13 +1363,13 @@ def edit_info(ack, body):
 
 
 @app.view("finished_editing")
-def finished_editing(ack):
+def ignore_finished_editing(ack):
     """Acknowledge the view submission"""
     ack()
 
 
 @app.action(re.compile(r"^complete-.*"))
-def complete_item(ack, body, client):
+def handle_complete_item(ack, body, client):
     """Mark an item as complete"""
     start_time = time.time()
     ack()
@@ -1553,7 +1555,7 @@ def complete_item(ack, body, client):
 
 
 @app.action(re.compile(r"^promote_issue-.*"))
-def promote_issue(ack, body, client, respond):
+def handle_promote_issue(ack, body, client, respond):
     """Promote an issue to a user story"""
     start_time = time.time()
     ack()
@@ -1648,7 +1650,7 @@ def promote_issue(ack, body, client, respond):
 
 
 @app.action(re.compile(r"^view_attachments-.*"))
-def view_attachments(ack, body):
+def submodal_view_attachments(ack, body):
     ack()
     start_time = time.time()
 
@@ -1700,7 +1702,7 @@ def view_attachments(ack, body):
 
 
 @app.action("create_item")
-def create_item(ack, body, client):
+def modal_create_item(ack, body, client):
     """Bring up a modal that allows the user to select the item type and what project to create it in"""
     ack()
 
@@ -1739,7 +1741,7 @@ def create_item(ack, body, client):
 
 
 @app.shortcut("create-from-message")
-def create_from_message(ack, body):
+def modal_create_from_message(ack, body):
     """Bring up a modal that allows the user to select the item type and what project to create it in.
 
     Sets the initial value of the description field to the message"""
@@ -1808,7 +1810,7 @@ def create_from_message(ack, body):
 
 
 @app.view_submission("new_item")
-def new_item(ack, body, client):
+def submodal_new_item(ack, body, client):
     """Open a modal to create a new item"""
     ack()
 
@@ -1858,7 +1860,7 @@ def new_item(ack, body, client):
 
 
 @app.view_submission(re.compile(r"^write_item-.*"))
-def write_item(ack, body, client):
+def handle_write_item(ack, body, client):
     """Write the new item to Taiga"""
     start_time = time.time()
     ack()
@@ -1981,7 +1983,7 @@ def write_item(ack, body, client):
 
 
 @app.action("filter_home_modal")
-def filter_home_modal(ack, body):
+def modal_home_filter(ack, body):
     """Open a modal to filter the home view"""
     ack()
     # Get Taiga ID
@@ -2022,7 +2024,7 @@ def filter_home_modal(ack, body):
 
 
 @app.view_submission("filter_home")
-def filter_home(ack, body):
+def handle_filter_home(ack, body):
     """Regenerate the app home with filters applied"""
     ack()
 
@@ -2051,7 +2053,7 @@ def filter_home(ack, body):
 
 
 @app.action("clear_filter")
-def clear_filter(ack, body):
+def handle_clear_filter(ack, body):
     """Clear the filters from the app home"""
     ack()
 
@@ -2069,7 +2071,7 @@ def clear_filter(ack, body):
 
 
 @app.action(re.compile(r"^create_task-.*"))
-def create_task(ack, body):
+def handle_create_task(ack, body):
     """Create a task"""
     ack()
 
