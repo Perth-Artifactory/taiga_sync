@@ -66,6 +66,13 @@ static_dropdown = {
     "label": {"type": "plain_text", "text": "", "emoji": True},
 }
 
+external_static_dropdown = {
+    "action_id": "",
+    "type": "external_select",
+    "placeholder": {"type": "plain_text", "text": "Select an item"},
+    "min_query_length": 4,
+}
+
 multi_static_dropdown = {
     "type": "input",
     "element": {
@@ -130,12 +137,6 @@ image = {
 }
 
 base_input = {
-    "type": "input",
-    "element": {},
-    "label": {"type": "plain_text", "text": "", "emoji": True},
-}
-
-input = {
     "type": "input",
     "element": {},
     "label": {"type": "plain_text", "text": "", "emoji": True},

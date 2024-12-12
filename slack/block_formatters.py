@@ -1547,6 +1547,11 @@ def app_home(
             block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
 
+        # Add a search button
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][-1]["text"]["text"] = "Search"
+        block_list[-1]["elements"][-1]["action_id"] = "select_project_for_search"
+
         taiga_id = config["taiga"]["guest_user"]
 
         # Construct blocks
@@ -1592,6 +1597,11 @@ def app_home(
             block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
             block_list[-1]["elements"][-1]["style"] = "danger"
+
+        # Add a search button
+        block_list[-1]["elements"].append(copy(blocks.button))
+        block_list[-1]["elements"][-1]["text"]["text"] = "Search"
+        block_list[-1]["elements"][-1]["action_id"] = "select_project_for_search"
 
         # Construct blocks
         block_list = block_formatters.add_block(block_list, blocks.text)
@@ -1986,5 +1996,113 @@ def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict) ->
             closed_dropdown["element"].pop("initial_options")
 
     block_list.append(closed_dropdown)
+
+    return block_list
+
+
+def project_selector(taiga_id: int, private_metadata: str, taiga_cache: dict):
+    block_list = []
+
+    filters = {}
+    if private_metadata:
+        raw_filters = json.loads(private_metadata)
+    else:
+        raw_filters = const.base_filter
+    # Clean up the filters for use
+    for key in raw_filters:
+        filters[key] = []
+        for option in raw_filters[key][key]["selected_options"]:
+            filters[key].append(option["value"])
+
+    # Project selector
+    if "project_filter" in filters:
+        initial_option_values = filters["project_filter"]
+    project_dropdown = copy(blocks.multi_static_dropdown)
+    project_dropdown["element"]["initial_options"] = []
+    project_dropdown["element"]["action_id"] = "project_select"
+    project_dropdown["label"]["text"] = "Select projects"
+    project_dropdown["block_id"] = "projects"
+    project_dropdown["element"]["placeholder"]["text"] = "Search in up to 3 projects"
+    if taiga_id:
+        user_projects: list = taiga_cache["users"][taiga_id]["projects"]
+        for project_id in user_projects:
+            project_dropdown["element"]["options"].append(
+                {
+                    "text": {
+                        "type": "plain_text",
+                        "text": taiga_cache["boards"][project_id]["name"],
+                    },
+                    "value": str(project_id),
+                }
+            )
+            if str(project_id) in initial_option_values:
+                project_dropdown["element"]["initial_options"].append(
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": taiga_cache["boards"][project_id]["name"],
+                        },
+                        "value": str(project_id),
+                    }
+                )
+    else:
+        # Add all public projects
+        for project_id in taiga_cache["boards"]:
+            if not taiga_cache["boards"][project_id]["private"]:
+                project_dropdown["element"]["options"].append(
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": taiga_cache["boards"][project_id]["name"],
+                        },
+                        "value": str(project_id),
+                    }
+                )
+            if str(project_id) in initial_option_values:
+                project_dropdown["element"]["initial_options"].append(
+                    {
+                        "text": {
+                            "type": "plain_text",
+                            "text": taiga_cache["boards"][project_id]["name"],
+                        },
+                        "value": str(project_id),
+                    }
+                )
+    # Sort the options
+    project_dropdown["element"]["options"] = sorted(
+        project_dropdown["element"]["options"], key=lambda x: x["text"]["text"]
+    )
+
+    if project_dropdown["element"]["initial_options"] == []:
+        project_dropdown["element"].pop("initial_options")
+
+    # Set the max number of options to 3 for performance reasons
+    project_dropdown["element"]["max_selected_items"] = 3
+
+    block_list.append(project_dropdown)
+
+    return block_list
+
+
+def search_blocks(taiga_id: int, taiga_cache: dict, projects: list):
+    """Generate the blocks required to search for items"""
+
+    block_list = []
+    # Explain where we're searching
+    block_list = block_formatters.add_block(block_list, blocks.text)
+    search_string = f"Searching in: {', '.join([taiga_cache['boards'][int(project_id)]['name'] for project_id in projects])}"
+    block_list = block_formatters.inject_text(block_list=block_list, text=search_string)
+
+    # Search selector
+    search_input = copy(blocks.external_static_dropdown)
+    search_input["action_id"] = f"search_items-{'-'.join(projects)}"
+    search_input["placeholder"]["text"] = "Search for items"
+    # Set up input block
+    search_block = copy(blocks.base_input)
+    search_block["label"]["text"] = "Search"
+    search_block["block_id"] = "search"
+    search_block["element"] = search_input
+
+    block_list.append(search_block)
 
     return block_list

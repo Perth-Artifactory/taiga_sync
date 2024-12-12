@@ -293,3 +293,43 @@ def loading_button(body: dict) -> dict:
         view["close"] = body["view"]["close"]
 
     return view
+
+
+def search_results_to_options(search_results: dict, taiga_cache: dict):
+    """Convert a search result dictionary to a list of options for a slack dropdown"""
+
+    type_map = {"issues": "issue", "tasks": "task", "userstories": "story"}
+
+    option_groups = []
+    for item_type, search_items in search_results.items():
+        if item_type not in type_map:
+            continue
+        options = []
+        for item in search_items:
+            options.append(
+                {
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"{taiga_cache['boards'][int(item['project'])]['name']} - {item['subject']}",
+                    },
+                    "value": f"viewedit-{item['project']}-{type_map[item_type]}-{item['id']}",
+                }
+            )
+
+        if options == []:
+            continue
+        option_groups.append(
+            {
+                "label": {
+                    "type": "plain_text",
+                    "text": (
+                        item_type.capitalize()
+                        if item_type != "userstories"
+                        else "Stories"
+                    ),
+                },
+                "options": options,
+            }
+        )
+
+    return option_groups

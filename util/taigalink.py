@@ -1439,3 +1439,34 @@ def name_mapper(taiga_id: int | str | None, taiga_cache: dict) -> str:
         return f"Taiga/{taiga_id}"
     except ValueError:
         return f"Taiga/{taiga_id}"
+
+
+def search(
+    projects: list, taiga_auth_token: str, config: dict, search_str: str
+) -> dict:
+    """Search for items in Taiga."""
+
+    results = {}
+
+    for project in projects:
+        response = requests.get(
+            url=f"{config['taiga']['url']}/api/v1/search",
+            headers={
+                "Authorization": f"Bearer {taiga_auth_token}",
+            },
+            params={"project": int(project), "text": search_str},
+        )
+        current_results = response.json()
+
+        for result_type, result_list in current_results.items():
+            # Inject the project ID into each result
+            if result_type == "count":
+                continue
+            for result in result_list:
+                result["project"] = int(project)
+
+            if result_type not in results:
+                results[result_type] = []
+            results[result_type] += result_list
+
+    return results

@@ -2106,6 +2106,207 @@ def handle_create_task(ack, body):
         logger.error(e.response["response_metadata"]["messages"])
 
 
+@app.action("select_project_for_search")
+def modal_search_project(ack, body):
+    """Open a modal to select a project to search in"""
+    ack()
+
+    # Get Taiga ID
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        taiga_id = config["taiga"]["guest_user"]
+
+    blocks = block_formatters.project_selector(
+        taiga_id=taiga_id,
+        taiga_cache=taiga_cache,
+        private_metadata=body["view"]["private_metadata"],
+    )
+
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "search_items",
+                "title": {"type": "plain_text", "text": "Select a project"},
+                "blocks": blocks,
+                "submit": {"type": "plain_text", "text": "Select"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Opened search project modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view("search_items")
+def modal_search(ack, body):
+    """Open a modal to search for items"""
+    ack()
+
+    # Pull out the projects
+    projects = []
+    for selected_option in body["view"]["state"]["values"]["projects"][
+        "project_select"
+    ]["selected_options"]:
+        projects.append(selected_option["value"])
+
+    # Get Taiga ID
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        taiga_id = config["taiga"]["guest_user"]
+
+    blocks = block_formatters.search_blocks(
+        taiga_id=taiga_id, taiga_cache=taiga_cache, projects=projects
+    )
+
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "load_searched_item",
+                "title": {"type": "plain_text", "text": "Search items"},
+                "blocks": blocks,
+                "submit": {"type": "plain_text", "text": "View"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Updated search modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to update modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view("load_searched_item")
+def modal_searched_item(ack, body):
+
+    start_time = time.time()
+
+    # Get the action_id for our search field
+    for block in body["view"]["blocks"]:
+        if block["block_id"] == "search":
+            search_action_id = block["element"]["action_id"]
+
+    # Get the selected item
+    selected_option = body["view"]["state"]["values"]["search"][search_action_id][
+        "selected_option"
+    ]["value"]
+
+    # Backwards compatibility for old some old view buttons
+    if "userstory" in selected_option:
+        selected_option = selected_option.replace("userstory", "story")
+
+    # Sometimes we attach the view method to the action ID
+
+    project_id, item_type, item_id = selected_option.split("-")[1:]
+
+    logger.info(
+        f"Received view/edit for {item_type} {item_id} in project {project_id} based on search"
+    )
+    ack()
+
+    # Attempt to map the Slack user to a Taiga user
+    taiga_id = tidyhq.map_slack_to_taiga(
+        tidyhq_cache=tidyhq_cache,
+        config=config,
+        slack_id=body["user"]["id"],
+    )
+
+    if not taiga_id:
+        logger.error(f"Failed to map Slack user {body['user']['id']} to Taiga user")
+        view_title = f"View {item_type}"
+        edit = False
+    elif taiga_id not in taiga_cache["boards"][int(project_id)]["members"]:
+        logger.error(f"User {taiga_id} is not a member of project {project_id}")
+        view_title = f"View {item_type}"
+        edit = False
+
+    else:
+        view_title = f"View/edit {item_type}"
+        edit = True
+
+    # Confirm the user is allowed to view the item
+
+    # Generate the blocks for the view/edit modal
+    block_list = block_formatters.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type=item_type,
+        item_id=item_id,
+        taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        edit=edit,
+    )
+
+    if taiga_id:
+        log_time(
+            start_time, time.time(), response_logger, cause="View/edit modal generation"
+        )
+    else:
+        log_time(
+            start_time, time.time(), response_logger, cause="View modal generation"
+        )
+
+    # Open the modal
+    try:
+        client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": view_title},
+                "blocks": block_list,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+        logger.info(
+            f"View/edit modal for {item_type} {item_id} in project {project_id} opened for {body['user']['id']} ({taigalink.name_mapper(taiga_id, taiga_cache)})"
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+        pprint(block_list)
+
+
+@app.options(re.compile(r"^search_items-.*"))
+def handle_search_options(ack, body):
+
+    # Get the searching projects from the action ID
+    search_projects = body["action_id"].split("-")[1:]
+
+    # Get the search term
+    search_term = body["value"]
+
+    logging.info(f"Searching for {search_term} in projects {search_projects}")
+
+    search_results = taigalink.search(
+        config=config,
+        projects=search_projects,
+        search_str=search_term,
+        taiga_auth_token=taiga_auth_token,
+    )
+
+    option_groups = slack_misc.search_results_to_options(
+        search_results=search_results, taiga_cache=taiga_cache
+    )
+
+    ack(option_groups=option_groups)
+
+
 # The cron mode renders the app home for every user in the workspace and resets filters
 if "--cron" in sys.argv:
     # Update homes for all slack users
