@@ -898,6 +898,14 @@ def viewedit_blocks(
             }
         )
 
+    if item.tags:
+        block_list[-1]["fields"].append(
+            {
+                "type": "mrkdwn",
+                "text": f"*Tags:* {', '.join([f'`{tag[0]}`' for tag in item.tags])}",
+            }
+        )
+
     # Issues have some extra fields
     if item_type == "issue":
         block_list[-1]["fields"].append(

@@ -1800,10 +1800,15 @@ def filter_home_modal(ack, body):
         slack_id=body["user"]["id"],
     )
 
+    if body["view"]["private_metadata"]:
+        current_state = body["view"]["private_metadata"]
+    else:
+        current_state = json.dumps(const.base_filter)
+
     blocks = block_formatters.home_filters(
         taiga_id=taiga_id,
         taiga_cache=taiga_cache,
-        current_state=body["view"]["private_metadata"],
+        current_state=current_state,
     )
 
     try:
