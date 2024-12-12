@@ -37,7 +37,6 @@ def get_info_from_url(url: str, taiga_auth_token: str, taiga_cache: dict, config
         return None, None, None
     elif len(parts) < 3:
         return None, None, None
-    pprint(parts)
 
     project_slug = parts[1]
     item_type = parts[2]

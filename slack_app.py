@@ -381,8 +381,6 @@ def handle_link_unfurls(body):
                 "image_url"
             ] = "https://replicate.delivery/pbxt/JF3foGR90vm9BXSEXNaYkaeVKHYbJPinmpbMFvRtlDpH4MMk/out-0-1.png"
 
-    pprint(final_info)
-
     try:
         app.client.chat_unfurl(
             source=body["event"]["source"],
@@ -392,6 +390,7 @@ def handle_link_unfurls(body):
     except SlackApiError as e:
         logger.error(f"Failed to unfurl links: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
+        pprint(final_info)
 
 
 # Command listener for form selection
