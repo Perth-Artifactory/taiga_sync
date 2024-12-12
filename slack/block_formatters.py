@@ -1503,11 +1503,14 @@ def app_home(
     raw_filters = ""
     if private_metadata:
         raw_filters = json.loads(private_metadata)
-        # Clean up the filters for use
-        for key in raw_filters:
-            filters[key] = []
-            for option in raw_filters[key][key]["selected_options"]:
-                filters[key].append(option["value"])
+    else:
+        raw_filters = const.base_filter
+
+    # Clean up the filters for use
+    for key in raw_filters:
+        filters[key] = []
+        for option in raw_filters[key][key]["selected_options"]:
+            filters[key].append(option["value"])
 
     block_list = []
     block_list = block_formatters.add_block(block_list, blocks.header)
