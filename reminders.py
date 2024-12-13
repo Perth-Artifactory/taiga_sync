@@ -190,7 +190,8 @@ if "--weekly" in sys.argv:
     working_items.append(
         {
             "items": weekly,
-            "message": "These are the items due in the next 14 days that you are watching or assigned to:",
+            "channel_message": "These are the items due in the next 14 days:",
+            "personal_message": "These are the items due in the next 14 days that you are watching or assigned to:",
             "footer": "We send these reminders out every Wednesday to give you an idea of what's coming up.",
         }
     )
@@ -200,7 +201,8 @@ if "--daily" in sys.argv:
     working_items.append(
         {
             "items": daily,
-            "message": "These are the items due either today or *one week* from today that you are watching or assigned to:",
+            "channel_message": "These are the items due either today or *one week* from today:",
+            "personal_message": "These are the items due either today or *one week* from today that you are watching or assigned to:",
             "footer": "We send these reminders out on the day the item is due or exactly one week out.",
         }
     )
@@ -214,11 +216,9 @@ if not working_items:
 
 for current in working_items:
     working = current["items"]
-    message = current["message"]
     for assignee in working:
         block_list = []
         block_list = block_formatters.add_block(block_list, blocks.text)
-        block_list = block_formatters.inject_text(block_list, message)
         reminder_blocks = block_formatters.construct_reminder_section(working[assignee])
         if not reminder_blocks:
             continue
@@ -229,6 +229,9 @@ for current in working_items:
         footer_blocks = block_formatters.inject_text(footer_blocks, current["footer"])
 
         if assignee.startswith("C"):
+            # Inject the header message
+            block_list[0]["text"]["text"] = current["channel_message"]
+
             app.client.chat_postMessage(
                 channel=assignee,
                 blocks=block_list + reminder_blocks,
@@ -244,6 +247,9 @@ for current in working_items:
             if not slack_id:
                 logger.error(f"No slack ID found for Taiga user {assignee}")
                 continue
+
+            block_list[0]["text"]["text"] = current["personal_message"]
+
             slack_misc.send_dm(
                 slack_id=slack_id,
                 message="Upcoming due items on Taiga",
