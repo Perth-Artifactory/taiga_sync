@@ -49,7 +49,12 @@ def log_time(
 
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    filename="app.log",
+    filemode="a",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 # Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug
 urllib3_logger = logging.getLogger("urllib3")
 urllib3_logger.setLevel(logging.INFO)
@@ -59,6 +64,8 @@ slack_logger.setLevel(logging.WARN)
 setup_logger = logging.getLogger("setup")
 logger = logging.getLogger("slack_app")
 response_logger = logging.getLogger("response")
+
+setup_logger.info("Application starting")
 
 # Load config
 try:

@@ -6,3 +6,4 @@ attendee.lock
 run.sh
 *.blocks.json
 .coverage
+*.log
