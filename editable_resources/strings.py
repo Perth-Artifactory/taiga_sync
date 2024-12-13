@@ -29,3 +29,6 @@ form_submission_success = "Your form has been submitted successfully: {form_name
 file_upload_failure = "Unfortunately there was an issue uploading your attached file(s). A volunteer will be in touch shortly."
 newline = "\n"
 view_only = "Either you don't have permission to edit this item or I do not recognise you. If you believe this is an error, please reach out to #it."
+ai_warning = (
+    "This is an AI-generated response. Please verify the information before use."
+)

@@ -6,10 +6,11 @@ import re
 import sys
 import time
 from copy import deepcopy as copy
+from datetime import datetime
 from pprint import pprint
 
+import openai
 import requests
-from datetime import datetime
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 from slack_sdk import WebClient
@@ -17,10 +18,10 @@ from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
 
 from editable_resources import forms, strings
-from slack import blocks, block_formatters
-from slack import misc as slack_misc
+from slack import block_formatters, blocks
 from slack import forms as slack_forms
-from util import taigalink, tidyhq, const, taiga_links
+from slack import misc as slack_misc
+from util import const, taiga_links, taigalink, tidyhq, gpt
 
 
 def log_time(
@@ -119,6 +120,12 @@ with open("taiga_cache.json", "w") as f:
 tidyhq_cache = tidyhq.fresh_cache(config=config)
 setup_logger.info(
     f"TidyHQ cache set up: {len(tidyhq_cache['contacts'])} contacts, {len(tidyhq_cache['groups'])} groups"
+)
+
+# Set up openai connection
+openai_client = openai.OpenAI(
+    api_key=config["openai"]["key"],
+    organization=config["openai"]["org"],
 )
 
 # Set up slack app
@@ -2314,6 +2321,127 @@ def handle_search_options(ack, body):
     )
 
     ack(option_groups=option_groups)
+
+
+@app.action(re.compile(r"^create_ai_tasks-.*"))
+def submodal_ai_tasks(ack, body):
+    """Open a modal to create AI tasks"""
+    ack()
+
+    project_id, item_id = body["actions"][0]["action_id"].split("-")[1:]
+
+    # Generate placeholder blocks
+    blocks = block_formatters.ai_task_blocks_placeholder()
+
+    try:
+        view = client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": f"ai_tasks-{project_id}-{item_id}",
+                "title": {"type": "plain_text", "text": "Create AI tasks"},
+                "blocks": blocks,
+                "submit": {"type": "plain_text", "text": "Create"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Opened AI task creation modal for {body['user']['id']}")
+        view_id = view["view"]["id"]
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+    # Retrieve the item
+    item = taigalink.get_info(
+        taiga_auth_token=taiga_auth_token, config=config, story_id=item_id
+    )
+
+    if not item:
+        logger.error(f"Failed to retrieve item {item_id}")
+        return
+
+    # Generate the proposed task list
+
+    proposed_tasks = gpt.generate_tasks(
+        subject=item["subject"], description=item["description"], client=openai_client
+    )
+
+    # Generate blocks for the proposed tasks
+    blocks = block_formatters.task_approval(tasks=proposed_tasks)
+
+    try:
+        client.views_update(
+            view_id=view_id,
+            view={
+                "type": "modal",
+                "callback_id": f"ai_tasks-{project_id}-{item_id}",
+                "title": {"type": "plain_text", "text": "Create AI tasks"},
+                "blocks": blocks,
+                "submit": {"type": "plain_text", "text": "Create"},
+                "close": {"type": "plain_text", "text": "Cancel"},
+            },
+        )
+        logger.info(f"Updated AI task creation modal for {body['user']['id']}")
+    except SlackApiError as e:
+        logger.error(f"Failed to update modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
+
+@app.view(re.compile(r"^ai_tasks-.*"))
+def handle_ai_task_approval(ack, body):
+    tasks = []
+    for option in body["view"]["state"]["values"]["task_options"]["task_options"][
+        "selected_options"
+    ]:
+        tasks.append(option["value"])
+
+    project_id, item_id = body["view"]["callback_id"].split("-")[1:]
+
+    ack()
+
+    if not tasks:
+        logger.info(f"No tasks selected for {item_id} in project {project_id}")
+        return
+
+    # Create the tasks
+    for task in tasks:
+        logger.info(f"Creating task for {project_id}/{item_id} -{task}")
+        taigalink.create_item(
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+            project_id=int(project_id),
+            item_type="task",
+            subject=task,
+            user_story=int(item_id),
+        )
+
+    # Regenerate the original view/edit modal
+    block_list = block_formatters.viewedit_blocks(
+        taigacon=taigacon,
+        project_id=project_id,
+        item_type="story",
+        item_id=item_id,
+        taiga_cache=taiga_cache,
+        config=config,
+        taiga_auth_token=taiga_auth_token,
+        edit=True,
+    )
+
+    try:
+        client.views_update(
+            view_id=body["view"]["root_view_id"],
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit story"},
+                "blocks": block_list,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 # The cron mode renders the app home for every user in the workspace and resets filters

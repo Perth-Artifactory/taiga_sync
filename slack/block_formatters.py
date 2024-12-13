@@ -671,13 +671,27 @@ def text_to_options(options: list[str]) -> list[dict]:
 
     formatted_options = []
     for option in options:
+        description = None
+        text = option
         if len(option) > 150:
             logger.warning(
-                f"Option '{option}' is too long for value to be set. Truncating to 150 characters"
+                f"Option '{option}' is too long for value to be set. Truncating to 150 characters ({len(option)})"
             )
             option = option[:150]
+        if len(option) > 75:
+            logger.warning(
+                f"Option '{option}' is too long for display. Splitting over text and description ({len(option)})"
+            )
+            text = option[:75]
+            description = option[75:]
         formatted_options.append(copy(blocks.option))
-        formatted_options[-1]["text"]["text"] = option
+        formatted_options[-1]["text"]["text"] = text
+        if description:
+            formatted_options[-1]["description"] = {
+                "type": "plain_text",
+                "text": description,
+                "emoji": True,
+            }
         formatted_options[-1]["value"] = option
 
     return formatted_options
@@ -991,12 +1005,16 @@ def viewedit_blocks(
             button["action_id"] = f"view_tasks-{item_id}"
             block_list[-1]["elements"].append(button)
 
-            # Add a button to create a new task
+            # Add buttons to create new tasks
             if edit:
                 button = copy(blocks.button)
                 button["text"]["text"] = "Create new task"
                 button["action_id"] = f"create_task-{project_id}-{item_id}"
                 block_list[-1]["elements"].append(button)
+                button_ai = copy(blocks.button)
+                button_ai["text"]["text"] = ":robot_face: Create new tasks (AI)"
+                button_ai["action_id"] = f"create_ai_tasks-{project_id}-{item_id}"
+                block_list[-1]["elements"].append(button_ai)
         else:
             block_list = block_formatters.add_block(block_list, blocks.divider)
             block_list = block_formatters.add_block(block_list, blocks.header)
@@ -1014,6 +1032,10 @@ def viewedit_blocks(
                 button["text"]["text"] = "Create new task"
                 button["action_id"] = f"create_task-{project_id}-{item_id}"
                 block_list[-1]["elements"].append(button)
+                button_ai = copy(blocks.button)
+                button_ai["text"]["text"] = ":robot_face: Create new tasks (AI)"
+                button_ai["action_id"] = f"create_ai_tasks-{project_id}-{item_id}"
+                block_list[-1]["elements"].append(button_ai)
 
     # Files
     block_list = block_formatters.add_block(block_list, blocks.divider)
@@ -1055,7 +1077,7 @@ def viewedit_blocks(
     # Create attach button
     if edit:
         button = copy(blocks.button)
-        button["text"]["text"] = "Attach files"
+        button["text"]["text"] = ":paperclip: Attach files"
         button["action_id"] = f"home_attach_files-{project_id}-{item_type}-{item_id}"
         buttons.append(button)
 
@@ -2106,5 +2128,39 @@ def search_blocks(taiga_id: int, taiga_cache: dict, projects: list):
     search_block["element"] = search_input
 
     block_list.append(search_block)
+
+    return block_list
+
+
+def ai_task_blocks_placeholder():
+    """Generate the block for a placeholder thinking screen"""
+    block_list = []
+
+    # Add a placeholder for the AI task blocks
+    block_list = block_formatters.add_block(block_list, blocks.text)
+    block_list = block_formatters.inject_text(
+        block_list=block_list, text="Generating tasks :spinthinking:"
+    )
+
+    return block_list
+
+
+def task_approval(tasks):
+    """Generate the blocks to select which tasks to add"""
+
+    block_list = []
+
+    block_list = block_formatters.add_block(block_list, blocks.text)
+    block_list = block_formatters.inject_text(
+        block_list=block_list, text=strings.ai_warning
+    )
+
+    block_list = block_formatters.add_block(block_list, blocks.checkboxes)
+    block_list[-1]["label"]["text"] = "Select tasks to add"
+    block_list[-1]["block_id"] = "task_options"
+
+    options = text_to_options(tasks)
+    block_list[-1]["element"]["options"] = options
+    block_list[-1]["element"]["action_id"] = "task_options"
 
     return block_list
