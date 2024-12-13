@@ -51,9 +51,11 @@ def log_time(
 # Set up logging
 logging.basicConfig(
     level=logging.INFO,
-    filename="app.log",
-    filemode="a",
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("app.log", mode="a"),
+        logging.StreamHandler(sys.stdout),
+    ],
 )
 # Set urllib3 logging level to INFO to reduce noise when individual modules are set to debug
 urllib3_logger = logging.getLogger("urllib3")
@@ -254,7 +256,7 @@ def handle_link_unfurls(body):
             )
             # Add accesory link button
             button = copy(blocks.button)
-            button["text"]["text"] = "View in app"
+            button["text"]["text"] = ":eyes: View in app"
             button["action_id"] = f"tlink-{project_id}-{item_type}"
             button["url"] = (
                 f"slack://app?team={slack_team_id}&id={slack_app_id}&tab=home"
@@ -289,7 +291,7 @@ def handle_link_unfurls(body):
 
             # Add accesory link button
             button = copy(blocks.button)
-            button["text"]["text"] = "View in app"
+            button["text"]["text"] = ":eyes: View in app"
             button["action_id"] = f"viewedit-{project_id}-{item_type}-{item_id}"
             block_list[-1]["accessory"] = button
             final_info[url]["blocks"] = block_list

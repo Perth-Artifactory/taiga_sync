@@ -288,7 +288,7 @@ def construct_reminder_section(reminders: dict) -> list:
             block_list = add_block(block_list, blocks.text)
             block_list = inject_text(block_list, reminder["string"])
             button = copy(blocks.button)
-            button["text"]["text"] = "View in app"
+            button["text"]["text"] = ":eyes: View in app"
             button["action_id"] = (
                 f"viewedit-{reminder['item']['project_extra_info']['id']}-{item_type}-{reminder['item']['id']}"
             )
@@ -802,7 +802,7 @@ def viewedit_blocks(
     # Add a promote button if the item is an issue
     if item_type == "issue" and edit:
         button = copy(blocks.button)
-        button["text"]["text"] = "Promote to story"
+        button["text"]["text"] = ":arrow_up: Promote to story"
         button["action_id"] = (
             f"promote_issue-{item.project_extra_info['id']}-issue-{item.id}"
         )
@@ -832,7 +832,7 @@ def viewedit_blocks(
         )
         # Add an accessory to view the parent card
         button = copy(blocks.button)
-        button["text"]["text"] = "View parent"
+        button["text"]["text"] = ":arrow_heading_up: View parent"
         button["action_id"] = (
             f"viewedit-{item.project_extra_info['id']}-story-{item.user_story_extra_info['id']}-update"
         )
@@ -930,7 +930,7 @@ def viewedit_blocks(
     # Attach info field edit button
     if edit:
         button = copy(blocks.button)
-        button["text"]["text"] = "Edit"
+        button["text"]["text"] = ":pencil2: Edit"
         button["action_id"] = f"edit_info-{project_id}-{item_type}-{item_id}"
         block_list[-1]["accessory"] = button
 
@@ -1528,7 +1528,7 @@ def app_home(
     block_list = block_formatters.add_block(block_list, blocks.actions)
     block_list[-1].pop("block_id")
     block_list[-1]["elements"].append(copy(blocks.button))
-    block_list[-1]["elements"][-1]["text"]["text"] = "Submit a form"
+    block_list[-1]["elements"][-1]["text"]["text"] = ":memo: Submit a form"
     block_list[-1]["elements"][-1]["action_id"] = "submit_form"
 
     if not taiga_id:
@@ -1536,18 +1536,20 @@ def app_home(
 
         # Add filter button
         block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][-1]["text"]["text"] = "Filter"
+        block_list[-1]["elements"][-1]["text"]["text"] = ":clipboard: Filter"
         block_list[-1]["elements"][-1]["action_id"] = "filter_home_modal"
 
         # Add clear filter button if the filter is not the default
         if raw_filters != const.base_filter:
             block_list[-1]["elements"].append(copy(blocks.button))
-            block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
+            block_list[-1]["elements"][-1]["text"][
+                "text"
+            ] = ":wastebasket: Reset filter"
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
 
         # Add a search button
         block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][-1]["text"]["text"] = "Search"
+        block_list[-1]["elements"][-1]["text"]["text"] = ":mag: Search"
         block_list[-1]["elements"][-1]["action_id"] = "select_project_for_search"
 
         taiga_id = config["taiga"]["guest_user"]
@@ -1581,24 +1583,26 @@ def app_home(
 
         # Add create button
         block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][-1]["text"]["text"] = "Create an item"
+        block_list[-1]["elements"][-1]["text"]["text"] = ":pencil2: Create an item"
         block_list[-1]["elements"][-1]["action_id"] = "create_item"
 
         # Add filter button
         block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][-1]["text"]["text"] = "Filter"
+        block_list[-1]["elements"][-1]["text"]["text"] = ":clipboard: Filter"
         block_list[-1]["elements"][-1]["action_id"] = "filter_home_modal"
 
         # Add clear filter button if the filter is not the default
         if raw_filters != const.base_filter:
             block_list[-1]["elements"].append(copy(blocks.button))
-            block_list[-1]["elements"][-1]["text"]["text"] = "Reset filter"
+            block_list[-1]["elements"][-1]["text"][
+                "text"
+            ] = ":wastebasket: Reset filter"
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
             block_list[-1]["elements"][-1]["style"] = "danger"
 
         # Add a search button
         block_list[-1]["elements"].append(copy(blocks.button))
-        block_list[-1]["elements"][-1]["text"]["text"] = "Search"
+        block_list[-1]["elements"][-1]["text"]["text"] = ":mag: Search"
         block_list[-1]["elements"][-1]["action_id"] = "select_project_for_search"
 
         # Construct blocks

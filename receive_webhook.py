@@ -232,13 +232,13 @@ def incoming():
     if url:
         # Construct the "View in Taiga" button
         visit_button = copy(blocks.button)
-        visit_button["text"]["text"] = "View on web"
+        visit_button["text"]["text"] = ":globe_with_meridians: View on web"
         visit_button["url"] = url
         visit_button["action_id"] = f"tlink{uuid.uuid4().hex}"
 
         # Construct the "Watch" button
         watch_button = copy(blocks.button)
-        watch_button["text"]["text"] = "Watch"
+        watch_button["text"]["text"] = ":eyes: Watch"
         watch_button["action_id"] = f"twatch{uuid.uuid4().hex}"
         # Create a value that will let us identify the issue later
         item_data = {
@@ -251,7 +251,7 @@ def incoming():
 
         # Construct the "View in app" button
         app_button = copy(blocks.button)
-        app_button["text"]["text"] = "View in app"
+        app_button["text"]["text"] = ":eyes: View in app"
         app_button["action_id"] = (
             f"viewedit-{project_id}-{type_str}-{data['data']['id']}"
         )
@@ -260,7 +260,7 @@ def incoming():
         promote_button = None
         if data["type"] == "issue" and data["action"] == "create":
             promote_button = copy(blocks.button)
-            promote_button["text"]["text"] = "Promote to story"
+            promote_button["text"]["text"] = ":arrow_up: Promote to story"
             promote_button["action_id"] = (
                 f"promote_issue-{project_id}-issue-{data['data']['id']}"
             )
