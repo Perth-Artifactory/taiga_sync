@@ -2420,10 +2420,27 @@ def submodal_ai_tasks(ack, body):
         logger.error(f"Failed to retrieve item {item_id}")
         return
 
+    # Check for existing tasks
+    tasks = taigalink.get_tasks(
+        taiga_auth_token=taiga_auth_token, config=config, story_id=item_id, filters={}
+    )
+
+    # Check for existing attachments
+    response = requests.get(
+        url=f"{config['taiga']['url']}/api/v1/userstories/attachments",
+        headers={"Authorization": f"Bearer {taiga_auth_token}"},
+        params={"object_id": item_id, "project": project_id},
+    )
+    attachments = response.json()
+
     # Generate the proposed task list
 
     proposed_tasks = gpt.generate_tasks(
-        subject=item["subject"], description=item["description"], client=openai_client
+        subject=item["subject"],
+        description=item["description"],
+        client=openai_client,
+        existing_tasks=tasks,
+        attachments=attachments,
     )
 
     # Generate blocks for the proposed tasks
