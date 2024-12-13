@@ -306,6 +306,9 @@ def search_results_to_options(search_results: dict, taiga_cache: dict):
             continue
         options = []
         for item in search_items:
+            if len(options) > 100:
+                logger.warning(f"Too many items to display for {item_type}, truncating")
+                break
             options.append(
                 {
                     "text": {
