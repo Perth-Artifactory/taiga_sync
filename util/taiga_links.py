@@ -14,8 +14,8 @@ def get_info_from_url(url: str, taiga_auth_token: str, taiga_cache: dict, config
     """
 
     # Strip the protocol and domain
+    url = url.replace(config["taiga"]["url"], "")
     url = url.replace("https://", "").replace("http://", "")
-    url = url.replace("tasks.artifactory.org.au", "")
     if url.startswith("/"):
         url = url[1:]
 

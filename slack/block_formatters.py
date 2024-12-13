@@ -23,21 +23,17 @@ logger = logging.getLogger("slack.block_formatters")
 
 
 def format_stories(
-    story_list: list, compressed: bool = False
+    story_list: list, config: dict, compressed: bool = False
 ) -> tuple[str, str, list[dict]]:
     """Format a list of stories into a header, a newline formatted string and a list of blocks"""
     project_slug: str = story_list[0]["project_extra_info"]["slug"]
     header: str = story_list[0]["project_extra_info"]["name"]
-    header_str = (
-        f"<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{header}>"
-    )
+    header_str = f"<{config['taiga']['url']}/project/{project_slug}/kanban|{header}>"
 
     story_strs = []
     story_blocks = []
     for story in story_list:
-        story_url = (
-            f"https://tasks.artifactory.org.au/project/{project_slug}/us/{story['ref']}"
-        )
+        story_url = f"{config['taiga']['url']}/project/{project_slug}/us/{story['ref']}"
         story_name: str = story["subject"]
         story_status: str = story["status_extra_info"]["name"]
         story_formatted = f"• <{story_url}|{story_name}> ({story_status})"
@@ -65,7 +61,7 @@ def format_stories(
 
 
 def format_issues(
-    issue_list: list, compressed: bool = False
+    issue_list: list, config: dict, compressed: bool = False
 ) -> tuple[str, str, list[dict]]:
     """Format a list of issues into a header, a newline formatted string and a list of blocks"""
 
@@ -76,7 +72,7 @@ def format_issues(
     issue_strs = []
     issue_blocks = []
     for issue in issue_list:
-        url = f"https://tasks.artifactory.org.au/project/{project_slug}/issue/{issue['ref']}"
+        url = f"{config['taiga']['url']}/project/{project_slug}/issue/{issue['ref']}"
         issue_formatted = (
             f"• <{url}|{issue['subject']}> ({issue['status_extra_info']['name']})"
         )
@@ -103,7 +99,9 @@ def format_issues(
     return project_name, out_str, issue_blocks
 
 
-def format_tasks(task_list: list, compressed=False) -> tuple[str, str, list[dict]]:
+def format_tasks(
+    task_list: list, config: dict, compressed=False
+) -> tuple[str, str, list[dict]]:
     """Format a list of tasks into a header, a newline formatted string and a list of blocks"""
 
     # Get the user story info
@@ -111,12 +109,12 @@ def format_tasks(task_list: list, compressed=False) -> tuple[str, str, list[dict
     project_name: str = task_list[0]["project_extra_info"]["name"]
     story_ref: str = task_list[0]["user_story_extra_info"]["ref"]
     story_subject: str = task_list[0]["user_story_extra_info"]["subject"]
-    user_story_str = f"<https://tasks.artifactory.org.au/project/{project_slug}/us/{story_ref}|{story_subject}> (<https://tasks.artifactory.org.au/project/{project_slug}/kanban|{project_name}>)"
+    user_story_str = f"<{config['taiga']['url']}/project/{project_slug}/us/{story_ref}|{story_subject}> (<{config['taiga']['url']}/project/{project_slug}/kanban|{project_name}>)"
 
     task_strs = []
     task_blocks = []
     for task in task_list:
-        url = f"https://tasks.artifactory.org.au/project/{task['project_extra_info']['slug']}/task/{task['ref']}"
+        url = f"{config['taiga']['url']}/project/{task['project_extra_info']['slug']}/task/{task['ref']}"
         task_formatted = (
             f"• <{url}|{task['subject']}> ({task['status_extra_info']['name']})"
         )
@@ -350,7 +348,7 @@ def compress_blocks(block_list: list[dict]) -> list:
     return compressed_blocks
 
 
-def render_form_list(form_list: dict, member: bool = False) -> list[dict]:
+def render_form_list(form_list: dict, emoji: str, member: bool = False) -> list[dict]:
     """Takes a list of forms and renders them as a list of blocks"""
     block_list = []
     block_list = block_formatters.add_block(block_list, blocks.text)
@@ -366,7 +364,7 @@ def render_form_list(form_list: dict, member: bool = False) -> list[dict]:
         block_list = block_formatters.add_block(block_list, blocks.header)
         block_list = block_formatters.inject_text(
             block_list=block_list,
-            text=f'{form["title"]}{":artifactory:" if form["members_only"] else ""}',
+            text=f'{form["title"]}{":{emoji}:" if form["members_only"] else ""}',
         )
         block_list = block_formatters.add_block(block_list, blocks.text)
         block_list = block_formatters.inject_text(
@@ -1666,7 +1664,7 @@ def app_home(
                     break
             items_added += 1
             header, body, story_blocks = block_formatters.format_stories(
-                story_list=sorted_stories[project], compressed=compress
+                story_list=sorted_stories[project], compressed=compress, config=config
             )
             if not compress:
                 block_list = block_formatters.add_block(block_list, blocks.text)
@@ -1733,7 +1731,7 @@ def app_home(
                     break
             items_added += 1
             header, body, issue_blocks = block_formatters.format_issues(
-                issue_list=sorted_issues[project], compressed=compress
+                issue_list=sorted_issues[project], compressed=compress, config=config
             )
             if not compress:
                 block_list = block_formatters.add_block(block_list, blocks.text)
@@ -1802,7 +1800,7 @@ def app_home(
                     break
             items_added += 1
             header, body, task_blocks = block_formatters.format_tasks(
-                task_list=sorted_tasks[project], compressed=compress
+                task_list=sorted_tasks[project], compressed=compress, config=config
             )
 
             # Skip over tasks assigned in template cards

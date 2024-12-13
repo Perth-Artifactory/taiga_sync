@@ -276,6 +276,9 @@ def concession_not_needed(contact_id: str | None, tidyhq_cache: dict) -> bool:
 
     Will also return False if the contact does not have an actual membership"""
 
+    if contact_id == None:
+        return False
+
     member_type = tidyhq.get_membership_type(
         contact_id=contact_id, tidyhq_cache=tidyhq_cache
     )

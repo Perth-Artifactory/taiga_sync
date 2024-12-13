@@ -128,6 +128,7 @@ auth_test = app.client.auth_test()
 slack_team_id: str = auth_test["team_id"]
 slack_bot_id = auth_test["bot_id"]
 slack_app_id = "A081HR32FKK"
+slack_workspace_title = app.client.team_info()["team"]["name"]
 
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
@@ -196,13 +197,13 @@ def handle_link_unfurls(body):
                 "preview": {
                     "title": {
                         "type": "plain_text",
-                        "text": "Taiga | Artifactory Issue Tracker",
+                        "text": f"Taiga | {slack_workspace_title} Issue Tracker",
                     }
                 }
             }
             final_info[url]["blocks"] = block_formatters.inject_text(
                 copy(blocks.text),
-                "This service is used to track issues related to the Artifactory.",
+                f"This service is used to track issues related to the {slack_workspace_title}.",
             )
             continue
 
@@ -413,7 +414,7 @@ def modal_form_selector(ack, client, body):
     # Reload forms from file
     importlib.reload(forms)
 
-    artifactory_member = False
+    org_member = False
 
     # Check if the user is registered in TidyHQ
     tidyhq_id = tidyhq.map_slack_to_tidyhq(
@@ -428,11 +429,11 @@ def modal_form_selector(ack, client, body):
             contact_id=tidyhq_id, tidyhq_cache=tidyhq_cache
         )
         if membership_type in ["Concession", "Full", "Sponsor"]:
-            artifactory_member = True
+            org_member = True
 
     # Render the blocks for the form selection modal
     block_list = block_formatters.render_form_list(
-        form_list=forms.forms, member=artifactory_member
+        form_list=forms.forms, member=org_member, emoji=slack_workspace_title
     )
 
     log_time(

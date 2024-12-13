@@ -299,7 +299,9 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 # Render the form modal for a non member
 logger.info("Rendering form modal for a non member")
 start_time = time.time()
-block_list = block_formatters.render_form_list(form_list=forms.forms, member=False)
+block_list = block_formatters.render_form_list(
+    form_list=forms.forms, member=False, emoji="artifactory"
+)
 end_time = time.time()
 assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
@@ -308,7 +310,9 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 # Render the form modal for a member
 logger.info("Rendering form modal for a member")
 start_time = time.time()
-block_list = block_formatters.render_form_list(form_list=forms.forms, member=True)
+block_list = block_formatters.render_form_list(
+    form_list=forms.forms, member=True, emoji="artifactory"
+)
 end_time = time.time()
 assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
@@ -333,7 +337,7 @@ div("Membership info")
 logger.info("Retrieving membership type for a member")
 start_time = time.time()
 membership_type = tidyhq.get_membership_type(
-    contact_id=1952718, tidyhq_cache=tidyhq_cache
+    contact_id="1952718", tidyhq_cache=tidyhq_cache
 )
 end_time = time.time()
 assert membership_type != None, f"membership_type: {membership_type}"
@@ -343,7 +347,7 @@ logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 logger.info("Retrieving membership type for a non member")
 start_time = time.time()
 membership_type = tidyhq.get_membership_type(
-    contact_id=17801, tidyhq_cache=tidyhq_cache
+    contact_id="17801", tidyhq_cache=tidyhq_cache
 )
 end_time = time.time()
 assert membership_type in [None, "Expired"], f"membership_type: {membership_type}"
@@ -561,6 +565,6 @@ response = requests.get(
 stories = response.json()
 for story in stories:
     if story.get("assigned_users"):
-        url = f"https://tasks.artifactory.org.au/project/{story['project_extra_info']['slug']}/us/{story['ref']}"
+        url = f"{config['taiga']['url']}/project/{story['project_extra_info']['slug']}/us/{story['ref']}"
         if not story.get("assigned_to") and story["assigned_users"]:
             print(url)
