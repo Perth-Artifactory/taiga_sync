@@ -74,6 +74,11 @@ def generate_tasks(
 
     if not message:
         return []
+    if "I'm sorry, I can't assist with that" in message:
+        logging.critical(
+            "GPT was asked to generate tasks for a story that was likely illegal in some way."
+        )
+        return []
     generated_tasks = []
     for line in message.split("\n"):
         line = line.strip()
