@@ -364,7 +364,7 @@ def render_form_list(form_list: dict, emoji: str, member: bool = False) -> list[
         block_list = block_formatters.add_block(block_list, blocks.header)
         block_list = block_formatters.inject_text(
             block_list=block_list,
-            text=f'{form["title"]}{":{emoji}:" if form["members_only"] else ""}',
+            text=f'{form["title"]}{f":{emoji}:" if form["members_only"] else ""}',
         )
         block_list = block_formatters.add_block(block_list, blocks.text)
         block_list = block_formatters.inject_text(
@@ -2162,5 +2162,18 @@ def task_approval(tasks):
     options = text_to_options(tasks)
     block_list[-1]["element"]["options"] = options
     block_list[-1]["element"]["action_id"] = "task_options"
+
+    return block_list
+
+
+def viewedit_placeholder():
+    """Generate the block for a placeholder loading screen"""
+    block_list = []
+
+    # Add a placeholder for the AI task blocks
+    block_list = block_formatters.add_block(block_list, blocks.text)
+    block_list = block_formatters.inject_text(
+        block_list=block_list, text="Loading from Taiga :loading-disc:"
+    )
 
     return block_list

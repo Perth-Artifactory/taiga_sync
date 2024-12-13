@@ -419,6 +419,24 @@ def modal_form_selector(ack, client, body):
     ack()
     user = body["user"]
 
+    logger.info("Opening placeholder modal")
+    try:
+        ack()
+        modal = client.views_open(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "form_selection",
+                "title": {"type": "plain_text", "text": "Loading..."},
+                "blocks": block_formatters.viewedit_placeholder(),
+            },
+        )
+        logger.info("Placeholder modal opened")
+        view_id = modal["view"]["id"]
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
+
     # Reload forms from file
     importlib.reload(forms)
 
@@ -453,8 +471,8 @@ def modal_form_selector(ack, client, body):
 
     # Open the modal
     try:
-        client.views_open(
-            trigger_id=body["trigger_id"],
+        client.views_update(
+            view_id=view_id,
             view={
                 "type": "modal",
                 "callback_id": "form_selection",
@@ -480,6 +498,24 @@ def submodal_specific_form(ack, body, client):
     start_time = time.time()
     ack()
     form_name = body["actions"][0]["value"]
+
+    logger.info("Pushed placeholder modal")
+    try:
+        ack()
+        modal = client.views_push(
+            trigger_id=body["trigger_id"],
+            view={
+                "type": "modal",
+                "callback_id": "form_submission",
+                "title": {"type": "plain_text", "text": "Loading..."},
+                "blocks": block_formatters.viewedit_placeholder(),
+            },
+        )
+        logger.info("Placeholder modal pushed")
+        view_id = modal["view"]["id"]
+    except SlackApiError as e:
+        logger.error(f"Failed to open modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
     # Reload forms from file
     importlib.reload(forms)
@@ -508,8 +544,8 @@ def submodal_specific_form(ack, body, client):
 
     # Open the modal
     try:
-        client.views_push(
-            trigger_id=body["trigger_id"],
+        client.views_update(
+            view_id=view_id,
             view={
                 "type": "modal",
                 "callback_id": f"form_submission-{form_name}",
@@ -798,6 +834,25 @@ def modal_viewedit(ack, body):
         modal_method = value_string.split("-")[-1]
         value_string = "-".join(value_string.split("-")[:-1])
 
+    if modal_method == "open":
+        logger.info("Opening placeholder modal")
+        try:
+            ack()
+            modal = client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "viewedit",
+                    "title": {"type": "plain_text", "text": "Loading..."},
+                    "blocks": block_formatters.viewedit_placeholder(),
+                },
+            )
+            logger.info("Placeholder modal opened")
+            view_id = modal["view"]["id"]
+        except SlackApiError as e:
+            logger.error(f"Failed to open modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
+
     project_id, item_type, item_id = value_string.split("-")[1:]
 
     logger.info(f"Received view/edit for {item_type} {item_id} in project {project_id}")
@@ -849,8 +904,8 @@ def modal_viewedit(ack, body):
     if modal_method == "open":
         # Open the modal
         try:
-            client.views_open(
-                trigger_id=body["trigger_id"],
+            client.views_update(
+                view_id=view_id,
                 view={
                     "type": "modal",
                     "callback_id": "finished_editing",
@@ -1756,7 +1811,7 @@ def modal_create_item(ack, body, client):
 
 
 @app.shortcut("create-from-message")
-def modal_create_from_message(ack, body):
+def modal_create_from_message(ack, body, client):
     """Bring up a modal that allows the user to select the item type and what project to create it in.
 
     Sets the initial value of the description field to the message"""
@@ -1808,7 +1863,7 @@ def modal_create_from_message(ack, body):
 
     # Open the modal
     try:
-        app.client.views_open(
+        client.views_open(
             trigger_id=body["trigger_id"],
             view={
                 "type": "modal",
@@ -1835,14 +1890,11 @@ def submodal_new_item(ack, body, client):
     item_type = body["view"]["state"]["values"]["item_type"]["item_type"][
         "selected_option"
     ]["value"]
+    description = ""
     if "description" in body["view"]["state"]["values"]:
         description = body["view"]["state"]["values"]["description"]["description"][
             "value"
         ]
-
-    # Check for private metadata
-    description = ""
-    # TODO: Get description from not the private metadata
 
     logging.info(f"Creating new {item_type} in project {project_id}")
 
@@ -1879,6 +1931,25 @@ def handle_write_item(ack, body, client):
     """Write the new item to Taiga"""
     start_time = time.time()
     ack()
+
+    if body["view"]["title"]["text"] != "Create new task":
+        logger.info("Opening placeholder modal")
+        try:
+            ack()
+            modal = client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "form_selection",
+                    "title": {"type": "plain_text", "text": "Loading..."},
+                    "blocks": block_formatters.viewedit_placeholder(),
+                },
+            )
+            logger.info("Placeholder modal opened")
+            view_id = modal["view"]["id"]
+        except SlackApiError as e:
+            logger.error(f"Failed to open modal: {e.response['error']}")
+            logger.error(e.response["response_metadata"]["messages"])
 
     # Get the project_id and item type from the callback id
     project_id, item_type, story_id = body["view"]["callback_id"].split("-")[1:]
@@ -1947,6 +2018,7 @@ def handle_write_item(ack, body, client):
 
     if body["view"]["title"]["text"] == "Create new task":
         # Regenerate the story view/edit modal as tasks are only created from there
+        view_id = body["view"]["root_view_id"]
         block_list = block_formatters.viewedit_blocks(
             taigacon=taigacon,
             project_id=project_id,
@@ -1956,45 +2028,33 @@ def handle_write_item(ack, body, client):
             config=config,
             taiga_auth_token=taiga_auth_token,
         )
+    else:
+        block_list = block_formatters.viewedit_blocks(
+            taigacon=taigacon,
+            project_id=project_id,
+            item_type=item_type,
+            item_id=item_id,
+            taiga_cache=taiga_cache,
+            config=config,
+            taiga_auth_token=taiga_auth_token,
+        )
 
-        try:
-            client.views_update(
-                view_id=body["view"]["root_view_id"],
-                view={
-                    "type": "modal",
-                    "callback_id": "finished_editing",
-                    "title": {"type": "plain_text", "text": f"View/edit story"},
-                    "blocks": block_list,
-                    "submit": {"type": "plain_text", "text": "Finish"},
-                    "clear_on_close": True,
-                },
-            )
-        except SlackApiError as e:
-            logger.error(f"Failed to push modal: {e.response['error']}")
-            logger.error(e.response["response_metadata"]["messages"])
-
-    # This process typically takes longer than the 3s we have to respond to the view submission
-    # So we can't open the view/edit modal
-    # Instead we'll send a DM to the user to let them know the item has been created
-
-    block_list = []
-    block_list = block_formatters.add_block(block_list, blocks.text)
-    block_list[-1]["text"][
-        "text"
-    ] = f"Created new {item_type}: {new_item_details['subject']}"
-
-    # Add a button to view the new item
-    button = copy(blocks.button)
-    button["text"]["text"] = "View/Edit"
-    button["action_id"] = f"viewedit-{project_id}-{item_type}-{item_id}"
-    block_list[-1]["accessory"] = button
-
-    slack_misc.send_dm(
-        slack_app=app,
-        slack_id=body["user"]["id"],
-        message=f"Created new {item_type}: {new_item_details['subject']}",
-        blocks=block_list,
-    )
+    try:
+        client.views_update(
+            view_id=view_id,
+            view={
+                "type": "modal",
+                "callback_id": "finished_editing",
+                "title": {"type": "plain_text", "text": f"View/edit story"},
+                "blocks": block_list,
+                "submit": {"type": "plain_text", "text": "Finish"},
+                "clear_on_close": True,
+            },
+        )
+        logger.info("Updated view/edit modal")
+    except SlackApiError as e:
+        logger.error(f"Failed to push modal: {e.response['error']}")
+        logger.error(e.response["response_metadata"]["messages"])
 
 
 @app.action("filter_home_modal")
