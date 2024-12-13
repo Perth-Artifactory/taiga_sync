@@ -72,6 +72,37 @@ broken_laser_questions = [
     contact,
 ]
 
+# IT
+it_questions = [
+    {"text": "Please answer the following questions to the best of your ability."},
+    {
+        "type": "static_dropdown",
+        "text": "What type of issue are you experiencing?",
+        "options": [
+            "Service not working as expected",
+            "Access issues (Password resets, permissions)",
+        ],
+        "taiga_map": "type",
+    },
+    {
+        "type": "static_dropdown",
+        "text": "Which service is affected?",
+        "options": [
+            "Slack",
+            "TidyHQ",
+            "Wiki",
+            "Taiga",
+            "Internal Slack app (File Butler, Pledge Bot, Training Tracker etc)"
+            "Github",
+            "Teleport",
+            "NVR",
+            "Other",
+        ],
+        "optional": True,
+    },
+    {"type": "long", "text": "Describe the issue"},
+]
+
 # Broken infra
 broken_infra_questions = [
     {
@@ -337,6 +368,17 @@ broken_laser = {
     "taiga_issue_title": "New Laser Report",
 }
 
+# it_issue
+it_issue = {
+    "title": "IT Issue",
+    "description": "Report an IT issue (Password resets, non functioning services etc)",
+    "questions": it_questions,
+    "members_only": False,
+    "action_name": "Report",
+    "taiga_project": "it",
+    "taiga_issue_title": "New IT Report",
+}
+
 # Broken infra
 broken_infra = {
     "title": "Broken Tools, Equipment, or Infrastructure",
@@ -415,6 +457,7 @@ forms = {
     "clean": clean,
     "3d": broken_printer,
     "laser": broken_laser,
+    "it": it_issue,
     "infra": broken_infra,
     "locker": locker,
     "key": key,
