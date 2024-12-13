@@ -9,3 +9,4 @@ mistune==2.0.5
 pytest
 pytest-cov
 pytest-mock
+openai
