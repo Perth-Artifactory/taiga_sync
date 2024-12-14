@@ -527,6 +527,7 @@ def get_tasks(
     exclude_done: bool = False,
     taiga_id: int | str | None = None,
     story_id: int | str | None = None,
+    taiga_cache: dict = {},
 ) -> list[dict]:
     """Get tasks assigned to a user or story.
 
@@ -557,7 +558,11 @@ def get_tasks(
         if filters.get("project_filter"):
             projects = filters["project_filter"]
             if "all" in projects:
-                projects = ["all"]
+                if not taiga_cache or not taiga_id:
+                    raise ValueError(
+                        "Project filter 'all' requires a taiga cache and taiga ID"
+                    )
+                projects = taiga_cache["users"][int(taiga_id)]["projects"]
 
         if filters.get("status_filter", []) == ["closed"]:
             params["status__is_closed"] = True
@@ -607,6 +612,7 @@ def get_stories(
     taiga_auth_token: str,
     filters: dict,
     exclude_done: bool = False,
+    taiga_cache: dict = {},
 ) -> list[dict]:
     """Get stories assigned to a user (default)
 
@@ -633,7 +639,11 @@ def get_stories(
         if filters.get("project_filter"):
             projects = filters["project_filter"]
             if "all" in projects:
-                projects = ["all"]
+                if not taiga_cache or not taiga_id:
+                    raise ValueError(
+                        "Project filter 'all' requires a taiga cache and taiga ID"
+                    )
+                projects = taiga_cache["users"][taiga_id]["projects"]
 
         if filters.get("status_filter", []) == ["closed"]:
             params["status__is_closed"] = True
@@ -683,6 +693,7 @@ def get_issues(
     taiga_auth_token: str,
     filters: dict,
     exclude_done: bool = False,
+    taiga_cache: dict = {},
 ) -> list[dict]:
     """Get issues assigned to a user (default)
 
@@ -709,7 +720,11 @@ def get_issues(
         if filters.get("project_filter"):
             projects = filters["project_filter"]
             if "all" in projects:
-                projects = ["all"]
+                if not taiga_cache or not taiga_id:
+                    raise ValueError(
+                        "Project filter 'all' requires a taiga cache and taiga ID"
+                    )
+                projects = taiga_cache["users"][taiga_id]["projects"]
 
         if filters.get("status_filter", []) == ["closed"]:
             params["status__is_closed"] = True

@@ -1656,6 +1656,7 @@ def app_home(
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
             filters=filters,
+            taiga_cache=taiga_cache,
         )
 
     if len(user_stories) == 0:
@@ -1722,6 +1723,7 @@ def app_home(
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
             filters=filters,
+            taiga_cache=taiga_cache,
         )
 
     if len(user_issues) == 0:
@@ -1789,6 +1791,7 @@ def app_home(
             taiga_auth_token=taiga_auth_token,
             exclude_done=True,
             filters=filters,
+            taiga_cache=taiga_cache,
         )
 
     if len(tasks) == 0:
