@@ -293,7 +293,8 @@ def handle_link_unfurls(body):
                 f"{taiga_cache['boards'][project_id]['name']} {item_type} | {item['subject']}",  # type: ignore
             )
             if item.get("description"):
-                block_list[-1]["text"]["text"] += f"\n\n{item['description']}"
+                formatted_description = slack_misc.convert_markdown(item["description"])
+                block_list[-1]["text"]["text"] += f"\n\n{formatted_description}"
 
             # Add accesory link button
             button = copy(blocks.button)
