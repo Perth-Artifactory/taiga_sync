@@ -587,6 +587,11 @@ def handle_form_submissions(ack, body, logger):
         )
     )
 
+    # We only have a certain amount of time to acknowledge the submission.
+    # Unfortunately we can't create the issue fast enough to fall within Slack's
+    # 3 second limit so we need to acknowledge the submission/close the modal
+    # and hope the issue creation goes through
+
     # Reload forms from file
     importlib.reload(forms)
 
@@ -630,11 +635,17 @@ def handle_form_submissions(ack, body, logger):
     )
 
     if issue:
-        # We only have a certain amount of time to acknowledge the submission. This way the user gets an error if the submission fails
-        # and we get a log of which files are missing the next part fails
-        ack()
+        # We used to ack the submission here but it was shifted further up
+        # since we can't create the issue fast enough to fall within Slack's
+        # 3 second limit
+        pass
     else:
         logger.error("Failed to create issue")
+        logger.info(f"Project ID: {project_id}")
+        logger.info(f"Type ID: {taiga_type_id}")
+        logger.info(f"Severity ID: {taiga_severity_id}")
+        logger.info(f"Title: {issue_title}")
+        logger.info(f"Description: {description}")
         return
 
     upload_success = True
