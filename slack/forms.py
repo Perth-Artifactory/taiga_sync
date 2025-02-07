@@ -127,7 +127,7 @@ def form_submission_to_description(
 
 
 def form_submission_to_metadata(
-    submission: dict, taigacon: taiga.TaigaAPI, taiga_cache: dict, form_name: str
+    submission: dict, taiga_cache: dict, form_name: str
 ) -> tuple[int, int | None, int | None]:
     """Extracts the Taiga project ID and mapped type/severity if applicable.
 
@@ -171,7 +171,7 @@ def form_submission_to_metadata(
     taiga_severity_id = None
     try:
         project_id = int(form["taiga_project"])
-    except:
+    except ValueError:
         project_id = taiga_cache["projects"]["by_name_with_extra"].get(
             form["taiga_project"]
         )

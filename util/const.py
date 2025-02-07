@@ -16,7 +16,7 @@ base_filter = {
                 {
                     "text": {
                         "emoji": True,
-                        "text": "All " "projects",
+                        "text": "All projects",
                         "type": "plain_text",
                     },
                     "value": "all",
@@ -46,7 +46,7 @@ base_filter = {
                 {
                     "text": {
                         "emoji": True,
-                        "text": "User " "Stories",
+                        "text": "User Stories",
                         "type": "plain_text",
                     },
                     "value": "story",

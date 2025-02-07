@@ -1,8 +1,7 @@
 import logging
 import re
-import sys
 from copy import deepcopy as copy
-from pprint import pformat, pprint
+from pprint import pformat
 from typing import Literal
 
 import requests
@@ -44,7 +43,7 @@ def get_custom_fields_for_story(
 
 def get_tidyhq_id(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     """Retrieve the TidyHQ ID for a specific story if set."""
-    custom_attributes, version = get_custom_fields_for_story(
+    custom_attributes, _ = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("1", None)
@@ -52,7 +51,7 @@ def get_tidyhq_id(story_id: str, taiga_auth_token: str, config: dict) -> str | N
 
 def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     """Retrieve the email for a specific story if set."""
-    custom_attributes, version = get_custom_fields_for_story(
+    custom_attributes, _ = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("2", None)
@@ -60,7 +59,7 @@ def get_email(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
 
 def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     """Retrieve the TidyHQ URL for a specific story if set."""
-    custom_attributes, version = get_custom_fields_for_story(
+    custom_attributes, _ = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("3", None)
@@ -68,7 +67,7 @@ def get_tidyhq_url(story_id: str, taiga_auth_token: str, config: dict) -> str | 
 
 def get_member_type(story_id: str, taiga_auth_token: str, config: dict) -> str | None:
     """Retrieve the member type for a specific story if set."""
-    custom_attributes, version = get_custom_fields_for_story(
+    custom_attributes, _ = get_custom_fields_for_story(
         story_id, taiga_auth_token, config
     )
     return custom_attributes.get("4", None)
@@ -475,7 +474,6 @@ def map_slack_names_to_taiga_usernames(input_string: str, taiga_users: dict) -> 
 
 def create_link_to_entry(
     config,
-    taiga_auth_token,
     entry_ref: int,
     project_id: int | None = None,
     project_str: str | None = None,
@@ -785,9 +783,7 @@ def sort_by_project(items: list) -> dict:
     return projects
 
 
-def parse_webhook_action_into_str(
-    data: dict, tidyhq_cache: dict, config: dict, taiga_auth_token
-) -> str:
+def parse_webhook_action_into_str(data: dict, tidyhq_cache: dict, config: dict) -> str:
     """Parse the data of a webhook into a human-readable string."""
     action_map = {
         "create": "created",
@@ -806,14 +802,7 @@ def parse_webhook_action_into_str(
         )
 
     subject = data["data"]["subject"]
-    by_name = data["by"]["full_name"]
-    by_id = data["by"]["id"]
     # Get the Slack ID of the user if it exists
-    slack_id = tidyhq.map_taiga_to_slack(
-        tidyhq_cache=tidyhq_cache, taiga_id=by_id, config=config
-    )
-    if slack_id:
-        by_name = f"<@{slack_id}>"
 
     description = "\n"
 
@@ -835,14 +824,14 @@ def parse_webhook_action_into_str(
                 if "order" in diff:
                     continue
                 elif diff == "is_closed":
-                    if data["change"]["diff"][diff]["to"] == True:
+                    if data["change"]["diff"][diff]["to"]:
                         description = "\nClosed"
                         # If the item is closed we don't care about other diffs
                         break
 
                 # When the change is from nothing to something we don't need to display the nothing part.
-                from_str = f" from: {data['change']['diff'][diff].get('from','-')} "
-                if data["change"]["diff"][diff].get("from") == None:
+                from_str = f" from: {data['change']['diff'][diff].get('from', '-')} "
+                if data["change"]["diff"][diff].get("from") is None:
                     from_str = ""
 
                 description += (
@@ -869,7 +858,7 @@ def parse_webhook_action_into_str(
     # We don't get a lot of information from some task subjects so add in the title oof the user story as well
     card_name = ""
     if data["type"] == "task":
-        card_name = f' ({data["data"]["user_story"]["subject"]})'
+        card_name = f" ({data['data']['user_story']['subject']})"
 
     return f"""{type_map.get(data["type"], "item").capitalize()} {action_map[action]}: {subject}{card_name}{description}"""
 
@@ -1051,7 +1040,7 @@ def watch(
 
 
 def validate_form_options(
-    project_id: int, option_type: str, options: list, taigacon, taiga_cache: dict
+    project_id: int, option_type: str, options: list, taiga_cache: dict
 ) -> bool:
     """Validate that the options provided are valid for the given project and option type."""
     valid_options = []
@@ -1247,18 +1236,17 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
     }
 
     for status_type in statuses:
-
         for status in statuses[status_type]:
-            boards[status.project]["statuses"][status_type][
-                status.id
-            ] = status.to_dict()
+            boards[status.project]["statuses"][status_type][status.id] = (
+                status.to_dict()
+            )
             if status.is_closed:
                 boards[status.project]["closing_statuses"][status_type].append(
                     status.to_dict()
                 )
-                boards[status.project]["closing_statuses"][status_type][-1][
-                    "id"
-                ] = status.id
+                boards[status.project]["closing_statuses"][status_type][-1]["id"] = (
+                    status.id
+                )
 
         # Sort the statuses by order
         for project in boards:

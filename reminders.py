@@ -4,7 +4,7 @@ import sys
 import time
 from copy import deepcopy as copy
 from datetime import datetime
-from pprint import pformat, pprint
+from pprint import pprint
 
 import requests
 from slack_bolt import App

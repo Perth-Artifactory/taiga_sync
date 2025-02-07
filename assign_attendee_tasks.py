@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import sys
-from pprint import pprint
 
 import requests
 from taiga import TaigaAPI

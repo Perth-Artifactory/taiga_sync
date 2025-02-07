@@ -1,6 +1,5 @@
 import json
 import logging
-from pprint import pprint
 
 import taiga
 
@@ -111,7 +110,6 @@ def progress_stories(
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-
         # Check if all tasks are complete
 
         tasks = taigacon.tasks.list(user_story=story.id)
@@ -119,7 +117,7 @@ def progress_stories(
         complete = True
 
         for task in tasks:
-            if task.is_closed == False and task_statuses[task.status] not in [
+            if not task.is_closed and task_statuses[task.status] not in [
                 "Optional",
                 "Not applicable",
             ]:
@@ -158,7 +156,6 @@ def progress_on_tidyhq(
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-
         # Check if the story is in the prospective column
         if story_statuses[story.status]["name"] not in ["Prospective", "Intake"]:
             logger.debug(f"Story {story.subject} is not in the prospective column")
@@ -202,7 +199,6 @@ def progress_on_membership(
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
 
     for story in stories:
-
         # Check if the story is in the attendee column
         if story_statuses[story.status]["name"] != "Attendee":
             logger.debug(f"Story {story.subject} is not in the attendee column")
@@ -262,7 +258,6 @@ def add_useful_fields(
     # Iterate over all user stories
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-
         # Set TidyHQ contact URL
 
         # Check if the story has a TidyHQ link set
@@ -326,4 +321,3 @@ def add_useful_fields(
                 logger.debug(f"Story {story.subject} does not have a TidyHQ ID set")
         else:
             logger.debug(f"Story {story.subject} already has a membership type set")
-            continue

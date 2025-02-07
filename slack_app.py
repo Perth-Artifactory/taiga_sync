@@ -1,7 +1,6 @@
 import importlib
 import json
 import logging
-import os
 import re
 import sys
 import time
@@ -183,11 +182,9 @@ def ignore_message(ack):
 # Event listener for links being shared within slack
 @app.event("link_shared")
 def handle_link_unfurls(body):
-
     # Get the link details
     links = body["event"]["links"]
 
-    link_info = {}
     final_info = {}
 
     for link in links:
@@ -394,9 +391,9 @@ def handle_link_unfurls(body):
     # Add the icon url to every unfurl url that includes a preview section
     for url, info in final_info.items():
         if "preview" in info:
-            final_info[url]["preview"][
-                "image_url"
-            ] = "https://replicate.delivery/pbxt/JF3foGR90vm9BXSEXNaYkaeVKHYbJPinmpbMFvRtlDpH4MMk/out-0-1.png"
+            final_info[url]["preview"]["image_url"] = (
+                "https://replicate.delivery/pbxt/JF3foGR90vm9BXSEXNaYkaeVKHYbJPinmpbMFvRtlDpH4MMk/out-0-1.png"
+            )
 
     try:
         app.client.chat_unfurl(
@@ -416,7 +413,7 @@ def handle_link_unfurls(body):
 def modal_form_selector(ack, client, body):
     """Load the form selection modal"""
     start_time = time.time()
-    logger.info(f"Received form selection shortcut or button")
+    logger.info("Received form selection shortcut or button")
     ack()
     user = body["user"]
 
@@ -581,7 +578,6 @@ def handle_form_submissions(ack, body, logger):
     project_id, taiga_type_id, taiga_severity_id = (
         slack_forms.form_submission_to_metadata(
             submission=body,
-            taigacon=taigacon,
             taiga_cache=taiga_cache,
             form_name=form_name,
         )
@@ -805,9 +801,6 @@ def handle_app_home_opened_events(body, client, logger):
     start_time = time.time()
     user_id = body["event"]["user"]
 
-    # Get user details for more helpful console messages
-    user_info = client.users_info(user=user_id)
-
     global tidyhq_cache
     tidyhq_cache = tidyhq.fresh_cache(config=config, cache=tidyhq_cache)
 
@@ -958,7 +951,6 @@ def modal_viewedit(ack, body):
             pprint(block_list)
 
     elif modal_method == "push":
-
         # Push a new modal onto the stack
         try:
             client.views_push(
@@ -1644,7 +1636,7 @@ def handle_promote_issue(ack, body, client, respond):
     logger.info("Received promote issue action")
 
     # Get the item details from the action ID
-    project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
+    project_id, _, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
     # Attempt to map the Slack user to a Taiga user
     taiga_id = tidyhq.map_slack_to_taiga(
@@ -1708,7 +1700,7 @@ def handle_promote_issue(ack, body, client, respond):
                 view={
                     "type": "modal",
                     "callback_id": "finished_editing",
-                    "title": {"type": "plain_text", "text": f"View/edit story"},
+                    "title": {"type": "plain_text", "text": "View/edit story"},
                     "blocks": block_list,
                     "submit": {"type": "plain_text", "text": "Finish"},
                     "clear_on_close": True,
@@ -1727,7 +1719,7 @@ def handle_promote_issue(ack, body, client, respond):
             client.chat_postEphemeral(
                 channel=body["channel"]["id"],
                 user=body["user"]["id"],
-                text=f"Issue already promoted (or can't be found)",
+                text="Issue already promoted (or can't be found)",
             )
 
 
@@ -1941,7 +1933,6 @@ def submodal_new_item(ack, body, client):
 @app.view_submission(re.compile(r"^write_item-.*"))
 def handle_write_item(ack, body, client):
     """Write the new item to Taiga"""
-    start_time = time.time()
     ack()
 
     if body["view"]["title"]["text"] != "Create new task":
@@ -2016,7 +2007,7 @@ def handle_write_item(ack, body, client):
             new_item_details["priority"] = int(priority)
 
     # Create the new item
-    item_id, version = taigalink.create_item(
+    item_id, _ = taigalink.create_item(
         config=config,
         taiga_auth_token=taiga_auth_token,
         project_id=project_id,
@@ -2057,7 +2048,7 @@ def handle_write_item(ack, body, client):
             view={
                 "type": "modal",
                 "callback_id": "finished_editing",
-                "title": {"type": "plain_text", "text": f"View/edit story"},
+                "title": {"type": "plain_text", "text": "View/edit story"},
                 "blocks": block_list,
                 "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
@@ -2114,13 +2105,6 @@ def modal_home_filter(ack, body):
 def handle_filter_home(ack, body):
     """Regenerate the app home with filters applied"""
     ack()
-
-    # Get Taiga ID
-    taiga_id = tidyhq.map_slack_to_taiga(
-        tidyhq_cache=tidyhq_cache,
-        config=config,
-        slack_id=body["user"]["id"],
-    )
 
     # Get the current filters
     filters = body["view"]["state"]["values"]
@@ -2255,9 +2239,7 @@ def modal_search(ack, body):
     if not taiga_id:
         taiga_id = config["taiga"]["guest_user"]
 
-    blocks = block_formatters.search_blocks(
-        taiga_id=taiga_id, taiga_cache=taiga_cache, projects=projects
-    )
+    blocks = block_formatters.search_blocks(taiga_cache=taiga_cache, projects=projects)
 
     try:
         client.views_open(
@@ -2279,7 +2261,6 @@ def modal_search(ack, body):
 
 @app.view("load_searched_item")
 def modal_searched_item(ack, body):
-
     start_time = time.time()
 
     # Get the action_id for our search field
@@ -2372,7 +2353,6 @@ def modal_searched_item(ack, body):
 
 @app.options(re.compile(r"^search_items-.*"))
 def handle_search_options(ack, body):
-
     # Get the searching projects from the action ID
     search_projects = body["action_id"].split("-")[1:]
 
@@ -2522,7 +2502,7 @@ def handle_ai_task_approval(ack, body):
             view={
                 "type": "modal",
                 "callback_id": "finished_editing",
-                "title": {"type": "plain_text", "text": f"View/edit story"},
+                "title": {"type": "plain_text", "text": "View/edit story"},
                 "blocks": block_list,
                 "submit": {"type": "plain_text", "text": "Finish"},
                 "clear_on_close": True,
@@ -2543,7 +2523,9 @@ if "--cron" in sys.argv:
     slack_users = []
     while slack_response.data.get("response_metadata", {}).get("next_cursor"):  # type: ignore
         slack_users += slack_response.data["members"]  # type: ignore
-        slack_response = app.client.users_list(cursor=slack_response.data["response_metadata"]["next_cursor"])  # type: ignore
+        slack_response = app.client.users_list(
+            cursor=slack_response.data["response_metadata"]["next_cursor"]  # type: ignore
+        )
     slack_users += slack_response.data["members"]  # type: ignore
 
     users = []
@@ -2618,7 +2600,6 @@ if "--cron" in sys.argv:
     user_id, home_no_taiga = gen_home(users[0]["id"], x, [], [])
     user_id, home_no_tidyhq = gen_home(users[2]["id"], x, [], [])
 
-    import threading
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     with ThreadPoolExecutor(max_workers=30) as executor:
@@ -2678,7 +2659,7 @@ if "--cron" in sys.argv:
             except Exception as e:
                 logger.error(f"Error updating home: {e}")
 
-    logger.info(f"All homes updated ({x-1})")
+    logger.info(f"All homes updated ({x - 1})")
     sys.exit(0)
 
 

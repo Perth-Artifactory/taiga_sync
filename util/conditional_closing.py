@@ -1,5 +1,4 @@
 import logging
-import sys
 
 from util import taigalink
 import taiga
@@ -41,7 +40,6 @@ def close_by_order(
 
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-
         # Check over each task in the story
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:

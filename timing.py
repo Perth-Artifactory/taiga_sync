@@ -52,7 +52,6 @@ except FileNotFoundError:
     sys.exit(1)
 
 if not config["taiga"].get("auth_token"):
-
     # Get auth token for Taiga
     # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
     auth_url = f"{config['taiga']['url']}/api/v1/auth"
@@ -92,9 +91,9 @@ if config.get("tidyproxy"):
     tidyhq_cache = tidyhq.fresh_cache(config=config)
     end_time = time.time()
     assert isinstance(tidyhq_cache, dict), f"tidyhq_cache: {tidyhq_cache}"
-    assert (
-        "contacts" in tidyhq_cache
-    ), f"'Contacts' not found in cache of keys: {tidyhq_cache.keys()}"
+    assert "contacts" in tidyhq_cache, (
+        f"'Contacts' not found in cache of keys: {tidyhq_cache.keys()}"
+    )
     logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 else:
     logger.info("Tidyproxy test skipped as not found in config")
@@ -186,7 +185,7 @@ block_list = block_formatters.app_home(
     private_metadata="",
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -202,7 +201,7 @@ block_list = block_formatters.app_home(
     private_metadata="",
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -218,7 +217,7 @@ block_list = block_formatters.app_home(
     private_metadata="",
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -236,7 +235,7 @@ block_list = block_formatters.viewedit_blocks(
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -253,7 +252,7 @@ block_list = block_formatters.viewedit_blocks(
     taiga_auth_token=taiga_auth_token,
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -269,7 +268,7 @@ block_list = block_formatters.edit_info_blocks(
     taiga_cache=taiga_cache,
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -284,7 +283,7 @@ block_list = block_formatters.edit_info_blocks(
     taiga_cache=taiga_cache,
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -303,7 +302,7 @@ block_list = block_formatters.render_form_list(
     form_list=forms.forms, member=False, emoji="artifactory"
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -314,7 +313,7 @@ block_list = block_formatters.render_form_list(
     form_list=forms.forms, member=True, emoji="artifactory"
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -328,7 +327,7 @@ block_list = block_formatters.questions_to_blocks(
     taiga_project="Infrastructure",
 )
 end_time = time.time()
-assert slack_misc.validate(blocks=block_list), f"Generated block list invalid"
+assert slack_misc.validate(blocks=block_list), "Generated block list invalid"
 assert len(block_list) > 2, f"Block list too short: {len(block_list)}"
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms")
 
@@ -377,9 +376,9 @@ response = requests.get(
 project_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert (
-    project.id == project_r["id"]
-), f"python-taiga: {project.id} direct: {project_r['id']}"
+assert project.id == project_r["id"], (
+    f"python-taiga: {project.id} direct: {project_r['id']}"
+)
 
 # Get the statuses of that project
 logger.info("Getting statuses for a project")
@@ -401,9 +400,9 @@ response = requests.get(
 statuses_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert len(statuses) == len(
-    statuses_r
-), f"python-taiga: {len(statuses)} direct: {len(statuses_r)}"
+assert len(statuses) == len(statuses_r), (
+    f"python-taiga: {len(statuses)} direct: {len(statuses_r)}"
+)
 
 # Getting the user stories for a small project
 logger.info("Getting user stories for a small project")
@@ -425,9 +424,9 @@ response = requests.get(
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert len(user_stories) == len(
-    stories_r
-), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+assert len(user_stories) == len(stories_r), (
+    f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+)
 
 # Getting the user stories for a medium sized project
 logger.info("Getting user stories for a normal project")
@@ -449,9 +448,9 @@ response = requests.get(
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert len(user_stories) == len(
-    stories_r
-), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+assert len(user_stories) == len(stories_r), (
+    f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+)
 
 # Getting the user stories for a large project
 logger.info("Getting user stories for a large project")
@@ -473,9 +472,9 @@ response = requests.get(
 stories_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert len(user_stories) == len(
-    stories_r
-), f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+assert len(user_stories) == len(stories_r), (
+    f"python-taiga: {len(user_stories)} direct: {len(stories_r)}"
+)
 
 # Get the comments for a user story
 logger.info("Getting comments for a user story")
@@ -496,9 +495,9 @@ response = requests.get(
 comments_r = response.json()
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (direct)")
-assert len(comments) == len(
-    comments_r
-), f"python-taiga: {len(comments)} direct: {len(comments_r)}"
+assert len(comments) == len(comments_r), (
+    f"python-taiga: {len(comments)} direct: {len(comments_r)}"
+)
 
 # Get the info for a user story
 logger.info("Getting info for a user story")
@@ -548,9 +547,9 @@ all_tasks = response.json()
 local_tasks = [t for t in all_tasks if t["assigned_to"] == 5]
 end_time = time.time()
 logger.info(f"Time taken: {(end_time - start_time) * 1000:.2f}ms (local)")
-assert len(remote_tasks) == len(
-    local_tasks
-), f"remote_tasks: {len(remote_tasks)} local_tasks: {len(local_tasks)}"
+assert len(remote_tasks) == len(local_tasks), (
+    f"remote_tasks: {len(remote_tasks)} local_tasks: {len(local_tasks)}"
+)
 
 div("Taiga DB validation")
 # Validate that all items with an assigned_users field also have an assigned_to field

@@ -4,7 +4,6 @@ import logging
 import sys
 import time
 from copy import deepcopy as copy
-from pprint import pprint
 from typing import Any
 
 import requests
@@ -23,7 +22,7 @@ def query(
 ) -> dict | list:
     """Send a query to the TidyHQ API"""
 
-    if type(term) == int:
+    if isinstance(term, int):
         term = str(term)
 
     # If we have a cache, try using that first before querying TidyHQ
@@ -38,7 +37,7 @@ def query(
                         try:
                             if int(term) in cache["groups"]:
                                 return cache["groups"][int(term)]
-                        except:
+                        except ValueError:
                             pass
                     # If we can't find the group, handle via query instead
                     logger.debug(f"Could not find group with ID {term} in cache")
@@ -67,7 +66,7 @@ def query(
             params={"access_token": config["tidyhq"]["token"]},
         )
         data = r.json()
-    except requests.exceptions.RequestException as e:
+    except requests.exceptions.RequestException:
         logger.error("Could not reach TidyHQ")
         sys.exit(1)
 
@@ -105,7 +104,7 @@ def get_emails(config: dict, limit: int = 1000) -> list:
             raw_emails = r.json()
             emails += raw_emails
             offset += 5
-            logger.debug(f"Sleeping for 3 seconds")
+            logger.debug("Sleeping for 3 seconds")
             time.sleep(3)
         else:
             logger.error(f"Failed to get emails from TidyHQ: {r.status_code}")
@@ -126,11 +125,11 @@ def setup_cache(config: dict) -> dict[str, Any]:
     logger.debug("Getting groups from TidyHQ")
     cache["groups"] = query(cat="groups", config=config)
 
-    logger.debug(f'Got {len(cache["groups"])} groups from TidyHQ')
+    logger.debug(f"Got {len(cache['groups'])} groups from TidyHQ")
 
     logger.debug("Getting memberships from TidyHQ")
     cache["memberships"] = query(cat="memberships", config=config)
-    logger.debug(f'Got {len(cache["memberships"])} memberships from TidyHQ')
+    logger.debug(f"Got {len(cache['memberships'])} memberships from TidyHQ")
 
     logger.debug("Getting invoices from TidyHQ")
     raw_invoices = query(cat="invoices", config=config)
@@ -248,7 +247,7 @@ def setup_cache_from_tidyproxy(config: dict) -> dict[str, Any]:
         try:
             r = requests.get(url=f"{url}/cache.json", auth=auth)
             cache: dict = r.json()
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             logger.error("Could not reach tidyproxy")
             sys.exit(1)
     else:
@@ -256,7 +255,7 @@ def setup_cache_from_tidyproxy(config: dict) -> dict[str, Any]:
         try:
             r = requests.get(url=f"{url}/cache.json")
             cache: dict = r.json()
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             logger.error("Could not reach tidyproxy")
             sys.exit(1)
     if r.status_code != 200:
@@ -346,7 +345,6 @@ def email_to_tidyhq(
     # Iterate over the project's user stories
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-
         # Fetch custom fields of the story
         custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story.id}"
         response = requests.get(
@@ -356,7 +354,6 @@ def email_to_tidyhq(
 
         if response.status_code == 200:
             custom_attributes = response.json().get("attributes_values", {})
-            version = response.json().get("version", 0)
             logger.debug(
                 f"Fetched custom attributes for story {story.id}: {custom_attributes}"
             )
@@ -390,7 +387,6 @@ def email_to_tidyhq(
 
                 # Update the custom field via the Taiga API
                 custom_attributes["1"] = contact["id"]
-                custom_attributes_url = f"{config['taiga']['url']}/api/v1/userstories/custom-attributes-values/{story.id}"
 
                 updating = taigalink.set_custom_field(
                     config=config,
@@ -516,9 +512,8 @@ def check_for_groups(
     logger.debug(f"Got {len(raw_groups)} groups for contact {contact_id}")
 
     for group in raw_groups:
-        if len(groups) > 0:
-            if group["id"] in groups:
-                return True
+        if group["id"] in groups:
+            return True
         if group_string:
             if group_string in group["label"]:
                 return True
@@ -558,7 +553,7 @@ def format_contact(contact: dict) -> str:
     n = ""
     s = ""
     if contact["nick_name"]:
-        n = f' ({contact["nick_name"]})'
+        n = f" ({contact['nick_name']})"
 
     # This field is present in the API response regardless of whether the contact has a first or last name. Since the field has a value dict.get won't work as expected.
     if not contact["first_name"]:
@@ -567,7 +562,7 @@ def format_contact(contact: dict) -> str:
     if not contact["last_name"]:
         contact["last_name"] = "Unknown"
 
-    return f'{contact.get("first_name","Unknown").capitalize()} {contact.get("last_name","Unknown").capitalize()}{n}{s}'
+    return f"{contact.get('first_name', 'Unknown').capitalize()} {contact.get('last_name', 'Unknown').capitalize()}{n}{s}"
 
 
 def return_most_recent_membership(memberships: list) -> dict:

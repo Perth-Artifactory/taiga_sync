@@ -15,7 +15,7 @@ logger = logging.getLogger("slack.misc")
 logger.setLevel(logging.INFO)
 
 
-class mrkdwnRenderer(mistune.HTMLRenderer):
+class mrkdwn_renderer(mistune.HTMLRenderer):
     def paragraph(self, text):
         return text + "\n"
 
@@ -45,7 +45,7 @@ class mrkdwnRenderer(mistune.HTMLRenderer):
         return f"_{text}_"
 
 
-mrkdwnconvert = mistune.create_markdown(renderer=mrkdwnRenderer())
+mrkdwnconvert = mistune.create_markdown(renderer=mrkdwn_renderer())
 
 
 def convert_markdown(text: str) -> str:
@@ -66,14 +66,12 @@ def validate(blocks: list, surface: str | None = "modal") -> bool:
     # We want our own logger for this function
     schemalogger = logging.getLogger("block-kit validator")
 
-    if surface in ["modal", "home"]:
-        if len(blocks) > 100:
-            schemalogger.error(f"Block list too long {len(blocks)}/100")
-            return False
-    elif surface in ["message", "msg"]:
-        if len(blocks) > 50:
-            schemalogger.error(f"Block list too long {len(blocks)}/50")
-            return False
+    if surface in ["modal", "home"] and len(blocks) > 100:
+        schemalogger.error(f"Block list too long {len(blocks)}/100")
+        return False
+    elif surface in ["message", "msg"] and len(blocks) > 50:
+        schemalogger.error(f"Block list too long {len(blocks)}/50")
+        return False
 
     # Recursively search for all fields called "text" and ensure they don't have an empty string
     for block in blocks:
@@ -258,7 +256,7 @@ def download_file(url: str, config: dict) -> bytes:
 
     file_data = requests.get(
         url=url,
-        headers={"Authorization": f'Bearer {config["slack"]["bot_token"]}'},
+        headers={"Authorization": f"Bearer {config['slack']['bot_token']}"},
     )
     return file_data.content
 

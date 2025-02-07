@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-from pprint import pprint
 
 import taiga
 
@@ -12,7 +11,7 @@ logger.setLevel(logging.ERROR)
 
 def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
     """Check if the contact has a Slack ID field set in TidyHQ."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     # Find the contact in the cache
@@ -37,7 +36,7 @@ def joined_slack(config: dict, contact_id: str, tidyhq_cache: dict) -> bool:
 def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has ever signed up as a visitor or member."""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     # Get all memberships for the contact
@@ -62,7 +61,7 @@ def visitor_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> 
 
 def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has ever signed up as a member."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     # Get all memberships for the contact
@@ -82,7 +81,7 @@ def member_signup(config: dict, contact_id: str | None, tidyhq_cache: dict) -> b
 
 def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has been signed off for the member induction within Training Tracker."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     inductions = training.get_inductions_for_contact(
@@ -97,7 +96,7 @@ def member_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -
 
 def visitor_induction(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has been signed off for the visitor induction within Training Tracker."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     inductions = training.get_inductions_for_contact(
@@ -120,7 +119,7 @@ def keyholder_induction(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
     """Check if the contact has been signed off for the keyholder induction within Training Tracker."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     inductions = training.get_inductions_for_contact(
@@ -135,7 +134,7 @@ def keyholder_induction(
 
 def id_photo(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has uploaded an ID photo."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     photo_url = tidyhq.get_custom_field(
@@ -156,7 +155,7 @@ def check_payment_method(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
     """Check if the contact's most recent payment was via bank transfer."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     payment_method = None
@@ -183,7 +182,7 @@ def check_payment_method(
 
 def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if we've sent an invoice for 135/225 to the contact. Does not check if it's been paid."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     contact_id = str(contact_id)
@@ -200,7 +199,7 @@ def bond_invoice_sent(config: dict, contact_id: str | None, tidyhq_cache: dict) 
 
 def bond_invoice_paid(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if we've sent an invoice for 135/225 to the contact. Does not check if it's been paid."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     contact_id = str(contact_id)
@@ -224,7 +223,7 @@ def check_billing_groups(
     config: dict, contact_id: str | None, tidyhq_cache: dict
 ) -> bool:
     """Check if the contact is in a group that contains the string 'Billing'."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     return tidyhq.check_for_groups(
@@ -234,7 +233,7 @@ def check_billing_groups(
 
 def at_least_one_tool(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has been signed off on at least one tool"""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     inductions = training.get_inductions_for_contact(
@@ -257,7 +256,7 @@ def concession_sighted(
     """Check if the contact has had their concession proof sighted and recorded in TidyHQ.
 
     _Does not_ return True if the user does not need to provide proof of concession."""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     if tidyhq.get_custom_field(
@@ -276,7 +275,7 @@ def concession_not_needed(contact_id: str | None, tidyhq_cache: dict) -> bool:
 
     Will also return False if the contact does not have an actual membership"""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     member_type = tidyhq.get_membership_type(
@@ -290,7 +289,7 @@ def concession_not_needed(contact_id: str | None, tidyhq_cache: dict) -> bool:
 def member_2week(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check whether the member has held their current membership for at least two weeks."""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     memberships = tidyhq.get_memberships_for_contact(
@@ -315,7 +314,7 @@ def member_2week(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bo
 def member_6month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check whether the member has held their current membership for at least six months (180 days)."""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     memberships = tidyhq.get_memberships_for_contact(
@@ -340,7 +339,7 @@ def member_6month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> b
 def member_18month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check whether the member has held their current membership for at least 18 months (540 days)."""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     memberships = tidyhq.get_memberships_for_contact(
@@ -365,7 +364,7 @@ def member_18month(config: dict, contact_id: str | None, tidyhq_cache: dict) -> 
 def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has valid emergency contact details."""
 
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     contact = tidyhq.get_contact(contact_id=contact_id, tidyhq_cache=tidyhq_cache)
@@ -408,7 +407,7 @@ def valid_emergency(config: dict, contact_id: str | None, tidyhq_cache: dict) ->
 
 def has_key(config: dict, contact_id: str | None, tidyhq_cache: dict) -> bool:
     """Check if the contact has a key enabled"""
-    if contact_id == None:
+    if contact_id is None:
         return False
 
     key_status = tidyhq.get_custom_field(
@@ -473,7 +472,6 @@ def check_all_tasks(
     # Find all user stories that include our bot managed tag
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-
         # Retrieve the TidyHQ ID for the story
         tidyhq_id = taigalink.get_tidyhq_id(
             story_id=story.id, taiga_auth_token=taiga_auth_token, config=config
@@ -482,8 +480,7 @@ def check_all_tasks(
         # Check over each task in the story
         tasks = taigacon.tasks.list(user_story=story.id)
         for task in tasks:
-
-            if task.is_closed == True or task_statuses[task.status] in [
+            if task.is_closed or task_statuses[task.status] in [
                 "Not applicable",
             ]:
                 logger.debug(f"Task {task.subject} is not complete, optional, or N/A")

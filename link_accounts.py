@@ -1,16 +1,13 @@
 import json
 import logging
 import sys
-import time
-from datetime import datetime
-from pprint import pformat, pprint
 
 import requests
 from slack_bolt import App
 from taiga import TaigaAPI
 
 from slack import blocks, block_formatters
-from util import taigalink, tidyhq
+from util import tidyhq
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -210,7 +207,7 @@ for contact in tidyhq_cache["contacts"]:
         else:
             logger.error(f"Failed to set Taiga ID on contact {contact['id']}")
 
-logger.info(f"Auto linking complete")
+logger.info("Auto linking complete")
 logger.info(f"Taiga users remaining: {len(taiga_users)}/{first_count}")
 
 # If we're running in cron mode, that's it
@@ -262,5 +259,5 @@ for user in taiga_users:
 for user in removing:
     taiga_users.pop(user)
 
-logger.info(f"Manual linking complete")
+logger.info("Manual linking complete")
 logger.info(f"Taiga users remaining: {len(taiga_users)}/{first_count}")

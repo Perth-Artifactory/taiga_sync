@@ -1,22 +1,13 @@
-import importlib
 import json
 import logging
-import os
 import sys
-import time
-from copy import deepcopy as copy
-from datetime import datetime
-from pprint import pformat, pprint
+from pprint import pprint
 
 import openai
 import requests
-from slack_bolt import App
 from taiga import TaigaAPI
 
-from editable_resources import forms
-from slack import block_formatters
-from slack import misc as slack_misc
-from util import misc, taigalink, tidyhq
+from util import taigalink, tidyhq
 
 
 def div(title: str | None = None):
@@ -57,7 +48,6 @@ except FileNotFoundError:
     sys.exit(1)
 
 if not config["taiga"].get("auth_token"):
-
     # Get auth token for Taiga
     # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
     auth_url = f"{config['taiga']['url']}/api/v1/auth"
@@ -126,9 +116,9 @@ info = []
 item_infos = {"task": [], "userstory": [], "issue": []}
 
 for event in timeline:
-    if event["event_type"].startswith("projects"):
-        continue
-    elif event["event_type"].startswith("epics"):
+    if event["event_type"].startswith("projects") or event["event_type"].startswith(
+        "epics"
+    ):
         continue
 
     if "task" in event["data"]:
@@ -152,14 +142,14 @@ for event in timeline:
                 event["data"]["values_diff"].pop(key)
         info.append("Changes:")
         for field, change in event["data"]["values_diff"].items():
-            if type(change) != list:
+            if isinstance(change, list):
                 continue
             if len(change) > 1:
                 pprint(change)
                 info.append(f"{field}: {change[1]} (was {change[0]})")
             else:
                 info.append(f"{field}: {change[0]}")
-    info.append(f"")
+    info.append("")
 
 # Dedupe item infos
 for key, value in item_infos.items():

@@ -15,8 +15,6 @@ from pprint import pprint
 import requests
 from flask import Flask, request
 from slack_bolt import App
-from slack_bolt.adapter.socket_mode import SocketModeHandler
-from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from taiga import TaigaAPI
 from waitress import serve
@@ -219,7 +217,6 @@ def incoming():
         data=data,
         tidyhq_cache=tidyhq_cache,
         config=config,
-        taiga_auth_token=taiga_auth_token,
     )
 
     block_list = []
@@ -268,7 +265,7 @@ def incoming():
                 "title": {"type": "plain_text", "text": "Promote to story"},
                 "text": {
                     "type": "plain_text",
-                    "text": f"Any comments on this issue will be mirrored to the new story as a single comment. Are you sure?",
+                    "text": "Any comments on this issue will be mirrored to the new story as a single comment. Are you sure?",
                 },
                 "confirm": {"type": "plain_text", "text": "Promote"},
                 "deny": {"type": "plain_text", "text": "Cancel"},

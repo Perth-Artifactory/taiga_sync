@@ -3,9 +3,6 @@ import logging
 import json
 import sys
 from slack_bolt import App
-from datetime import datetime
-from pprint import pprint, pformat
-import time
 
 from taiga import TaigaAPI
 

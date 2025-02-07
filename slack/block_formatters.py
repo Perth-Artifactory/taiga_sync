@@ -8,8 +8,6 @@ from pprint import pprint
 import time
 import re
 
-import jsonschema
-
 import taiga
 import taiga.models
 
@@ -146,7 +144,6 @@ def format_attachments(attachments: list) -> list[dict]:
     """Format a list of taiga attachments into a list of blocks including image blocks as appropriate."""
     block_list = []
     for attachment in attachments:
-
         filetype = attachment.attached_file.split(".")[-1]
 
         if filetype in ["jpg", "jpeg", "png", "gif"]:
@@ -196,8 +193,8 @@ def format_tasks_modal_blocks(
     block_list = add_block(block_list, blocks.divider)
 
     # Sort the tasks by closed status
-    incomplete_tasks = [task for task in task_list if task["is_closed"] == False]
-    complete_tasks = [task for task in task_list if task["is_closed"] == True]
+    incomplete_tasks = [task for task in task_list if not task["is_closed"]]
+    complete_tasks = [task for task in task_list if task["is_closed"]]
     task_list = incomplete_tasks + complete_tasks
 
     for task in task_list:
@@ -323,9 +320,9 @@ def add_block(block_list: list, block: dict | list) -> list[dict]:
     """
     block = copy(block)
     block_list = copy(block_list)
-    if type(block) == list:
+    if isinstance(block, list):
         block_list += block
-    elif type(block) == dict:
+    elif isinstance(block, dict):
         block_list.append(block)
 
     if len(block_list) > 100:
@@ -364,7 +361,7 @@ def render_form_list(form_list: dict, emoji: str, member: bool = False) -> list[
         block_list = block_formatters.add_block(block_list, blocks.header)
         block_list = block_formatters.inject_text(
             block_list=block_list,
-            text=f'{form["title"]}{f":{emoji}:" if form["members_only"] else ""}',
+            text=f"{form['title']}{f':{emoji}:' if form['members_only'] else ''}",
         )
         block_list = block_formatters.add_block(block_list, blocks.text)
         block_list = block_formatters.inject_text(
@@ -424,7 +421,6 @@ def questions_to_blocks(
         taiga_project_id = int(taiga_project_id)
 
     for question in questions:
-
         # Some fields will break if they're included but are empty, so we'll remove them now
         for key in ["placeholder", "text", "action_id"]:
             if key in question:
@@ -450,7 +446,7 @@ def questions_to_blocks(
         elif question["type"] in ["short", "long"]:
             if "text" not in question:
                 raise ValueError("Short question must have a text field")
-            if type(question["text"]) != str:
+            if not isinstance(question["text"], str):
                 raise ValueError("Short question text must be a string")
             block_list = block_formatters.add_block(block_list, blocks.text_question)
             block_list[-1]["label"]["text"] = question.get("text")
@@ -512,7 +508,6 @@ def questions_to_blocks(
                         project_id=taiga_project_id,
                         option_type=question.get("taiga_map", "type"),
                         options=question.get("options", ["invalid"]),
-                        taigacon=taigacon,
                         taiga_cache=taiga_cache,
                     ):
                         logger.warning(
@@ -627,12 +622,12 @@ def questions_to_blocks(
                 block_list[-1]["optional"] = True
 
             if question.get("file_type"):
-                if type(question["file_type"]) != list:
+                if not isinstance(question["file_type"], list):
                     raise ValueError("File type must be a list of strings")
                 block_list[-1]["element"]["filetypes"] = question["file_type"]
 
             if question.get("max_files"):
-                if type(question["max_files"]) != int:
+                if not isinstance(question["max_files"], int):
                     raise ValueError("Max files must be an integer")
                 if 11 < question["max_files"] < 1:
                     raise ValueError("Max files must be between 1 and 10")
@@ -826,7 +821,7 @@ def viewedit_blocks(
                 "title": {"type": "plain_text", "text": "Promote to story"},
                 "text": {
                     "type": "plain_text",
-                    "text": f"The {len(comments)} comment{'s' if len(comments)> 1 else ''} on this issue will be mirrored to the new story as a single message. Are you sure?",
+                    "text": f"The {len(comments)} comment{'s' if len(comments) > 1 else ''} on this issue will be mirrored to the new story as a single message. Are you sure?",
                 },
                 "confirm": {"type": "plain_text", "text": "Promote"},
                 "deny": {"type": "plain_text", "text": "Cancel"},
@@ -967,7 +962,6 @@ def viewedit_blocks(
             closed = 0
 
             for task in tasks:
-
                 if task["is_closed"]:
                     closed += 1
                 else:
@@ -999,9 +993,9 @@ def viewedit_blocks(
             block_list = block_formatters.add_block(block_list, blocks.actions)
             block_list[-1].pop("block_id")
             button = copy(blocks.button)
-            button["text"][
-                "text"
-            ] = f"View all tasks {misc.calculate_circle_emoji(closed,len(tasks))} ({closed}/{len(tasks)})"
+            button["text"]["text"] = (
+                f"View all tasks {misc.calculate_circle_emoji(closed, len(tasks))} ({closed}/{len(tasks)})"
+            )
             button["action_id"] = f"view_tasks-{item_id}"
             block_list[-1]["elements"].append(button)
 
@@ -1121,7 +1115,7 @@ def viewedit_blocks(
         elements.append(
             {
                 "type": "mrkdwn",
-                "text": f"<!date^{int(comment['date'].timestamp())}^{{ago}} ({{date_short_pretty}})|{comment['date'].strftime('%Y-%m-%d %H:%M') }>",
+                "text": f"<!date^{int(comment['date'].timestamp())}^{{ago}} ({{date_short_pretty}})|{comment['date'].strftime('%Y-%m-%d %H:%M')}>",
             }
         )
         block_list[-1]["elements"] = elements
@@ -1152,9 +1146,9 @@ def viewedit_blocks(
     block_list = block_formatters.add_block(block_list, blocks.actions)
     block_list[-1]["elements"].append(copy(blocks.button))
     block_list[-1]["elements"][0]["text"]["text"] = "Comment"
-    block_list[-1]["elements"][0][
-        "action_id"
-    ] = f"submit_comment-{project_id}-{item_type}-{item_id}"
+    block_list[-1]["elements"][0]["action_id"] = (
+        f"submit_comment-{project_id}-{item_type}-{item_id}"
+    )
 
     return block_list
 
@@ -1564,9 +1558,9 @@ def app_home(
         # Add clear filter button if the filter is not the default
         if raw_filters != const.base_filter:
             block_list[-1]["elements"].append(copy(blocks.button))
-            block_list[-1]["elements"][-1]["text"][
-                "text"
-            ] = ":wastebasket: Reset filter"
+            block_list[-1]["elements"][-1]["text"]["text"] = (
+                ":wastebasket: Reset filter"
+            )
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
 
         # Add a search button
@@ -1616,9 +1610,9 @@ def app_home(
         # Add clear filter button if the filter is not the default
         if raw_filters != const.base_filter:
             block_list[-1]["elements"].append(copy(blocks.button))
-            block_list[-1]["elements"][-1]["text"][
-                "text"
-            ] = ":wastebasket: Reset filter"
+            block_list[-1]["elements"][-1]["text"]["text"] = (
+                ":wastebasket: Reset filter"
+            )
             block_list[-1]["elements"][-1]["action_id"] = "clear_filter"
             block_list[-1]["elements"][-1]["style"] = "danger"
 
@@ -1690,7 +1684,7 @@ def app_home(
                     at_block_limit = True
                     break
             items_added += 1
-            header, body, story_blocks = block_formatters.format_stories(
+            header, _, story_blocks = block_formatters.format_stories(
                 story_list=sorted_stories[project], compressed=compress, config=config
             )
             if not compress:
@@ -1758,7 +1752,7 @@ def app_home(
                     at_block_limit = True
                     break
             items_added += 1
-            header, body, issue_blocks = block_formatters.format_issues(
+            header, _, issue_blocks = block_formatters.format_issues(
                 issue_list=sorted_issues[project], compressed=compress, config=config
             )
             if not compress:
@@ -1801,7 +1795,6 @@ def app_home(
         )
 
     else:
-
         # Sort the tasks based on user story
         sorted_tasks = taigalink.sort_tasks_by_user_story(tasks)
 
@@ -1828,7 +1821,7 @@ def app_home(
                     at_block_limit = True
                     break
             items_added += 1
-            header, body, task_blocks = block_formatters.format_tasks(
+            header, _, task_blocks = block_formatters.format_tasks(
                 task_list=sorted_tasks[project], compressed=compress, config=config
             )
 
@@ -1900,9 +1893,9 @@ def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict) ->
     block_list = []
 
     project_dropdown = copy(blocks.multi_static_dropdown)
-    project_dropdown["element"]["placeholder"][
-        "text"
-    ] = "Select projects that you want to see"
+    project_dropdown["element"]["placeholder"]["text"] = (
+        "Select projects that you want to see"
+    )
     project_dropdown["label"]["text"] = "By Project"
     project_dropdown["element"]["action_id"] = "project_filter"
     project_dropdown["block_id"] = "project_filter"
@@ -2111,7 +2104,7 @@ def project_selector(taiga_id: int, private_metadata: str, taiga_cache: dict):
     return block_list
 
 
-def search_blocks(taiga_id: int, taiga_cache: dict, projects: list):
+def search_blocks(taiga_cache: dict, projects: list):
     """Generate the blocks required to search for items"""
 
     block_list = []
