@@ -37,5 +37,9 @@
         "."
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "sonarlint.connectedMode.project": {
+        "connectionId": "https-sq-artifactory-org-au",
+        "projectKey": "Perth-Artifactory_taiga_sync_d1333a85-f80d-4e34-9c98-4ac2e61329e2"
+    }
 }
