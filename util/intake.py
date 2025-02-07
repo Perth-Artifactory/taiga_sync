@@ -27,7 +27,6 @@ def pull_tidyhq(
     # Get a list of stories with TidyHQ contacts attached that are bot managed
     stories = taigacon.user_stories.list(project=project_id, tags="bot-managed")
     for story in stories:
-
         # Retrieve the TidyHQ ID for the story
         tidyhq_id = taigalink.get_tidyhq_id(
             story_id=story.id, taiga_auth_token=taiga_auth_token, config=config

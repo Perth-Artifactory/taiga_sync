@@ -14,7 +14,6 @@ def generate_tasks(
     attachments: list,
     client: openai.OpenAI,
 ) -> list:
-
     task_strs = "\n"
     for task in existing_tasks:
         task_strs += f"{task['subject']} ({task['status']})\n"

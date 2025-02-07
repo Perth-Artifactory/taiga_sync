@@ -52,7 +52,6 @@ except FileNotFoundError:
     sys.exit(1)
 
 if not config["taiga"].get("auth_token"):
-
     # Get auth token for Taiga
     # This is used instead of python-taiga's inbuilt user/pass login method since we also need to interact with the api directly
     auth_url = f"{config['taiga']['url']}/api/v1/auth"

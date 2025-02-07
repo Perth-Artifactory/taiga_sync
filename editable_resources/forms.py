@@ -92,7 +92,7 @@ it_questions = [
             "TidyHQ",
             "Wiki",
             "Taiga",
-            "Internal Slack app (File Butler, Pledge Bot, Training Tracker etc)"
+            "Internal Slack app (File Butler, Pledge Bot, Training Tracker etc)",
             "Github",
             "Teleport",
             "NVR",

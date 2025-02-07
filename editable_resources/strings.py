@@ -8,7 +8,7 @@ unrecognised = (
     """Welcome to Taiga! Unfortunately I don't recognise you. It could be because:"""
 )
 unrecognised_no_tidyhq = """• You do not have a TidyHQ account linked to your Slack account. If you hold a membership with us, please reach out to #it."""
-unrecognised_no_taiga = f"""• You're not signed up for Taiga yet. <{config['taiga']['url']}/register|Sign up here>."""
+unrecognised_no_taiga = f"""• You're not signed up for Taiga yet. <{config["taiga"]["url"]}/register|Sign up here>."""
 unrecognised_no_taiga_match = """• Your email address in Taiga doesn't match the one you use for TidyHQ. Reach out to #it if this is the case."""
 header = "Artifactory Issue Tracker"
 do_instead = (
@@ -23,7 +23,7 @@ explainer = """This page can be used to track tasks you're assigned to across al
 no_tasks = """No tasks to display, try adjusting your filters"""
 no_stories = """No stories to display, try adjusting your filters"""
 no_issues = """No issues to display, try adjusting your filters"""
-trimmed = f"""Unfortunately I can only show you the first {{items}} items. If you need to see more, please visit the <{config['taiga']['url']}|issue tracker> directly."""
+trimmed = f"""Unfortunately I can only show you the first {{items}} items. If you need to see more, please visit the <{config["taiga"]["url"]}|issue tracker> directly."""
 compressed = "(Some formatting has also been removed/compressed)"
 form_submission_success = "Your form has been submitted successfully: {form_name}"
 file_upload_failure = "Unfortunately there was an issue uploading your attached file(s). A volunteer will be in touch shortly."
