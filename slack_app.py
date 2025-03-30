@@ -587,6 +587,7 @@ def handle_form_submissions(ack, body, logger):
     # Unfortunately we can't create the issue fast enough to fall within Slack's
     # 3 second limit so we need to acknowledge the submission/close the modal
     # and hope the issue creation goes through
+    ack()
 
     # Reload forms from file
     importlib.reload(forms)
