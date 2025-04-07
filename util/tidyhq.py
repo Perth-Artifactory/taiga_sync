@@ -9,6 +9,7 @@ from typing import Any
 import requests
 
 from util import taigalink
+import taiga
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.ERROR)
@@ -271,7 +272,11 @@ def setup_cache_from_tidyproxy(config: dict) -> dict[str, Any]:
     return cache
 
 
-def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
+def fresh_cache(
+    cache: dict | None = None,  # type: ignore
+    config: dict | None = None,  # type: ignore
+    force: bool = False,
+) -> dict[str, Any]:
     """Return a fresh TidyHQ cache.
 
     Freshness is determined by the cache_expiry value in the config file.
@@ -283,7 +288,7 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
     if not config:
         with open("config.json") as f:
             logger.debug("Loading config from file")
-            config = json.load(f)
+            config: dict = json.load(f)
 
     # Check if the current version of the file has tidyproxy support
     if "tidyproxy" in config:
@@ -307,7 +312,7 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
     # If we haven't been provided with a cache, or the provided cache is stale, try loading from file
     try:
         with open("cache.json") as f:
-            cache = json.load(f)
+            cache: dict = json.load(f)
     except FileNotFoundError:
         logger.debug("No cache file found")
         cache = retrieval_function(config=config)
@@ -331,7 +336,11 @@ def fresh_cache(cache=None, config=None, force=False) -> dict[str, Any]:
 
 
 def email_to_tidyhq(
-    config: dict, tidyhq_cache: dict, taigacon, taiga_auth_token: str, project_id: str
+    config: dict,
+    tidyhq_cache: dict,
+    taigacon: taiga.TaigaAPI,
+    taiga_auth_token: str,
+    project_id: str,
 ) -> int:
     """Map email addresses to TidyHQ contacts in Taiga user stories and update the stories with the TidyHQ contact ID.
 

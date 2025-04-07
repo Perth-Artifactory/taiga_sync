@@ -98,7 +98,7 @@ def format_issues(
 
 
 def format_tasks(
-    task_list: list, config: dict, compressed=False
+    task_list: list, config: dict, compressed: bool = False
 ) -> tuple[str, str, list[dict]]:
     """Format a list of tasks into a header, a newline formatted string and a list of blocks"""
 
@@ -401,7 +401,6 @@ def render_form_list(form_list: dict, emoji: str, member: bool = False) -> list[
 
 def questions_to_blocks(
     questions: list[dict],
-    taigacon: taiga.client.TaigaAPI,
     taiga_cache: dict,
     taiga_project: str | None = None,
     taiga_project_id: int | str | None = None,  # type: ignore
@@ -701,7 +700,7 @@ def viewedit_blocks(
     config: dict,
     taiga_auth_token: str,
     edit: bool = True,
-):
+) -> list:
     """Generate the blocks for a modal for viewing and editing an item"""
 
     if item_type == "issue":
@@ -1161,7 +1160,7 @@ def edit_info_blocks(
     taiga_cache: dict,
     new: bool = False,
     description: str = "",
-):
+) -> list:
     """Return the blocks required for editing information about an item"""
 
     # Get the item from Taiga
@@ -2020,7 +2019,7 @@ def home_filters(taiga_id: int | None, current_state: str, taiga_cache: dict) ->
     return block_list
 
 
-def project_selector(taiga_id: int, private_metadata: str, taiga_cache: dict):
+def project_selector(taiga_id: int, private_metadata: str, taiga_cache: dict) -> list:
     block_list = []
 
     filters = {}
@@ -2104,7 +2103,7 @@ def project_selector(taiga_id: int, private_metadata: str, taiga_cache: dict):
     return block_list
 
 
-def search_blocks(taiga_cache: dict, projects: list):
+def search_blocks(taiga_cache: dict, projects: list) -> list:
     """Generate the blocks required to search for items"""
 
     block_list = []
@@ -2128,7 +2127,7 @@ def search_blocks(taiga_cache: dict, projects: list):
     return block_list
 
 
-def ai_task_blocks_placeholder():
+def ai_task_blocks_placeholder() -> list:
     """Generate the block for a placeholder thinking screen"""
     block_list = []
 
@@ -2141,7 +2140,7 @@ def ai_task_blocks_placeholder():
     return block_list
 
 
-def task_approval(tasks):
+def task_approval(tasks: list[str]) -> list:
     """Generate the blocks to select which tasks to add"""
 
     block_list = []
@@ -2162,7 +2161,7 @@ def task_approval(tasks):
     return block_list
 
 
-def viewedit_placeholder():
+def viewedit_placeholder() -> list:
     """Generate the block for a placeholder loading screen"""
     block_list = []
 

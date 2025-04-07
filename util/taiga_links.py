@@ -7,7 +7,9 @@ from util import tidyhq
 logger = logging.getLogger(__name__)
 
 
-def get_info_from_url(url: str, taiga_auth_token: str, taiga_cache: dict, config: dict):
+def get_info_from_url(
+    url: str, taiga_auth_token: str, taiga_cache: dict, config: dict
+) -> tuple:
     """
     Get the project_id, item type, and item id from a Taiga URL.
     """

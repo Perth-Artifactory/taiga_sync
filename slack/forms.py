@@ -6,7 +6,7 @@ import slack_bolt as bolt
 
 from editable_resources import forms
 from util import misc
-import taiga
+from slack import misc as slack_misc
 
 # Set up logging
 logger = logging.getLogger("slack.forms")
@@ -35,7 +35,6 @@ def form_submission_to_description(
         value = value[list(value.keys())[0]]
 
         # The key for submitted values differs depending on the type of question because Slack
-        # TODO refactor this with a map of question types to value keys
 
         # Static dropdowns
         if value["type"] == "static_select":
@@ -64,19 +63,15 @@ def form_submission_to_description(
                 answer = "Question not answered"
             else:
                 answer = ""
-                for user in value["selected_users"]:
-                    user = slack_app.client.users_info(user=user)
-                    name_str = user["user"]["profile"].get(
-                        "real_name", user["user"]["profile"]["display_name"]
+                for user_id in value["selected_users"]:
+                    name_str = slack_misc.name_mapper(
+                        slack_id=user_id, slack_app=slack_app
                     )
-                    slack_id = user["user"]["id"]
-                    answer += f"{name_str} ({slack_id}), "
+                    answer += f"{name_str} ({user_id}), "
                 answer = answer[:-2]
 
         # Date picker
         # No sense in converting this to a datetime since it's just going to be a string in Taiga
-        # Could include a delta from now if we wanted to be fancy
-        # TODO add delta from now
         elif value["type"] == "datepicker":
             if not value["selected_date"]:
                 answer = "Question not answered"
@@ -111,16 +106,10 @@ def form_submission_to_description(
 
         description += f"**{question}**\n{answer}\n\n"
 
-    # Get the user who submitted the form
-    user = slack_app.client.users_info(user=submission["user"]["id"])
+    slack_id = submission["user"]["id"]
+    slack_name = slack_misc.name_mapper(slack_id=slack_id, slack_app=slack_app)
 
-    # Format the name to match the version used by issue submissions
-    # This way it should already support customised webhook notifications
-    name_str = user["user"]["profile"].get(
-        "real_name", user["user"]["profile"]["display_name"]
-    )
-    slack_id = user["user"]["id"]
-    by = f"{name_str} ({slack_id})"
+    by = f"{slack_name} ({slack_id})"
 
     description = f"{description}\n\nAdded to Taiga by: {by}"
     return description, files

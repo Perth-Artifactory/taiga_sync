@@ -11,6 +11,7 @@ import time
 import uuid
 from copy import deepcopy as copy
 from pprint import pprint
+from typing import Literal
 
 import requests
 from flask import Flask, request
@@ -21,12 +22,12 @@ from waitress import serve
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from editable_resources import strings
-from slack import blocks, block_formatters
+from slack import block_formatters, blocks
 from slack import misc as slack_misc
 from util import taigalink, tidyhq
 
 
-def verify_signature(key, data, signature):
+def verify_signature(key, data, signature: str) -> bool:  # type: ignore
     mac = hmac.new(key.encode("utf-8"), msg=data, digestmod=hashlib.sha1)
     return mac.hexdigest() == signature
 
@@ -120,7 +121,7 @@ flask_app = Flask(__name__)
 
 
 @flask_app.route("/taiga/incoming", methods=["POST"])
-def incoming():
+def incoming() -> tuple[str, int]:
     # Get the verification header
     signature = request.headers.get("X-Taiga-Webhook-Signature")
 
@@ -313,7 +314,7 @@ def incoming():
     if from_slack_id:
         # Get the Slack user's details
         user = slack_app.client.users_info(user=from_slack_id)
-        sender_image = user["user"]["profile"]["image_72"]
+        sender_image = user["user"]["profile"]["image_72"]  # type: ignore
         sender_name = f"{slack_misc.name_mapper(slack_id=from_slack_id, slack_app=slack_app).split(' ')[0]} | Taiga"
 
     for user in recipients["user"]:
@@ -336,7 +337,7 @@ def incoming():
         )
 
         muted = False
-        for channel_message in channel_messages["messages"]:
+        for channel_message in channel_messages.get("messages", []):
             if channel_message["text"].startswith("MUTE"):
                 muted = True
                 break
@@ -361,7 +362,7 @@ def incoming():
 
 
 @flask_app.route("/<path:path>", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-def catch_all(path):
+def catch_all(path: str) -> tuple[Literal[""], Literal[404]]:
     print(f"Route: /{path}")
     return "", 404
 

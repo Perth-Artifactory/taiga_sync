@@ -322,7 +322,6 @@ logger.info("Rendering a specific form modal")
 start_time = time.time()
 block_list = block_formatters.questions_to_blocks(
     questions=forms.forms["infra"]["questions"],
-    taigacon=taigacon,
     taiga_cache=taiga_cache,
     taiga_project="Infrastructure",
 )

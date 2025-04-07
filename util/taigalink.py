@@ -257,7 +257,7 @@ def create_slack_issue(
     project_ids: dict,
     taiga_auth_token: str,
     config: dict,
-):
+) -> dict | Literal[False]:
     # Construct the by line. by_slack is a slack user object
     # The by-line should be a deep slack link to the user
     name_str = by_slack["user"]["profile"].get(
@@ -402,7 +402,7 @@ def item_mapper(
     project_id: str | int | None,
     taiga_auth_token: str,
     config: dict,
-    taigacon,
+    taigacon: taiga.TaigaAPI,
 ) -> int:
     """Map an item to a Taiga ID."""
     if not item:
@@ -473,12 +473,12 @@ def map_slack_names_to_taiga_usernames(input_string: str, taiga_users: dict) -> 
 
 
 def create_link_to_entry(
-    config,
+    config: dict,
     entry_ref: int,
     project_id: int | None = None,
     project_str: str | None = None,
     entry_type: str = "story",
-):
+) -> str | Literal[False]:
     """Create a link to the Taiga entry for the project."""
     if project_str is None and project_id:
         # Fetch the project name
@@ -860,7 +860,7 @@ def parse_webhook_action_into_str(data: dict, tidyhq_cache: dict, config: dict) 
     if data["type"] == "task":
         card_name = f" ({data['data']['user_story']['subject']})"
 
-    return f"""{type_map.get(data["type"], "item").capitalize()} {action_map[action]}: {subject}{card_name}{description}"""
+    return f"""{type_map.get(data["type"], "item").capitalize()} {action_map[action]}: {subject}{card_name}{description}"""  # type: ignore
 
 
 def get_info(
@@ -1068,7 +1068,7 @@ def attach_file(
     item_type: str,
     item_id: str | int,
     url: str | None = None,
-    file_obj=None,
+    file_obj=None,  # type: ignore
     filename: str | None = None,
     description: str | None = None,
 ) -> bool:
@@ -1135,7 +1135,7 @@ def attach_file(
         return False
 
 
-def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
+def setup_cache(taiga_auth_token: str, config: dict, taigacon: taiga.TaigaAPI) -> dict:
     """Query Taiga for a variety of information that doesn't change often and cache it for later use."""
     cache = {}
     # Users
@@ -1305,7 +1305,7 @@ def setup_cache(taiga_auth_token: str, config: dict, taigacon) -> dict:
 
 
 def promote_issue(
-    config: dict, taiga_auth_token: str, issue_id
+    config: dict, taiga_auth_token: str, issue_id: int
 ) -> int | Literal[False]:
     """Create a user story based on an issue and delete the issue.
 

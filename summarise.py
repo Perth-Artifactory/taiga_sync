@@ -10,7 +10,7 @@ from taiga import TaigaAPI
 from util import taigalink, tidyhq
 
 
-def div(title: str | None = None):
+def div(title: str | None = None) -> None:
     """Print a divider with an optional title"""
 
     # Center the title

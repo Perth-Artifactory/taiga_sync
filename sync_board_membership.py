@@ -76,7 +76,7 @@ slack_channels = app.client.conversations_list(
 )["channels"]
 
 # Sort channels by name
-slack_channels = sorted(slack_channels, key=lambda x: x["name"])
+slack_channels = sorted(slack_channels, key=lambda x: x["name"])  # type: ignore
 
 for channel in slack_channels:
     if not channel["is_member"]:
@@ -97,7 +97,9 @@ for channel in slack_channels:
         continue
 
     # Get the channel's members
-    channel_members = app.client.conversations_members(channel=channel["id"])["members"]
+    channel_members = app.client.conversations_members(channel=channel["id"]).get(
+        "members", []
+    )
 
     # Check if any of the channel's members exist in taiga_users
     for slack_id in channel_members:

@@ -12,8 +12,11 @@ import openai
 import requests
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_bolt.context.ack.ack import Ack as slack_ack
+from slack_bolt.context.respond.respond import Respond as slack_respond
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
+from slack_sdk.web.slack_response import SlackResponse
 from taiga import TaigaAPI
 
 from editable_resources import forms, strings
@@ -132,14 +135,14 @@ app = App(token=config["slack"]["bot_token"], logger=slack_logger)
 
 # Get the ID for our team via the API
 auth_test = app.client.auth_test()
-slack_team_id: str = auth_test["team_id"]
+slack_team_id: str = auth_test["team_id"]  # type: ignore
 slack_bot_id = auth_test["bot_id"]
 slack_app_id = "A081HR32FKK"
-slack_workspace_title = app.client.team_info()["team"]["name"]
+slack_workspace_title = app.client.team_info()["team"]["name"]  # type: ignore
 
 # Join every public channel the bot is not already in
 client = WebClient(token=config["slack"]["bot_token"])
-channels = client.conversations_list(types="public_channel")["channels"]
+channels = client.conversations_list(types="public_channel").get("channels", [])
 
 for channel in channels:
     # Skip archived channels
@@ -167,21 +170,21 @@ for channel in channels:
 
 # Event listener for messages that mention the bot
 @app.event("app_mention")
-def ignore_app_mention(ack):
+def ignore_app_mention(ack: slack_ack) -> None:
     """Dummy function to acknowledge the mention"""
     ack()
 
 
 # Event listener for direct messages to the bot
 @app.event("message")
-def ignore_message(ack):
+def ignore_message(ack: slack_ack) -> None:
     """Ignore messages sent to the bot"""
     ack()
 
 
 # Event listener for links being shared within slack
 @app.event("link_shared")
-def handle_link_unfurls(body):
+def handle_link_unfurls(body: dict) -> None:
     # Get the link details
     links = body["event"]["links"]
 
@@ -410,7 +413,7 @@ def handle_link_unfurls(body):
 # Command listener for form selection
 @app.shortcut("form-selector-shortcut")
 @app.action("submit_form")
-def modal_form_selector(ack, client, body):
+def modal_form_selector(ack: slack_ack, client: WebClient, body: dict) -> None:
     """Load the form selection modal"""
     start_time = time.time()
     logger.info("Received form selection shortcut or button")
@@ -430,7 +433,7 @@ def modal_form_selector(ack, client, body):
             },
         )
         logger.info("Placeholder modal opened")
-        view_id = modal["view"]["id"]
+        view_id = modal["view"]["id"]  # type: ignore
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
@@ -485,13 +488,13 @@ def modal_form_selector(ack, client, body):
 
 
 @app.action(re.compile(r"^tlink.*"))
-def ignore_link_button_presses(ack):
+def ignore_link_button_presses(ack: slack_ack) -> None:
     """Dummy function to ignore link button presses"""
     ack()
 
 
 @app.action(re.compile(r"^form-open-.*"))
-def submodal_specific_form(ack, body, client):
+def submodal_specific_form(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Open the selected form in a modal"""
     start_time = time.time()
     ack()
@@ -510,7 +513,7 @@ def submodal_specific_form(ack, body, client):
             },
         )
         logger.info("Placeholder modal pushed")
-        view_id = modal["view"]["id"]
+        view_id = modal["view"]["id"]  # type: ignore
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
@@ -524,7 +527,6 @@ def submodal_specific_form(ack, body, client):
     # Convert the form questions to blocks
     block_list = block_formatters.questions_to_blocks(
         form["questions"],
-        taigacon=taigacon,
         taiga_project=form.get("taiga_project"),
         taiga_cache=taiga_cache,
     )
@@ -565,7 +567,7 @@ def submodal_specific_form(ack, body, client):
 
 
 @app.view(re.compile(r"^form_submission-.*"))
-def handle_form_submissions(ack, body, logger):
+def handle_form_submissions(ack: slack_ack, body: dict) -> None:
     """Process form submissions"""
     start_time = time.time()
 
@@ -613,10 +615,17 @@ def handle_form_submissions(ack, body, logger):
             logger.info(f"Resolved {form['taiga_type']} to {taiga_type_id}")
 
     # Get the user's name from their Slack ID
-    user_info = app.client.users_info(user=body["user"]["id"])
-    slack_name = user_info["user"]["profile"].get(
-        "real_name_normalized", user_info["user"]["profile"]["display_name_normalized"]
+    user_info: SlackResponse = app.client.users_info(user=body["user"]["id"])
+    profile = (
+        user_info.get("user", {}).get("profile") if user_info.get("user") else None
     )
+    if profile:
+        slack_name = profile.get(
+            "real_name_normalized",
+            profile.get("display_name_normalized", "Unknown User"),
+        )
+    else:
+        slack_name = "Unknown User"
 
     issue_title = form["taiga_issue_title"].format(slack_name=slack_name)
 
@@ -685,13 +694,13 @@ def handle_form_submissions(ack, body, logger):
 
 
 @app.view("form_submitted")
-def ignore_form_submitted(ack):
+def ignore_form_submitted(ack: slack_ack) -> None:
     """Dummy function to ignore form submitted views"""
     ack()
 
 
 @app.action(re.compile(r"^twatch.*"))
-def handle_watch_button(ack, body):
+def handle_watch_button(ack: slack_ack, body: dict) -> None:
     """Watch items on Taiga via a button
 
     Watch button values are a dict with:
@@ -791,13 +800,13 @@ def handle_watch_button(ack, body):
 
 
 @app.event("reaction_added")
-def ignore_reaction_added_events(ack):
+def ignore_reaction_added_events(ack: slack_ack) -> None:
     """Dummy function to ignore emoji reactions to messages"""
     ack()
 
 
 @app.event("app_home_opened")
-def handle_app_home_opened_events(body, client, logger):
+def handle_app_home_opened_events(body: dict) -> None:
     """Regenerate the app home when it's opened by a user"""
     start_time = time.time()
     user_id = body["event"]["user"]
@@ -823,7 +832,7 @@ def handle_app_home_opened_events(body, client, logger):
 
 
 @app.action(re.compile(r"^viewedit-.*"))
-def modal_viewedit(ack, body):
+def modal_viewedit(ack: slack_ack, body: dict) -> None:
     """Listen for view in app and view/edit actions"""
     start_time = time.time()
 
@@ -854,7 +863,7 @@ def modal_viewedit(ack, body):
                 },
             )
             logger.info("Placeholder modal opened")
-            view_id = modal["view"]["id"]
+            view_id = modal["view"]["id"]  # type: ignore
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
             logger.error(e.response["response_metadata"]["messages"])
@@ -976,7 +985,7 @@ def modal_viewedit(ack, body):
 
 # Comment
 @app.action(re.compile(r"^submit_comment-.*"))
-def handle_comment_addition(ack, body, client):
+def handle_comment_addition(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Handle comment additions"""
     start_time = time.time()
     ack()
@@ -1091,7 +1100,7 @@ def handle_comment_addition(ack, body, client):
 
 
 @app.action(re.compile(r"^home_attach_files-.*"))
-def submodal_attach_files(ack, body):
+def submodal_attach_files(ack: slack_ack, body: dict) -> None:
     """Open a modal to submit files for later attachment"""
     ack()
 
@@ -1123,7 +1132,7 @@ def submodal_attach_files(ack, body):
 
 
 @app.action(re.compile(r"^view_tasks-.*"))
-def submodal_tasks(ack, body):
+def submodal_tasks(ack: slack_ack, body: dict) -> None:
     """Push a modal to view tasks attached to a specific user story"""
     start_time = time.time()
     ack()
@@ -1179,7 +1188,7 @@ def submodal_tasks(ack, body):
 
 
 @app.view(re.compile(r"^submit_files-.*"))
-def handle_submitted_files(ack, body):
+def handle_submitted_files(ack: slack_ack, body: dict) -> None:
     """Take the submitted files, uploads them to Taiga and updates the view/edit modal"""
     start_time = time.time()
     ack()
@@ -1244,7 +1253,7 @@ def handle_submitted_files(ack, body):
 
 
 @app.action(re.compile(r"^edit_info-.*"))
-def submodal_edit_info(ack, body):
+def submodal_edit_info(ack: slack_ack, body: dict) -> None:
     """Open a modal to edit the details of an item"""
     start_time = time.time()
     ack()
@@ -1282,7 +1291,7 @@ def submodal_edit_info(ack, body):
 
 
 @app.view(re.compile(r"^edited_info-.*"))
-def handle_edited_info(ack, body):
+def handle_edited_info(ack: slack_ack, body: dict) -> None:
     """Update the details of an item"""
     start_time = time.time()
     ack()
@@ -1438,13 +1447,13 @@ def handle_edited_info(ack, body):
 
 
 @app.view("finished_editing")
-def ignore_finished_editing(ack):
+def ignore_finished_editing(ack: slack_ack) -> None:
     """Acknowledge the view submission"""
     ack()
 
 
 @app.action(re.compile(r"^complete-.*"))
-def handle_complete_item(ack, body, client):
+def handle_complete_item(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Mark an item as complete"""
     start_time = time.time()
     ack()
@@ -1630,7 +1639,9 @@ def handle_complete_item(ack, body, client):
 
 
 @app.action(re.compile(r"^promote_issue-.*"))
-def handle_promote_issue(ack, body, client, respond):
+def handle_promote_issue(
+    ack: slack_ack, body: dict, client: WebClient, respond: slack_respond
+) -> None:
     """Promote an issue to a user story"""
     start_time = time.time()
     ack()
@@ -1725,7 +1736,7 @@ def handle_promote_issue(ack, body, client, respond):
 
 
 @app.action(re.compile(r"^view_attachments-.*"))
-def submodal_view_attachments(ack, body):
+def submodal_view_attachments(ack: slack_ack, body: dict) -> None:
     ack()
     start_time = time.time()
 
@@ -1777,7 +1788,7 @@ def submodal_view_attachments(ack, body):
 
 
 @app.action("create_item")
-def modal_create_item(ack, body, client):
+def modal_create_item(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Bring up a modal that allows the user to select the item type and what project to create it in"""
     ack()
 
@@ -1816,7 +1827,7 @@ def modal_create_item(ack, body, client):
 
 
 @app.shortcut("create-from-message")
-def modal_create_from_message(ack, body, client):
+def modal_create_from_message(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Bring up a modal that allows the user to select the item type and what project to create it in.
 
     Sets the initial value of the description field to the message"""
@@ -1885,7 +1896,7 @@ def modal_create_from_message(ack, body, client):
 
 
 @app.view_submission("new_item")
-def submodal_new_item(ack, body, client):
+def submodal_new_item(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Open a modal to create a new item"""
     ack()
 
@@ -1932,7 +1943,7 @@ def submodal_new_item(ack, body, client):
 
 
 @app.view_submission(re.compile(r"^write_item-.*"))
-def handle_write_item(ack, body, client):
+def handle_write_item(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Write the new item to Taiga"""
     ack()
 
@@ -1950,7 +1961,7 @@ def handle_write_item(ack, body, client):
                 },
             )
             logger.info("Placeholder modal opened")
-            view_id = modal["view"]["id"]
+            view_id = modal["view"]["id"]  # type: ignore
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
             logger.error(e.response["response_metadata"]["messages"])
@@ -2062,7 +2073,7 @@ def handle_write_item(ack, body, client):
 
 
 @app.action("filter_home_modal")
-def modal_home_filter(ack, body):
+def modal_home_filter(ack: slack_ack, body: dict) -> None:
     """Open a modal to filter the home view"""
     ack()
     # Get Taiga ID
@@ -2103,7 +2114,7 @@ def modal_home_filter(ack, body):
 
 
 @app.view_submission("filter_home")
-def handle_filter_home(ack, body):
+def handle_filter_home(ack: slack_ack, body: dict) -> None:
     """Regenerate the app home with filters applied"""
     ack()
 
@@ -2125,7 +2136,7 @@ def handle_filter_home(ack, body):
 
 
 @app.action("clear_filter")
-def handle_clear_filter(ack, body):
+def handle_clear_filter(ack: slack_ack, body: dict) -> None:
     """Clear the filters from the app home"""
     ack()
 
@@ -2143,7 +2154,7 @@ def handle_clear_filter(ack, body):
 
 
 @app.action(re.compile(r"^create_task-.*"))
-def handle_create_task(ack, body):
+def handle_create_task(ack: slack_ack, body: dict) -> None:
     """Create a task"""
     ack()
 
@@ -2180,7 +2191,7 @@ def handle_create_task(ack, body):
 
 
 @app.action("select_project_for_search")
-def modal_search_project(ack, body):
+def modal_search_project(ack: slack_ack, body: dict) -> None:
     """Open a modal to select a project to search in"""
     ack()
 
@@ -2219,7 +2230,7 @@ def modal_search_project(ack, body):
 
 
 @app.view("search_items")
-def modal_search(ack, body):
+def modal_search(ack: slack_ack, body: dict) -> None:
     """Open a modal to search for items"""
     ack()
 
@@ -2261,7 +2272,7 @@ def modal_search(ack, body):
 
 
 @app.view("load_searched_item")
-def modal_searched_item(ack, body):
+def modal_searched_item(ack: slack_ack, body: dict) -> None:
     start_time = time.time()
 
     # Get the action_id for our search field
@@ -2353,7 +2364,7 @@ def modal_searched_item(ack, body):
 
 
 @app.options(re.compile(r"^search_items-.*"))
-def handle_search_options(ack, body):
+def handle_search_options(ack: slack_ack, body: dict) -> None:
     # Get the searching projects from the action ID
     search_projects = body["action_id"].split("-")[1:]
 
@@ -2377,7 +2388,7 @@ def handle_search_options(ack, body):
 
 
 @app.action(re.compile(r"^create_ai_tasks-.*"))
-def submodal_ai_tasks(ack, body):
+def submodal_ai_tasks(ack: slack_ack, body: dict) -> None:
     """Open a modal to create AI tasks"""
     ack()
 
@@ -2399,7 +2410,7 @@ def submodal_ai_tasks(ack, body):
             },
         )
         logger.info(f"Opened AI task creation modal for {body['user']['id']}")
-        view_id = view["view"]["id"]
+        view_id = view["view"]["id"]  # type: ignore
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
@@ -2458,7 +2469,7 @@ def submodal_ai_tasks(ack, body):
 
 
 @app.view(re.compile(r"^ai_tasks-.*"))
-def handle_ai_task_approval(ack, body):
+def handle_ai_task_approval(ack: slack_ack, body: dict) -> None:
     tasks = []
     for option in body["view"]["state"]["values"]["task_options"]["task_options"][
         "selected_options"
@@ -2545,7 +2556,9 @@ if "--cron" in sys.argv:
 
     updates = {}
 
-    def gen_home(user_id: str, x: int, home_no_taiga: list, home_no_tidyhq: list):
+    def gen_home(
+        user_id: str, x: int, home_no_taiga: list, home_no_tidyhq: list
+    ) -> tuple[str, list]:
         taiga_id = tidyhq.map_slack_to_taiga(
             tidyhq_cache=tidyhq_cache,
             config=config,

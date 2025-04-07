@@ -248,7 +248,7 @@ def add_useful_fields(
     taiga_auth_token: str,
     config: dict,
     tidyhq_cache: dict,
-):
+) -> None:
     """Add useful fields to stories.
 
     Current useful fields:

@@ -9,6 +9,7 @@ import mistune
 from util import tidyhq
 from slack import block_formatters
 import slack_bolt as bolt
+import slack_sdk.errors
 
 # Set up logging
 logger = logging.getLogger("slack.misc")
@@ -16,32 +17,32 @@ logger.setLevel(logging.INFO)
 
 
 class mrkdwn_renderer(mistune.HTMLRenderer):
-    def paragraph(self, text):
+    def paragraph(self, text: str) -> str:
         return text + "\n"
 
-    def heading(self, text, level):
+    def heading(self, text: str, level: int) -> str:
         return f"*{text}*\n"
 
-    def list(self, body, ordered, level, start=None):
+    def list(self, body, ordered, level: int, start=None):  # type: ignore
         return body
 
-    def list_item(self, text, level):
+    def list_item(self, text: str, level: int) -> str:
         return f"• {text}\n"
 
-    def block_quote(self, text):
+    def block_quote(self, text: str) -> str:
         quoted_lines = [f"> {line}" for line in text.split("\n")[:-1]]
         return "\n".join(quoted_lines) + "\n"
 
-    def codespan(self, text):
+    def codespan(self, text: str) -> str:
         return f"`{text}`"
 
-    def link(self, link, title, text):
+    def link(self, link: str, title: str, text: str) -> str:
         return f"<{link}|{title}>"
 
-    def strong(self, text):
+    def strong(self, text: str) -> str:
         return f"*{text}*"
 
-    def emphasis(self, text):
+    def emphasis(self, text: str) -> str:
         return f"_{text}_"
 
 
@@ -114,7 +115,7 @@ def push_home(
     slack_app: bolt.App,
     private_metadata: str | None = None,
     block_list: list | None = None,
-):
+) -> bool:
     """Push the app home view to a specified user.
 
     Pass in a block_list to avoid regenerating the home view.
@@ -170,14 +171,19 @@ def name_mapper(slack_id: str, slack_app: bolt.App) -> str:
             names.append(name_mapper(id, slack_app))
         return ", ".join(names)
 
-    user_info = slack_app.client.users_info(user=slack_id)
+    try:
+        user_info = slack_app.client.users_info(user=slack_id)
+    except slack_sdk.errors.SlackApiError as e:  # type: ignore
+        logger.error(f"Failed to get user info for {slack_id}")
+        logger.error(e)
+        return slack_id
 
     # Real name is best
-    if user_info["user"].get("real_name", None):
-        return user_info["user"]["real_name"]
+    if user_info["user"].get("real_name", None):  # type: ignore
+        return user_info["user"]["real_name"]  # type: ignore
 
     # Display is okay
-    return user_info["user"]["profile"]["display_name"]
+    return user_info["user"]["profile"]["display_name"]  # type: ignore
 
 
 def send_dm(
@@ -195,8 +201,14 @@ def send_dm(
     """
 
     # Create a conversation
-    conversation = slack_app.client.conversations_open(users=[slack_id])
-    conversation_id = conversation["channel"]["id"]
+    try:
+        conversation_id = slack_app.client.conversations_open(users=[slack_id])[
+            "channel"
+        ]["id"]  # type: ignore
+    except slack_sdk.errors.SlackApiError as e:  # type: ignore
+        logger.error(f"Failed to open conversation with {slack_id}")
+        logger.error(e)
+        return False
 
     # Photos are currently bugged for DMs
     photo = None
@@ -293,7 +305,7 @@ def loading_button(body: dict) -> dict:
     return view
 
 
-def search_results_to_options(search_results: dict, taiga_cache: dict):
+def search_results_to_options(search_results: dict, taiga_cache: dict) -> list:
     """Convert a search result dictionary to a list of options for a slack dropdown"""
 
     type_map = {"issues": "issue", "tasks": "task", "userstories": "story"}

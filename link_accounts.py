@@ -21,7 +21,7 @@ setup_logger = logging.getLogger("setup")
 logger = logging.getLogger("issue_sync")
 
 
-def notify(message: str, blocks: list, slack_app):
+def notify(message: str, blocks: list, slack_app: App) -> None:
     slack_app.client.chat_postMessage(
         channel=config["taiga-channel"]["4"],
         text=message,
@@ -31,7 +31,9 @@ def notify(message: str, blocks: list, slack_app):
     )
 
 
-def construct_link_blocks(tidyhq_id, tidyhq_name, taiga_username, method):
+def construct_link_blocks(
+    tidyhq_id: str | int, tidyhq_name: str, taiga_username: str, method: str
+) -> list:
     block_list = []
     block_list = block_formatters.add_block(block_list=block_list, block=blocks.text)
     block_list = block_formatters.inject_text(
