@@ -582,6 +582,12 @@ def handle_form_submissions(ack: slack_ack, body: dict) -> None:
     """Process form submissions"""
     start_time = time.time()
 
+    # We only have a certain amount of time to acknowledge the submission.
+    # Unfortunately we can't create the issue fast enough to fall within Slack's
+    # 3 second limit so we need to acknowledge the submission/close the modal
+    # and hope the issue creation goes through
+    ack()
+
     # Get form name
     form_name = body["view"]["callback_id"].split("-")[-1]
 
@@ -595,12 +601,6 @@ def handle_form_submissions(ack: slack_ack, body: dict) -> None:
             form_name=form_name,
         )
     )
-
-    # We only have a certain amount of time to acknowledge the submission.
-    # Unfortunately we can't create the issue fast enough to fall within Slack's
-    # 3 second limit so we need to acknowledge the submission/close the modal
-    # and hope the issue creation goes through
-    ack()
 
     # Reload forms from file
     importlib.reload(forms)
