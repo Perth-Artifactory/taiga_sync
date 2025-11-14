@@ -419,6 +419,7 @@ def modal_form_selector(ack: slack_ack, client: WebClient, body: dict) -> None:
     logger.info("Received form selection shortcut or button")
     ack()
     user = body["user"]
+    view_id = None
 
     logger.info("Opening placeholder modal")
     try:
@@ -437,6 +438,9 @@ def modal_form_selector(ack: slack_ack, client: WebClient, body: dict) -> None:
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
+
+    if not view_id:
+        return
 
     # Reload forms from file
     importlib.reload(forms)
@@ -457,6 +461,8 @@ def modal_form_selector(ack: slack_ack, client: WebClient, body: dict) -> None:
         )
         if membership_type in ["Concession", "Full", "Sponsor"]:
             org_member = True
+
+        print(membership_type)
 
     # Render the blocks for the form selection modal
     block_list = block_formatters.render_form_list(
@@ -496,6 +502,7 @@ def ignore_link_button_presses(ack: slack_ack) -> None:
 @app.action(re.compile(r"^form-open-.*"))
 def submodal_specific_form(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Open the selected form in a modal"""
+    view_id = None
     start_time = time.time()
     ack()
     form_name = body["actions"][0]["value"]
@@ -517,6 +524,10 @@ def submodal_specific_form(ack: slack_ack, body: dict, client: WebClient) -> Non
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
+
+    if not view_id:
+        logger.error("No view ID returned for form modal")
+        return
 
     # Reload forms from file
     importlib.reload(forms)
@@ -834,6 +845,8 @@ def handle_app_home_opened_events(body: dict) -> None:
 @app.action(re.compile(r"^viewedit-.*"))
 def modal_viewedit(ack: slack_ack, body: dict) -> None:
     """Listen for view in app and view/edit actions"""
+    view_id = None
+
     start_time = time.time()
 
     # Retrieve action details if applicable
@@ -867,6 +880,10 @@ def modal_viewedit(ack: slack_ack, body: dict) -> None:
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
             logger.error(e.response["response_metadata"]["messages"])
+
+        if not view_id:
+            logger.error("No view ID returned for view/edit modal")
+            return
 
     project_id, item_type, item_id = value_string.split("-")[1:]
 
@@ -1026,6 +1043,13 @@ def handle_comment_addition(ack: slack_ack, body: dict, client: WebClient) -> No
         item = taigacon.user_stories.get(item_id)
     elif item_type == "issue":
         item = taigacon.issues.get(item_id)
+    else:
+        item = None
+    if not item:
+        logger.info(
+            f"Failed to retrieve {item_type} {item_id} in project {project_id} for commenting"
+        )
+        return
 
     # Add who the comment is from
 
@@ -1300,12 +1324,18 @@ def handle_edited_info(ack: slack_ack, body: dict) -> None:
     project_id, item_type, item_id = body["view"]["callback_id"].split("-")[1:]
 
     # Get the item from Taiga, this isn't cached since it changes so often
+    item = None
     if item_type == "task":
         item = taigacon.tasks.get(item_id)
     elif item_type == "story":
         item = taigacon.user_stories.get(item_id)
     elif item_type == "issue":
         item = taigacon.issues.get(item_id)
+    if not item:
+        logger.error(
+            f"Failed to retrieve {item_type} {item_id} in project {project_id} for editing"
+        )
+        return
 
     for field in body["view"]["state"]["values"]:
         data = body["view"]["state"]["values"][field][field]
@@ -1743,6 +1773,7 @@ def submodal_view_attachments(ack: slack_ack, body: dict) -> None:
     project_id, item_type, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
     # Get attachments
+    attachments = []
     if item_type in ["story", "userstory"]:
         attachments = taigacon.user_story_attachments.list(
             project=project_id, object_id=item_id
@@ -1946,6 +1977,7 @@ def submodal_new_item(ack: slack_ack, body: dict, client: WebClient) -> None:
 def handle_write_item(ack: slack_ack, body: dict, client: WebClient) -> None:
     """Write the new item to Taiga"""
     ack()
+    view_id = None
 
     if body["view"]["title"]["text"] != "Create new task":
         logger.info("Opening placeholder modal")
@@ -1965,6 +1997,10 @@ def handle_write_item(ack: slack_ack, body: dict, client: WebClient) -> None:
         except SlackApiError as e:
             logger.error(f"Failed to open modal: {e.response['error']}")
             logger.error(e.response["response_metadata"]["messages"])
+
+        if not view_id:
+            logger.error("No view ID for placeholder modal, aborting item creation")
+            return
 
     # Get the project_id and item type from the callback id
     project_id, item_type, story_id = body["view"]["callback_id"].split("-")[1:]
@@ -2276,9 +2312,15 @@ def modal_searched_item(ack: slack_ack, body: dict) -> None:
     start_time = time.time()
 
     # Get the action_id for our search field
+    search_action_id = None
     for block in body["view"]["blocks"]:
         if block["block_id"] == "search":
             search_action_id = block["element"]["action_id"]
+
+    if not search_action_id:
+        logger.error("No search action ID found in view")
+        ack()
+        return
 
     # Get the selected item
     selected_option = body["view"]["state"]["values"]["search"][search_action_id][
@@ -2391,6 +2433,7 @@ def handle_search_options(ack: slack_ack, body: dict) -> None:
 def submodal_ai_tasks(ack: slack_ack, body: dict) -> None:
     """Open a modal to create AI tasks"""
     ack()
+    view_id = None
 
     project_id, item_id = body["actions"][0]["action_id"].split("-")[1:]
 
@@ -2414,6 +2457,10 @@ def submodal_ai_tasks(ack: slack_ack, body: dict) -> None:
     except SlackApiError as e:
         logger.error(f"Failed to open modal: {e.response['error']}")
         logger.error(e.response["response_metadata"]["messages"])
+
+    if not view_id:
+        logger.error("No view ID for AI task modal, aborting")
+        return
 
     # Retrieve the item
     item = taigalink.get_info(
